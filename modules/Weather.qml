@@ -178,6 +178,7 @@ Item {
     }
 
     Text {
+        renderType: Text.NativeRendering
         id: label
         anchors.centerIn: parent
         font.family: root.theme.fontFamily
@@ -247,6 +248,7 @@ Item {
                     visible: root.current !== null
 
                     Text {
+                        renderType: Text.NativeRendering
                         text: root.current ? WeatherIcons.iconFor(root.current.code, root.current.isDay) : ""
                         font.family: root.theme.fontFamily
                         font.pixelSize: 40
@@ -256,12 +258,14 @@ Item {
                     ColumnLayout {
                         spacing: 0
                         Text {
+                            renderType: Text.NativeRendering
                             text: root.current ? root.displayTemp(root.current.tempC) : ""
                             font.pixelSize: 26
                             font.bold: true
                             color: root.theme.textBright
                         }
                         Text {
+                            renderType: Text.NativeRendering
                             text: root.current ? WeatherIcons.descriptionFor(root.current.code) : ""
                             font.pixelSize: 12
                             color: root.theme.text
@@ -276,18 +280,21 @@ Item {
                         spacing: 2
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                         Text {
+                            renderType: Text.NativeRendering
                             Layout.alignment: Qt.AlignRight
                             text: root.current ? "Feels " + root.displayTemp(root.current.feelsC) : ""
                             font.pixelSize: 12
                             color: root.theme.text
                         }
                         Text {
+                            renderType: Text.NativeRendering
                             Layout.alignment: Qt.AlignRight
                             text: root.daily.length ? root.displayTemp(root.daily[0].maxC) + " / " + root.displayTemp(root.daily[0].minC) : ""
                             font.pixelSize: 12
                             color: root.theme.text
                         }
                         Text {
+                            renderType: Text.NativeRendering
                             Layout.alignment: Qt.AlignRight
                             text: root.current ? root.current.humidity + "% hum · " + Math.round(root.current.windKmh) + " km/h" : ""
                             font.pixelSize: 11
@@ -298,6 +305,7 @@ Item {
                 }
 
                 Text {
+                    renderType: Text.NativeRendering
                     Layout.fillWidth: true
                     visible: root.current === null
                     text: root.loading ? "Fetching weather…" : "Weather unavailable — click to retry"
@@ -325,12 +333,14 @@ Item {
                             Layout.fillWidth: true
                             spacing: 3
                             Text {
+                                renderType: Text.NativeRendering
                                 Layout.alignment: Qt.AlignHCenter
                                 text: Qt.formatTime(new Date(modelData.time), "HH:mm")
                                 font.pixelSize: 10
                                 color: root.theme.text
                             }
                             Text {
+                                renderType: Text.NativeRendering
                                 Layout.alignment: Qt.AlignHCenter
                                 text: WeatherIcons.iconFor(modelData.code, modelData.isDay)
                                 font.family: root.theme.fontFamily
@@ -338,6 +348,7 @@ Item {
                                 color: root.tempColor(modelData.tempC)
                             }
                             Text {
+                                renderType: Text.NativeRendering
                                 Layout.alignment: Qt.AlignHCenter
                                 text: root.displayTemp(modelData.tempC)
                                 font.pixelSize: 11
@@ -367,12 +378,14 @@ Item {
                             spacing: 8
 
                             Text {
+                                renderType: Text.NativeRendering
                                 Layout.preferredWidth: 56
                                 text: root.dayLabel(modelData.date, index)
                                 font.pixelSize: 12
                                 color: root.theme.text
                             }
                             Text {
+                                renderType: Text.NativeRendering
                                 Layout.preferredWidth: 22
                                 text: WeatherIcons.iconFor(modelData.code, true)
                                 font.family: root.theme.fontFamily
@@ -380,6 +393,7 @@ Item {
                                 color: root.tempColor((modelData.maxC + modelData.minC) / 2)
                             }
                             Text {
+                                renderType: Text.NativeRendering
                                 Layout.preferredWidth: 36
                                 text: modelData.pop + "%"
                                 font.pixelSize: 11
@@ -390,11 +404,13 @@ Item {
                                 Layout.fillWidth: true
                             }
                             Text {
+                                renderType: Text.NativeRendering
                                 text: root.displayTemp(modelData.minC)
                                 font.pixelSize: 12
                                 color: root.theme.text
                             }
                             Text {
+                                renderType: Text.NativeRendering
                                 text: root.displayTemp(modelData.maxC)
                                 font.pixelSize: 12
                                 font.bold: true
@@ -418,6 +434,7 @@ Item {
                     spacing: 10
 
                     Text {
+                        renderType: Text.NativeRendering
                         text: root.locationName || "Current location"
                         font.pixelSize: 10
                         color: root.theme.text
@@ -426,6 +443,7 @@ Item {
                         elide: Text.ElideRight
                     }
                     Text {
+                        renderType: Text.NativeRendering
                         visible: root.daily.length > 0
                         text: WeatherIcons.glyph("sunrise") + " " + (root.daily.length ? Qt.formatTime(new Date(root.daily[0].sunrise), "HH:mm") : "")
                         font.family: root.theme.fontFamily
@@ -434,6 +452,7 @@ Item {
                         opacity: 0.7
                     }
                     Text {
+                        renderType: Text.NativeRendering
                         visible: root.daily.length > 0
                         text: WeatherIcons.glyph("sunset") + " " + (root.daily.length ? Qt.formatTime(new Date(root.daily[0].sunset), "HH:mm") : "")
                         font.family: root.theme.fontFamily

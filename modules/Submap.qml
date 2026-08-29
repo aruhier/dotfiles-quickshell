@@ -20,6 +20,7 @@ Rectangle {
     implicitHeight: theme.barHeight - 4
 
     Text {
+        renderType: Text.NativeRendering
         id: label
         anchors.centerIn: parent
         text: root.submap

@@ -20,6 +20,7 @@ Item {
     implicitHeight: theme.barHeight
 
     Text {
+        renderType: Text.NativeRendering
         id: label
         anchors.centerIn: parent
         font.family: root.theme.fontFamily

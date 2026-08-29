@@ -31,8 +31,9 @@ Item {
     }
 
     Text {
+        renderType: Text.NativeRendering
         id: label
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.centerIn: parent
         font.family: root.theme.fontFamily
         font.pixelSize: root.theme.fontSize
         color: root.theme.groupText

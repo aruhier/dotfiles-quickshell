@@ -49,7 +49,22 @@ Rectangle {
 
                 visible: !isSpecial
                 Layout.preferredHeight: isSpecial ? 0 : root.theme.barHeight
-                Layout.preferredWidth: isSpecial ? 0 : label.implicitWidth + 18
+                // CSS gives buttons 18px padding (10 left + 8 right), but a
+                // real waybar screenshot shows every single-character button
+                // at a consistent ~34px regardless of glyph — GTK's default
+                // button chrome (Adwaita's own min-width/border, baked into
+                // libgtk3's compiled-in theme resources, not visible in
+                // style.css) adds real width waybar's CSS alone doesn't
+                // account for. Measured directly off a waybar screenshot
+                // (three separate button blocks all landed within 1px of
+                // 34px/button), not derived from any stylesheet value.
+                Layout.preferredWidth: isSpecial ? 0 : Math.round(Math.max(label.implicitWidth + 18, 34))
+                // Buttons are square (no radius) and sit flush edge-to-edge;
+                // fractional per-item widths from RowLayout can leave a
+                // stray 1px gap between two buttons where root's own fill
+                // peeks through — rounding the width above avoids that, and
+                // this avoids antialiasing softening the shared edge too.
+                antialiasing: false
 
                 color: modelData.urgent ? root.theme.workspaceUrgent
                     : modelData.focused ? root.theme.accent
@@ -57,6 +72,7 @@ Rectangle {
                     : root.theme.workspaceEmptyBg
 
                 Text {
+                    renderType: Text.NativeRendering
                     id: label
                     anchors.centerIn: parent
                     text: modelData.name

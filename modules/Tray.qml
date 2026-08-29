@@ -16,7 +16,8 @@ Item {
     RowLayout {
         id: row
         anchors.centerIn: parent
-        spacing: 8
+        // Matches waybar's config.d/common.json "tray": { "spacing": 20 }.
+        spacing: 20
 
         Repeater {
             model: SystemTray.items
@@ -25,13 +26,14 @@ Item {
                 id: trayIcon
                 required property var modelData
 
-                Layout.preferredWidth: 16
-                Layout.preferredHeight: 16
+                // Matches waybar's "tray": { "icon-size": 14 }.
+                Layout.preferredWidth: 14
+                Layout.preferredHeight: 14
 
                 IconImage {
                     anchors.fill: parent
                     source: trayIcon.modelData.icon
-                    implicitSize: 16
+                    implicitSize: 14
                 }
 
                 MouseArea {

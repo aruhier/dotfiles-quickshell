@@ -38,6 +38,7 @@ PopupWindow {
         radius: 6
 
         Text {
+            renderType: Text.NativeRendering
             id: label
             anchors.fill: parent
             anchors.margins: 10

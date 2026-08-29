@@ -94,6 +94,80 @@ conditions in `Bar.qml` to match.
   buttons inside. The container's own fill matters (not just a thin margin
   around the button row) — see `Workspaces.qml`'s `capWidth`.
 
+- **Every `Text {}` needs `renderType: Text.NativeRendering`.** QML's
+  default text renderType (`Text.QtRendering`, distance-field/SDF) shows up
+  on this machine as visible red/blue chromatic fringing on every glyph —
+  letters *and* Nerd Font icon glyphs alike, on every monitor, independent
+  of color management (confirmed by comparing waybar vs quickshell
+  screenshots pixel-by-pixel: rectangle fill colors were exact matches,
+  only text edges differed). `Text.QtRendering` does *not* fix it;
+  `Text.NativeRendering` does — it bypasses the SDF glyph atlas and
+  rasterizes via FreeType directly per frame, matching Waybar's crisp
+  Pango/cairo text. Every module's `Text` elements have this set explicitly
+  (no app-wide QML equivalent of `QQuickWindow::setTextRenderType()`
+  exists, so it can't be set once globally). If a new `Text {}` is added
+  anywhere, it needs this too or it will visibly fringe on this system.
+
+- **`font.family` can't take a CSS-style comma-joined fallback string.**
+  style.css's `font-family: Symbols Nerd Font Mono, Inter Variable, Material
+  Design Icons Desktop` is a fallback *cascade* — Pango picks per-character
+  from the list. QML's `font.family` only accepts a single family name;
+  feeding it the whole comma-joined string doesn't give a cascade, Qt
+  fuzzy-resolves it to just `"Symbols Nerd Font Mono"` (confirmed via
+  `fc-match` — it silently ignores the rest of the string). That font is
+  icon-glyphs-only (`fc-query`'s charset has no `0061`/'a'), so every plain
+  Latin-text `Text {}` (workspace labels, clock, mpd title, ...) was quietly
+  falling back to *some other* installed font for the actual letters —
+  narrower than Waybar's real `Inter Variable`, which made whole modules
+  (worst offender: `Workspaces.qml`, ~277px vs Waybar's ~365px measured
+  total) render visibly smaller/tighter than Waybar despite the CSS
+  numbers matching. `font.families` (Qt 6.1+'s real list property for this)
+  is *not* registered on this build's QML Text font value type — assigning
+  it throws `Cannot assign to non-existent property "families"` at load
+  time. The fix in use: set `Theme.fontFamily` to plain `"Inter Variable"`
+  only, and rely on Qt's own automatic per-glyph fallback (confirmed
+  working: Nerd Font icon codepoints still render correctly even though
+  Inter Variable doesn't contain them) to reach the icon font for PUA
+  codepoints. If a future Qt build here does register `font.families`,
+  switching to it directly (list: `["Inter Variable", "Symbols Nerd Font
+  Mono", ...]`) would be the more correct fix — worth retrying then.
+
+- **`Workspaces.qml`'s per-button width needs a GTK-chrome allowance
+  beyond what style.css states.** `#workspaces button`'s CSS gives 18px of
+  padding (10 left + 8 right) — but a real Waybar screenshot shows *every*
+  single-character workspace button at a consistent ~34px regardless of
+  which glyph it is (measured 3 separate same-color button blocks in one
+  screenshot, all within 1px of 34px/button). The ~9-16px gap beyond
+  `label.implicitWidth + 18` is GTK's own default button chrome (Adwaita's
+  built-in min-width/border, baked into libgtk3's compiled-in theme
+  resources — not present anywhere in style.css, so it can't be derived
+  from the stylesheet, only measured). The button width formula is
+  `Math.round(Math.max(label.implicitWidth + 18, 34))` — the 34 is an
+  empirical constant from that screenshot measurement, not a CSS value. If
+  Waybar's GTK theme ever changes, re-measure rather than trust this number
+  blindly.
+
+- **`.modules-left`/`.modules-right`'s 12px CSS border is one-sided, not a
+  symmetric padding.** `border-width: 0 12px 0 0` (modules-left) means the
+  extra space is *only* on the inner/center-facing edge; the outer/flush
+  edge gets none. An earlier version of `Bar.qml` gave both groups a
+  symmetric `implicitWidth: row.implicitWidth + 24` centered via
+  `anchors.centerIn`, which put a spurious 12px of padding on the flush
+  edge too (confirmed: pushed the mpd icon ~20px further from the screen
+  edge than Waybar's). Fixed by anchoring the inner `RowLayout` to
+  `anchors.left`/`anchors.right` (flush side) instead of centering, with
+  `implicitWidth: row.implicitWidth + 12` (only the inner pad).
+
+- **Adjacent same-color `Rectangle`s in a `RowLayout` can show a 1px seam.**
+  If sibling widths are fractional (e.g. `label.implicitWidth + 18` where
+  `implicitWidth` is rarely an integer), `RowLayout` accumulates rounding
+  error across cells and can leave a stray 1-device-pixel gap between two
+  buttons where the parent's own fill color peeks through — invisible at
+  1x but an obvious thin line once zoomed. `Workspaces.qml`'s delegate
+  rounds its `Layout.preferredWidth` (`Math.round(...)`) to avoid this, and
+  also sets `antialiasing: false` (buttons are unrounded and sit flush, so
+  there's no benefit to it, only a softened shared edge to avoid).
+
 ## Known, deliberate deviations from Waybar
 
 - **`Privacy.qml`** only replicates the `audio-in` (mic) privacy indicator.
@@ -108,6 +182,14 @@ conditions in `Bar.qml` to match.
   `~/.config/waybar/scripts/weather/get_weather.rb` and using a pango
   tooltip. Visual target is icon+temperature parity in the bar and a
   broadly similar "current + forecast" popup, not a byte-identical format.
+- **`Tray.qml`'s icon order won't reliably match Waybar's.** Both just
+  render `SystemTray`/SNI items in whatever order they're reported in —
+  neither app sorts them (Waybar's `Tray::reorderBox()` only sorts by an
+  explicit per-app `order` from its `tray.icons` config, which this
+  Waybar config doesn't set, so it's really insertion/registration order).
+  Confirmed by restarting Waybar itself mid-session: the icon order changed
+  on every single restart. Don't chase this as a bug — there's no stable
+  "correct" order to replicate.
 
 ## How to visually compare against Waybar
 
@@ -129,7 +211,96 @@ grim -g "2560,0 3840x28" out.png                 # bar strip only, not full scre
 
 When done, restore Waybar (`pkill -f "qs -p shell.qml"; waybar &`).
 
+If you instead grab a full-output screenshot (`grim -o <name> full.png`) and
+crop it in stages with ImageMagick, add `+repage` after each `-crop` before
+cropping again — otherwise the file keeps the original canvas offset baked
+in and a second `-crop` on the already-cropped file silently measures from
+the *original* image's coordinates, not the cropped one's.
+
 Monitor layout is machine-specific and can change; re-check with
 `hyprctl monitors -j` rather than trusting old notes. At time of writing:
 `DP-2` at (0,0) 2560×1440, `HDMI-A-1` at (5632,0) 2560×1440 (rotated),
 `DP-1` at (2560,0) 3840×2160 — `DP-1` is the one with tray/privacy/weather.
+
+## Full visual re-verification (2026-08-29, two passes)
+
+**First pass** (crude, wrong conclusion): did a side-by-side pixel
+comparison of every module on all three outputs and concluded "no visual
+regressions found." That conclusion was wrong — it missed a real, visible
+bug (below) because the comparison crops happened to sample individual
+glyphs (bell, volume-mute, clock text) that matched, without ever measuring
+the *aggregate* width of the whole `modules-right` group. A user follow-up
+("icons on quickshell are smaller, gaps on the right are smaller") is what
+caught it.
+
+**Second pass** (found the bug): `Tray.qml` hardcoded `spacing: 8` and
+16px icons (`Layout.preferredWidth`/`Layout.preferredHeight`/
+`implicitSize: 16`), but Waybar's actual tray config
+(`~/.config/waybar/config.d/common.json`, `"tray": {"icon-size": 14,
+"spacing": 20}`) uses 14px icons with **20px spacing** — more than double
+Quickshell's. Across 5 tray icons (4 gaps) that's a ~48 logical-px deficit,
+which is most of the ~60 logical-px (~75 physical-px at DP-1's 1.25 scale)
+narrower `modules-right` group width that was actually measured (see method
+below). Fixed both values in `Tray.qml` to match: `spacing: 20`,
+icon size `14`. Re-measured after the fix: the group's left edge moved from
+being ~60 logical px short of Waybar's to within ~14 logical px of it — the
+remaining ~14px is normal per-glyph rendering variance (different icons in
+the tray have different intrinsic bounding-box padding in the Nerd
+Font/SNI-icon rendering; not a further bug to chase).
+
+**Lesson for next time:** per-glyph pixel-diffing (crop one icon, zoom,
+eyeball) is necessary but *not sufficient* — it can't catch a systemic
+spacing deficit that's spread evenly across many small gaps, because each
+individual gap still "looks about right" in isolation. The real check is
+**aggregate**: measure the *group's total rendered width* (or equivalently,
+where its left edge lands relative to the screen's right edge) and compare
+that single number against Waybar's. Do this first, before zooming into
+individual icons — it's cheap and it's what actually caught the bug.
+Method: find the x where a column's color transitions from bar background
+(`#2d2d2d`) to group background (`#424242`), sampled at a y-row inside the
+group's flat (non-corner) region (avoid y near the very top/bottom, where
+the rounded-corner curve pushes the transition point further right/left
+than the group's true edge) — do this once per app, same output, and diff
+the two x values directly. When per-module config values exist on the
+Waybar side (`config.d/common.json`), diff against those directly instead
+of just the CSS — spacing/icon-size for `tray` (and potentially other
+modules) live in the JSON config, not `style.css`, and are easy to miss if
+you only ever grep the stylesheet.
+
+Also worth knowing for scaled outputs: **DP-1 runs at Hyprland `scale:
+1.25`**, not 1 — `hyprctl monitors -j` now reports `"scale": 1.25` for it
+(re-check this, it's monitor config and can change). `grim -g "X,Y WxH"`
+takes the geometry in *logical* pixels (matching Hyprland's own coordinate
+space) and returns a PNG at the *physical* resolution — e.g. requesting
+`3840x30` on DP-1 actually returns a `4800x37` image (×1.25). This isn't a
+bug in the comparison method (both apps' composited output get the same
+treatment), but it means literal pixel-count math (like the tray deficit
+above) needs the scale factor divided back out to get logical px, and
+`hyprctl monitors -j`'s `x`/`y` fields for monitor position are also in
+this same logical space (not the physical `width`/`height` fields) — that's
+why `DP-1` at logical x=2560 with physical width 3840 @ scale 1.25 (logical
+width 3072) puts the next monitor's `x` at 5632, not 6400.
+
+One methodology trap from the first pass, still valid and worth recording:
+an early crop grabbed only `3840x25` (`barHeight + barBorderHeight`) and
+appeared to show the Quickshell bar missing its teal bottom border entirely
+vs. a Waybar capture that had it — looked like a real bug. It wasn't: the
+window's actual rendered height is 1px taller than the nominal 25 (see
+`margins.bottom: 1` in `Bar.qml`), so the border row was just outside a
+25px-tall grim capture. Capturing at `3840x30` (or any height with slack)
+shows the border in both. **Always capture with a few px of vertical slack
+past the nominal bar height before concluding a bottom-edge element is
+missing.**
+
+Working method for a future comparison pass: run one app, `grim -g "<x>,<y>
+<w>x30"` (note the +5px slack from the trap above; remember the geometry is
+logical px and the output PNG will be physical px if the output is scaled),
+swap apps, capture the same geometry, then **first** diff the aggregate
+group-edge position (method above) for each left/center/right group, and
+**only then** `magick <img> -crop WxH+X+Y +repage -resize N%` on matching
+sub-regions from both to eyeball individual icons at high zoom. For
+icon-level gap measurement within a crop, a brightness-threshold column
+scan (flag a column as "content" if any pixel's R+G+B sum exceeds the
+background by a wide margin, then cluster columns separated by small gaps
+into per-glyph/per-module segments) beats trying to diff raw pixels, since
+text antialiasing produces false positives pixel-by-pixel.
