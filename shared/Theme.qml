@@ -25,4 +25,7 @@ QtObject {
     readonly property string fontFamily: "Symbols Nerd Font Mono, Inter Variable, Material Design Icons Desktop"
     readonly property int fontSize: 12
     readonly property int barHeight: 22
+    // #waybar > box's border-bottom: 3px solid — genuine extra height below
+    // the 22px content area, not an overlay on top of it.
+    readonly property int barBorderHeight: 3
 }

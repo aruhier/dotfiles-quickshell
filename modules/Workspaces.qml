@@ -3,17 +3,31 @@ import QtQuick.Layouts
 import Quickshell.Hyprland
 
 // Mirrors waybar's "hyprland/workspaces" module with all-outputs: true —
-// every workspace on every monitor is shown on every bar.
+// every workspace on every monitor is shown on every bar. Matches
+// ~/.config/waybar/style.css's #workspaces button rules:
+//   - default (has windows): theme.workspaceBg
+//   - .empty (0 windows):    theme.workspaceEmptyBg
+//   - .active (waybar's isActive() = focused workspace of the focused
+//     monitor, i.e. quickshell's "focused" — NOT quickshell's "active",
+//     which is true once per monitor and would highlight several
+//     workspaces at once): theme.accent, bold
+//   - .urgent: theme.workspaceUrgent
+// The button.visible.current_output box-shadow rule in style.css is dead
+// CSS for hyprland/workspaces (that module never sets a "current_output"
+// class, only sway/workspaces does), so it's intentionally not replicated.
 Rectangle {
     id: root
 
     required property var theme
-    required property var barScreen
 
-    color: theme.workspaceBg
+    // .modules-center's 15px cream border-left/right, rounded into caps by
+    // the pill radius; buttons themselves have border-radius: 0.
+    readonly property int capWidth: 15
+
+    color: theme.workspaceEmptyBg
     radius: height / 2
-    implicitWidth: row.implicitWidth + 4
-    implicitHeight: row.implicitHeight + 4
+    implicitWidth: row.implicitWidth + capWidth * 2
+    implicitHeight: row.implicitHeight
 
     RowLayout {
         id: row
@@ -30,30 +44,26 @@ Rectangle {
                 // waybar's hyprland/workspaces hides special workspaces
                 // unless "show-special" is set, which our config doesn't.
                 readonly property bool isSpecial: modelData.name.startsWith("special")
-
-                readonly property bool onThisMonitor: modelData.monitor !== null
-                    && Hyprland.monitorFor(root.barScreen) !== null
-                    && modelData.monitor.name === Hyprland.monitorFor(root.barScreen).name
+                readonly property int windows: modelData.lastIpcObject && modelData.lastIpcObject.windows !== undefined
+                    ? modelData.lastIpcObject.windows : 0
 
                 visible: !isSpecial
-                Layout.preferredHeight: isSpecial ? 0 : root.theme.barHeight - 4
+                Layout.preferredHeight: isSpecial ? 0 : root.theme.barHeight
                 Layout.preferredWidth: isSpecial ? 0 : label.implicitWidth + 18
 
                 color: modelData.urgent ? root.theme.workspaceUrgent
-                    : modelData.active ? root.theme.accent
+                    : modelData.focused ? root.theme.accent
+                    : windows > 0 ? root.theme.workspaceBg
                     : root.theme.workspaceEmptyBg
-
-                border.width: (modelData.active && onThisMonitor) ? 1 : 0
-                border.color: "#BF0905"
 
                 Text {
                     id: label
                     anchors.centerIn: parent
                     text: modelData.name
-                    color: modelData.active ? root.theme.accentText : root.theme.workspaceEmptyText
+                    color: modelData.focused ? root.theme.accentText : root.theme.workspaceEmptyText
                     font.family: root.theme.fontFamily
                     font.pixelSize: root.theme.fontSize
-                    font.bold: modelData.active
+                    font.bold: modelData.focused
                 }
 
                 MouseArea {
