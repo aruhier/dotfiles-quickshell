@@ -26,16 +26,12 @@ Item {
         font.pixelSize: root.theme.fontSize
         color: root.theme.groupText
         text: {
-            var pct = Math.round(root.volume * 100);
-            var icon;
+            // waybar's "format-muted" is a standalone format (icon only,
+            // no volume%) that replaces "format" entirely while muted.
             if (root.muted)
-                icon = "󰝟";
-            else if (pct < 33)
-                icon = "󰕿";
-            else if (pct < 66)
-                icon = "󰖀";
-            else
-                icon = "󰕾";
+                return "󰝟";
+            var pct = Math.round(root.volume * 100);
+            var icon = pct < 33 ? "󰕿" : pct < 66 ? "󰖀" : "󰕾";
             return icon + "  " + pct + "%";
         }
     }

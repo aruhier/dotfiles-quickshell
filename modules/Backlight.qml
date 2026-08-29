@@ -13,7 +13,10 @@ Item {
     property bool available: false
 
     visible: available
-    implicitWidth: available ? label.implicitWidth + 12 : 0
+    // Unconditional (not "available ? label.implicitWidth + 12 : 0"): see
+    // Mpd.qml for why gating this on `visible`/`available` while reading a
+    // child's implicitWidth breaks visibility.
+    implicitWidth: label.implicitWidth + 12
     implicitHeight: theme.barHeight
 
     Text {

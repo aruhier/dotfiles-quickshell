@@ -27,12 +27,17 @@ Rectangle {
                 id: wsDelegate
                 required property var modelData
 
+                // waybar's hyprland/workspaces hides special workspaces
+                // unless "show-special" is set, which our config doesn't.
+                readonly property bool isSpecial: modelData.name.startsWith("special")
+
                 readonly property bool onThisMonitor: modelData.monitor !== null
                     && Hyprland.monitorFor(root.barScreen) !== null
                     && modelData.monitor.name === Hyprland.monitorFor(root.barScreen).name
 
-                Layout.preferredHeight: root.theme.barHeight - 4
-                Layout.preferredWidth: label.implicitWidth + 18
+                visible: !isSpecial
+                Layout.preferredHeight: isSpecial ? 0 : root.theme.barHeight - 4
+                Layout.preferredWidth: isSpecial ? 0 : label.implicitWidth + 18
 
                 color: modelData.urgent ? root.theme.workspaceUrgent
                     : modelData.active ? root.theme.accent

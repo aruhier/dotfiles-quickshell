@@ -99,7 +99,11 @@ PanelWindow {
             }
             Privacy {
                 theme: barWindow.theme
-                visible: barWindow.isDp1
+                // Not just "barWindow.isDp1": Privacy's own visibility
+                // already depends on micActive, so overriding it with only
+                // the per-output condition would show the mic icon
+                // unconditionally on DP-1 regardless of mic state.
+                visible: barWindow.isDp1 && micActive
                 Layout.preferredWidth: visible ? implicitWidth : 0
             }
             SwayNC {

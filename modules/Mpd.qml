@@ -8,15 +8,22 @@ Item {
 
     required property var theme
 
-    property string state: "disconnected" // disconnected | stopped | playing | paused
+    // Named playbackState (not "state") because Item already has a built-in
+    // "state" property for QtQuick's declarative state-machine feature —
+    // shadowing it silently breaks bindings that read it.
+    property string playbackState: "disconnected" // disconnected | stopped | playing | paused
     property string artist: ""
     property string title: ""
 
     readonly property int artistLen: 30
     readonly property int titleLen: 40
 
-    visible: state !== "disconnected"
-    implicitWidth: visible ? label.implicitWidth + 12 : 0
+    visible: playbackState !== "disconnected"
+    // Unconditional (not "visible ? label.implicitWidth + 12 : 0"): RowLayout
+    // already excludes invisible children from layout, and gating this
+    // binding on `visible` while it reads a child's implicitWidth triggers a
+    // binding-evaluation bug that leaves `visible` stuck.
+    implicitWidth: label.implicitWidth + 12
     implicitHeight: theme.barHeight
 
     function truncate(s, len) {
@@ -30,10 +37,10 @@ Item {
         font.pixelSize: root.theme.fontSize
         color: root.theme.groupText
         text: {
-            var icon = root.state === "playing" ? "󰐊"
-                : root.state === "paused" ? "󰏤"
+            var icon = root.playbackState === "playing" ? "󰐊"
+                : root.playbackState === "paused" ? "󰏤"
                 : "󰓛";
-            if (root.state === "playing" || root.state === "paused")
+            if (root.playbackState === "playing" || root.playbackState === "paused")
                 return icon + "  " + root.truncate(root.artist, root.artistLen) + " - " + root.truncate(root.title, root.titleLen);
             return icon;
         }
@@ -48,26 +55,38 @@ Item {
         }
         onExited: (code, status) => {
             if (code !== 0)
-                root.state = "disconnected";
+                root.playbackState = "disconnected";
         }
     }
 
     function applyStatus(text) {
         if (!text) {
-            root.state = "disconnected";
+            root.playbackState = "disconnected";
             return;
         }
+        // mpc status prints [state] on the last line before "volume:" only
+        // when a song is loaded (line 0 is then the song title, not
+        // "volume:..."), so find the state line by content rather than a
+        // fixed index.
         var lines = text.split("\n");
-        if (lines[0].indexOf("volume:") !== 0) {
-            root.state = "disconnected";
+        var hasVolumeLine = false;
+        var stateLine = null;
+        for (var i = 0; i < lines.length; i++) {
+            if (lines[i].indexOf("volume:") === 0)
+                hasVolumeLine = true;
+            if (lines[i].indexOf("[") === 0)
+                stateLine = lines[i];
+        }
+        if (!hasVolumeLine) {
+            root.playbackState = "disconnected";
             return;
         }
-        if (lines.length > 1 && lines[1].indexOf("[playing]") === 0) {
-            root.state = "playing";
-        } else if (lines.length > 1 && lines[1].indexOf("[paused]") === 0) {
-            root.state = "paused";
+        if (stateLine && stateLine.indexOf("[playing]") === 0) {
+            root.playbackState = "playing";
+        } else if (stateLine && stateLine.indexOf("[paused]") === 0) {
+            root.playbackState = "paused";
         } else {
-            root.state = "stopped";
+            root.playbackState = "stopped";
             root.artist = "";
             root.title = "";
             return;
