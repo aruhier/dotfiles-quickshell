@@ -52,6 +52,11 @@ QtObject {
     // { border-width: 0 0 0 12px; }` — only the side facing the center gets
     // it, the flush/outer edge gets none (see Bar.qml's leftGroup/rightGroup).
     readonly property int groupEdgePadding: 12
+    // A flush-edge module's own CSS `margin: 0 4px` (see the shared
+    // `#clock, #mpd, ...` rule in style.css) — used only where a module
+    // sits directly against the true screen edge and needs this modeled
+    // explicitly (see Bar.qml's rightGroup/leftGroup comments).
+    readonly property int moduleOuterMargin: 4
     // .modules-center's cream pill caps: a fixed 15px border-left/right on
     // the container itself, independent of the buttons inside (see
     // Workspaces.qml).

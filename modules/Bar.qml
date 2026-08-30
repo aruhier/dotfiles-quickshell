@@ -64,7 +64,12 @@ PanelWindow {
             // Only the inner (right) edge gets theme.groupEdgePadding, so
             // the outer/flush edge sits flush against the screen edge like
             // waybar (see leftRow's anchors below; a symmetric centerIn here
-            // previously added a spurious pad on the flush side too).
+            // previously added a spurious pad on the flush side too). No
+            // extra outer-edge margin here (unlike rightGroup below):
+            // Mpd's icon glyph's own left-side bearing already lands its ink
+            // ~10px from the edge, matching a real waybar screenshot
+            // (measured pixel-for-pixel, see AGENT.md) — adding
+            // theme.moduleOuterMargin here too would overshoot to ~14px.
             implicitWidth: leftRow.implicitWidth + theme.groupEdgePadding
             visible: leftRow.implicitWidth > 0
 
@@ -99,12 +104,20 @@ PanelWindow {
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             // Mirror of leftGroup: only the inner (left) edge gets
-            // theme.groupEdgePadding, outer/flush edge gets none.
-            implicitWidth: rightRow.implicitWidth + theme.groupEdgePadding
+            // theme.groupEdgePadding. Unlike leftGroup, the outer/flush edge
+            // here DOES need theme.moduleOuterMargin: Clock (the outermost
+            // module here) ends in a plain digit, whose glyph has near-zero
+            // right-side bearing, so without an explicit allowance for the
+            // module's own CSS `margin: 0 4px` its ink lands only ~7px from
+            // the screen edge instead of waybar's measured 10px (Mpd on the
+            // left avoids needing this only because its icon glyph's own
+            // left bearing happens to fill the gap — see leftGroup).
+            implicitWidth: rightRow.implicitWidth + theme.groupEdgePadding + theme.moduleOuterMargin
 
             RowLayout {
                 id: rightRow
                 anchors.right: parent.right
+                anchors.rightMargin: theme.moduleOuterMargin
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 10
 

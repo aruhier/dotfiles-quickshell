@@ -160,6 +160,41 @@ conditions in `Bar.qml` to match.
   `anchors.left`/`anchors.right` (flush side) instead of centering, with
   `implicitWidth: row.implicitWidth + 12` (only the inner pad).
 
+- **The bar's true left and right screen edges are not symmetric by
+  construction, and can silently drift apart.** Every module in style.css's
+  shared `#clock, #mpd, ... { padding: 0 6px; margin: 0 4px; }` rule gets
+  10px of blank space on *each* side (6 padding + 4 margin) — but
+  `Mpd.qml`/`Clock.qml` (etc.) only ever modeled the 6px padding half
+  (`implicitWidth: label.implicitWidth + 12`), never the 4px margin half.
+  This was invisible for months because it only matters at the two modules
+  that sit flush against the bar's true outer edge with zero group-level
+  compensation (`Mpd` on the left, `Clock` on the right — see the note
+  above) — everywhere else, `RowLayout`'s `spacing: 10` between modules
+  papers over the gap. On the left edge it stayed invisible for a different
+  reason too: the pause/play icon glyph (mpd) has enough of its own
+  left-side bearing baked into the font that its ink lands ~10px from the
+  edge *anyway*, no margin needed — pure coincidence of that specific
+  glyph's shape. On the right edge, the last character is a plain digit
+  (clock's `hh:mm`) with near-zero right-side bearing, so the missing 4px
+  showed up directly as a visibly smaller gap (measured: 7px vs. Waybar's
+  10px). Caught by the user eyeballing the two edges side by side; confirmed
+  with a pixel measurement (column scan for the first/last non-`groupBg`
+  pixel, same method as the tray fix below) against a live Waybar capture at
+  the identical geometry, which showed a clean symmetric 10px/10px.
+  **Fixed by adding `theme.moduleOuterMargin` (4px, named after the CSS
+  property it represents) only where a flush module actually needs it** —
+  `rightGroup`'s `implicitWidth` and `rightRow`'s `anchors.rightMargin` in
+  `Bar.qml` — deliberately *not* added to `leftGroup`, since Mpd already
+  measures correctly without it and adding it there would overshoot to
+  ~14px. **Lesson:** a per-module CSS rule can have multiple additive parts
+  (here, padding *and* margin); modeling only one of them can still "look
+  right" almost everywhere by sheer luck of RowLayout spacing or a
+  particular glyph's bearing, and only fail visibly at an edge case (here,
+  the two modules with no neighbor to hide behind). When verifying box-model
+  fidelity, check the literal screen-edge modules specifically, not just
+  interior gaps — and re-derive the fix per-glyph/per-side by measurement,
+  not by assuming a symmetric formula will look symmetric.
+
 - **Adjacent same-color `Rectangle`s in a `RowLayout` can show a 1px seam.**
   If sibling widths are fractional (e.g. `label.implicitWidth + 18` where
   `implicitWidth` is rarely an integer), `RowLayout` accumulates rounding
