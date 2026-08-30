@@ -1,7 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import Quickshell
-import Quickshell.Widgets
 import "../shared"
 
 // Mirrors waybar's "clock" module (format + tooltip-format), but the
@@ -62,47 +60,18 @@ Item {
         }
     }
 
-    // Closes immediately (no grace period) when PopupCoordinator hands
-    // ownership to a different module's popup.
-    function forceClosePopup() {
-        popupHideTimer.stop();
-        popup._open = false;
-    }
-
     MouseArea {
         id: hover
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onContainsMouseChanged: {
-            if (containsMouse) {
-                popupHideTimer.stop();
-                PopupCoordinator.activate(root);
-                popup._open = true;
-            } else {
-                popupHideTimer.restart();
-            }
-        }
+        onContainsMouseChanged: containsMouse ? popup.show() : popup.requestHide()
     }
 
-    // Grace-period timer so moving the cursor from the module onto the
-    // popup (a separate surface a few px away) doesn't close it mid-transit
-    // — same pattern as Weather.qml / shared/Tooltip.qml.
-    Timer {
-        id: popupHideTimer
-        interval: 200
-        onTriggered: {
-            if (!hover.containsMouse && !popupHover.containsMouse) {
-                popup._open = false;
-                PopupCoordinator.deactivate(root);
-            }
-        }
-    }
-
-    PopupWindow {
+    HoverPopup {
         id: popup
-
-        property bool _open: false
+        anchorItem: root
+        theme: root.theme
 
         // Month currently displayed, independent of the live clock — reset
         // to the current month each time the popup opens so navigating away
@@ -183,140 +152,102 @@ Item {
         readonly property var cells: visible ? calendarCells() : []
         readonly property var headers: visible ? dayHeaders() : []
 
-        anchor {
-            window: root.QsWindow.window
-            adjustment: PopupAdjustment.Slide
-            gravity: Edges.Bottom | Edges.Right
-            edges: Edges.Bottom | Edges.Left
+        implicitWidth: body.implicitWidth + 2 * padding
+        implicitHeight: body.implicitHeight + 2 * padding
 
-            onAnchoring: {
-                const pos = root.QsWindow.contentItem.mapFromItem(root, 0, root.height + 4);
-                anchor.rect.x = pos.x;
-                anchor.rect.y = pos.y;
-            }
-        }
-
-        color: "transparent"
-        visible: _open
-        implicitWidth: body.implicitWidth + 28
-        implicitHeight: body.implicitHeight + 28
-
-        Rectangle {
+        ColumnLayout {
+            id: body
             anchors.fill: parent
-            color: "#1e1e1e"
-            border.color: root.theme.accent
-            border.width: 1
-            radius: 10
+            spacing: 10
 
-            MouseArea {
-                id: popupHover
-                anchors.fill: parent
-                hoverEnabled: true
-                onContainsMouseChanged: {
-                    if (containsMouse) {
-                        popupHideTimer.stop();
-                        PopupCoordinator.activate(root);
-                        popup._open = true;
-                    } else {
-                        popupHideTimer.restart();
+            // ---- month header + nav ----
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                Text {
+                    renderType: Text.NativeRendering
+                    text: "‹"
+                    font.pixelSize: 16
+                    color: root.theme.text
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -6
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: popup.shiftMonth(-1)
+                    }
+                }
+
+                Text {
+                    renderType: Text.NativeRendering
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignHCenter
+                    text: Qt.formatDate(new Date(popup.viewYear, popup.viewMonth, 1), "MMMM yyyy")
+                    font.pixelSize: 14
+                    font.bold: true
+                    color: root.theme.textBright
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: popup.goToday()
+                    }
+                }
+
+                Text {
+                    renderType: Text.NativeRendering
+                    text: "›"
+                    font.pixelSize: 16
+                    color: root.theme.text
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -6
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: popup.shiftMonth(1)
                     }
                 }
             }
 
-            ColumnLayout {
-                id: body
-                anchors.centerIn: parent
-                spacing: 10
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 1
+                color: root.theme.groupBg
+            }
 
-                // ---- month header + nav ----
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
+            // ---- day-of-week header ----
+            GridLayout {
+                columns: 7
+                rowSpacing: 4
+                columnSpacing: 2
 
-                    Text {
+                Repeater {
+                    model: popup.headers
+                    delegate: Text {
                         renderType: Text.NativeRendering
-                        text: "‹"
-                        font.pixelSize: 16
-                        color: root.theme.text
-                        MouseArea {
-                            anchors.fill: parent
-                            anchors.margins: -6
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: popup.shiftMonth(-1)
-                        }
-                    }
-
-                    Text {
-                        renderType: Text.NativeRendering
-                        Layout.fillWidth: true
+                        Layout.preferredWidth: 28
                         horizontalAlignment: Text.AlignHCenter
-                        text: Qt.formatDate(new Date(popup.viewYear, popup.viewMonth, 1), "MMMM yyyy")
-                        font.pixelSize: 14
-                        font.bold: true
-                        color: root.theme.textBright
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: popup.goToday()
-                        }
-                    }
-
-                    Text {
-                        renderType: Text.NativeRendering
-                        text: "›"
-                        font.pixelSize: 16
+                        text: modelData
+                        font.pixelSize: 11
                         color: root.theme.text
-                        MouseArea {
-                            anchors.fill: parent
-                            anchors.margins: -6
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: popup.shiftMonth(1)
-                        }
+                        opacity: 0.7
                     }
                 }
 
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 1
-                    color: root.theme.groupBg
-                }
+                // ---- day grid ----
+                Repeater {
+                    model: popup.cells
+                    delegate: Rectangle {
+                        Layout.preferredWidth: 28
+                        Layout.preferredHeight: 24
+                        radius: 6
+                        color: modelData.isToday ? root.theme.accent : "transparent"
 
-                // ---- day-of-week header ----
-                GridLayout {
-                    columns: 7
-                    rowSpacing: 4
-                    columnSpacing: 2
-
-                    Repeater {
-                        model: popup.headers
-                        delegate: Text {
+                        Text {
                             renderType: Text.NativeRendering
-                            Layout.preferredWidth: 28
-                            horizontalAlignment: Text.AlignHCenter
-                            text: modelData
-                            font.pixelSize: 11
-                            color: root.theme.text
-                            opacity: 0.7
-                        }
-                    }
-
-                    // ---- day grid ----
-                    Repeater {
-                        model: popup.cells
-                        delegate: Rectangle {
-                            Layout.preferredWidth: 28
-                            Layout.preferredHeight: 24
-                            radius: 6
-                            color: modelData.isToday ? root.theme.accent : "transparent"
-
-                            Text {
-                                renderType: Text.NativeRendering
-                                anchors.centerIn: parent
-                                text: modelData.day
-                                font.pixelSize: 12
-                                color: modelData.isToday ? root.theme.accentText : (modelData.inMonth ? root.theme.textBright : root.theme.text)
-                                opacity: modelData.inMonth ? 1.0 : 0.35
-                            }
+                            anchors.centerIn: parent
+                            text: modelData.day
+                            font.pixelSize: 12
+                            color: modelData.isToday ? root.theme.accentText : (modelData.inMonth ? root.theme.textBright : root.theme.text)
+                            opacity: modelData.inMonth ? 1.0 : 0.35
                         }
                     }
                 }

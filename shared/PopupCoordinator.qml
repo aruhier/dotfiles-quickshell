@@ -12,10 +12,10 @@ QtObject {
 
     property var activeOwner: null
 
-    // owner: the requesting module's root Item, exposing forceClosePopup().
+    // owner: the requesting HoverPopup instance, exposing close().
     function activate(owner) {
         if (activeOwner && activeOwner !== owner)
-            activeOwner.forceClosePopup();
+            activeOwner.close();
         activeOwner = owner;
     }
 
