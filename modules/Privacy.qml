@@ -2,19 +2,16 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.Pipewire
 
-// Approximates waybar's "privacy" module. Shows a mic icon while any
-// application has an open audio-capture stream (waybar additionally checks
-// the stream is in the RUNNING pipewire state, not just open; quickshell's
-// PwNode doesn't expose per-node state, so this is the closest match).
+// Approximates waybar's "privacy" module: shows a mic icon while any app has
+// an open audio-capture stream (waybar also checks RUNNING state; quickshell's
+// PwNode doesn't expose that, so this is the closest match).
 //
-// NOTE: screen-share detection (waybar's "screenshare" privacy item) isn't
-// wired up here — quickshell has no simple node-graph signal for that, it
+// Screen-share detection (waybar's "screenshare" item) isn't implemented —
 // would need an xdg-desktop-portal ScreenCast/DBus watcher.
 //
-// Deliberately NOT built on PwNodeLinkTracker(node: defaultAudioSource): a
-// hardware capture device can carry idle/internal link groups (e.g. session
-// -manager monitoring links) with no application actually recording, which
-// made the mic icon show as active when nothing was capturing.
+// Not built on PwNodeLinkTracker(node: defaultAudioSource): a hardware
+// capture device can carry idle/internal link groups with no app actually
+// recording, which made the mic icon show active with nothing capturing.
 Item {
     id: root
 
@@ -30,12 +27,10 @@ Item {
     }
 
     visible: micActive
-    // Unconditional (not "micActive ? label.implicitWidth + 8 : 0"): see
-    // Mpd.qml for why gating this on the same property used by `visible`
-    // while reading a child's implicitWidth breaks visibility.
+    // Unconditional — see Mpd.qml for why gating width on the same property
+    // as `visible` breaks visibility.
     implicitWidth: label.implicitWidth + 8
     implicitHeight: theme.barHeight
-    // Smooth resize — see Theme.qml's resizeDuration.
     clip: true
 
     Behavior on implicitWidth {
@@ -45,12 +40,8 @@ Item {
         }
     }
 
-    // Nudges the icon down from its box-center — see Mpd.qml's
-    // iconVerticalOffset for why. Tuned per module.
+    // Icon vertical nudge / size bias — see Mpd.qml.
     readonly property real iconVerticalOffset: 1
-
-    // Bias against the shared iconFontSize — see Theme.qml's iconSize().
-    // 1.0 = no change; no bias needed here.
     readonly property real iconSizeRatio: 1.0
 
     Text {

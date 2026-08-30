@@ -13,12 +13,10 @@ Rectangle {
     visible: submap.length > 0
     color: theme.accent
     radius: height / 2
-    // Unconditional (not "visible ? label.implicitWidth + 16 : 0"): see
-    // Mpd.qml for why gating this on the same property used by `visible`
-    // while reading a child's implicitWidth breaks visibility.
+    // Unconditional — see Mpd.qml for why gating width on the same
+    // property as `visible` breaks visibility.
     implicitWidth: label.implicitWidth + 16
     implicitHeight: theme.barHeight - 4
-    // Smooth resize — see Theme.qml's resizeDuration.
     clip: true
 
     Behavior on implicitWidth {

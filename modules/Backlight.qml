@@ -1,9 +1,8 @@
 import QtQuick
 import Quickshell.Io
 
-// Mirrors waybar's "backlight" module. Reads /sys/class/backlight directly
-// like waybar does; hides itself when there is no backlight device
-// (e.g. this desktop's external monitors, same as it behaves today).
+// Mirrors waybar's "backlight" module. Reads /sys/class/backlight directly;
+// hides itself when there's no backlight device (e.g. external monitors).
 Item {
     id: root
 
@@ -13,12 +12,10 @@ Item {
     property bool available: false
 
     visible: available
-    // Unconditional (not "available ? content.implicitWidth + 12 : 0"): see
-    // Mpd.qml for why gating this on `visible`/`available` while reading a
-    // child's implicitWidth breaks visibility.
+    // Unconditional, not gated on `available`: see Mpd.qml for why gating
+    // width on the same property as `visible` breaks visibility.
     implicitWidth: content.implicitWidth + 12
     implicitHeight: theme.barHeight
-    // Smooth resize — see Theme.qml's resizeDuration.
     clip: true
 
     Behavior on implicitWidth {
@@ -28,12 +25,8 @@ Item {
         }
     }
 
-    // Nudges the icon down from its box-center — see Mpd.qml's
-    // iconVerticalOffset for why. Tuned per module.
+    // Icon vertical nudge / size bias — see Mpd.qml.
     readonly property real iconVerticalOffset: 2
-
-    // Bias against the shared iconFontSize — see Theme.qml's iconSize().
-    // 1.0 = no change; no bias needed here.
     readonly property real iconSizeRatio: 1.0
 
     Row {
@@ -53,7 +46,6 @@ Item {
 
         Text {
             renderType: Text.NativeRendering
-            // Box-centered against the Row, not baseline — see Mpd.qml.
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
             font.family: root.theme.fontFamily

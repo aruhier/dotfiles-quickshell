@@ -9,7 +9,6 @@ Item {
 
     implicitWidth: content.implicitWidth + 12
     implicitHeight: theme.barHeight
-    // Smooth resize — see Theme.qml's resizeDuration.
     clip: true
 
     Behavior on implicitWidth {
@@ -21,12 +20,8 @@ Item {
 
     property date now: new Date()
 
-    // Nudges the icon down from its box-center — see Mpd.qml's
-    // iconVerticalOffset for why. Tuned per module.
+    // Icon vertical nudge / size bias — see Mpd.qml.
     readonly property real iconVerticalOffset: 1
-
-    // Bias against the shared iconFontSize — see Theme.qml's iconSize().
-    // 1.0 = no change; no bias needed here.
     readonly property real iconSizeRatio: 1.0
 
     Timer {
@@ -43,7 +38,6 @@ Item {
 
         Text {
             renderType: Text.NativeRendering
-            // Box-centered against the Row, not baseline — see Mpd.qml.
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
             font.family: root.theme.fontFamily

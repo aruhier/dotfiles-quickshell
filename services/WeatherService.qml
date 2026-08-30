@@ -2,13 +2,10 @@ pragma Singleton
 import QtQuick
 import Quickshell
 
-// Shared weather state for the whole qs process — one geolocation lookup and
-// one Open-Meteo fetch cycle system-wide instead of one per monitor/Bar.
-// Weather.qml is only ever shown on DP-1 (see Bar.qml's Loader), but even a
-// hidden instance used to run its own independent fetch/timer; this
-// singleton means only one ever runs regardless of how many Bars exist.
-// Weather.qml just reads these properties and calls fetchForecast() to
-// refresh; only this singleton owns the XHRs/Timer.
+// Shared weather state for the whole process — one geolocation lookup and
+// one Open-Meteo fetch cycle instead of one per monitor/Bar. Weather.qml
+// just reads these properties and calls fetchForecast(); only this
+// singleton owns the XHRs/Timer.
 QtObject {
     id: root
 

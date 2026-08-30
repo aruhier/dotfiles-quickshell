@@ -2,8 +2,8 @@ import QtQuick
 import Quickshell
 import Quickshell.Widgets
 
-// Small reusable hover tooltip anchored below a bar module, similar in
-// spirit to waybar's built-in module tooltips.
+// Small reusable hover tooltip anchored below a bar module, similar to
+// waybar's built-in module tooltips.
 PopupWindow {
     id: popup
 
@@ -27,11 +27,8 @@ PopupWindow {
     }
 
     color: "transparent"
-    // Unlike Weather.qml's bespoke popup, this tooltip is plain text with no
-    // interactive content to move the cursor onto, so it closes the instant
-    // `show` goes false — no grace-period timer. That immediacy is the
-    // point: sweeping across several bar icons in a row should never show
-    // two tooltips overlapping while one waits out a delay.
+    // No grace-period timer here (unlike Weather.qml's popup): plain text,
+    // nothing to move the cursor onto, so it should close immediately.
     visible: show && text.length > 0
 
     Rectangle {
@@ -56,15 +53,9 @@ PopupWindow {
         }
     }
 
-    // Rounded UP, not left fractional: label.implicitWidth/implicitHeight
-    // are text metrics and are essentially never whole numbers, but a
-    // PopupWindow's backing surface is an integer-pixel buffer — whatever
-    // truncates the fractional request down clips the far edge of
-    // `content`'s border by a sub-pixel sliver, which is enough to wash out
-    // its antialiased right/bottom edge while the near (0,0-anchored)
-    // top/left edges stay crisp regardless of rounding. Math.ceil (not
-    // Math.round) so the window is never smaller than the content actually
-    // needs — rounding down by even 0.5px reproduces the same clip.
+    // Math.ceil, not round/floor: a PopupWindow's surface is integer-pixel,
+    // and rounding label metrics down clips the border's far edge by a
+    // sub-pixel sliver.
     implicitWidth: Math.ceil(Math.min(label.implicitWidth, maxWidth) + 20)
     implicitHeight: Math.ceil(label.implicitHeight + 16)
 }

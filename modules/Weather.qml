@@ -5,12 +5,11 @@ import Quickshell.Widgets
 import "../services"
 import "../shared/WeatherIcons.js" as WeatherIcons
 
-// A native quickshell weather widget: renders a bar icon+temperature and its
-// own popup (current + hourly/daily forecast) instead of a monospace pango
-// tooltip. The actual Open-Meteo fetch/geolocation/refresh-timer lives in
-// services/WeatherService.qml (a singleton) so there's exactly one fetch cycle
-// for the whole qs process, not one per monitor/Bar — this is just a view
-// over that shared state.
+// Native weather widget: bar icon+temperature plus its own popup (current +
+// hourly/daily forecast), instead of waybar's monospace pango tooltip. The
+// Open-Meteo fetch/geolocation/refresh-timer lives in
+// services/WeatherService.qml (singleton, one fetch cycle for the whole
+// process); this is just a view over that shared state.
 Item {
     id: root
 
@@ -27,8 +26,6 @@ Item {
 
     implicitWidth: hasContent ? content.implicitWidth + 12 : 0
     implicitHeight: theme.barHeight
-    // Smooth resize — see Theme.qml's resizeDuration. Also covers the
-    // initial 0 -> real-width grow once the first forecast arrives.
     clip: true
 
     Behavior on implicitWidth {
@@ -38,14 +35,9 @@ Item {
         }
     }
 
-    // Nudges the compact bar icon down from its box-center — see Mpd.qml's
-    // iconVerticalOffset for why. Tuned per module.
+    // Icon vertical nudge / size bias — see Mpd.qml. Only the bar glyph
+    // uses this; popup forecast icons use their own hardcoded sizes.
     readonly property real iconVerticalOffset: 0.5
-
-    // Bias against the shared iconFontSize — see Theme.qml's iconSize().
-    // 1.0 = no change; no bias needed here. (Only the bar glyph uses this —
-    // the popup's forecast icons below use their own hardcoded sizes, not
-    // theme.iconFontSize.)
     readonly property real iconSizeRatio: 0.9
 
     function displayTemp(c) {
@@ -80,7 +72,6 @@ Item {
 
         Text {
             renderType: Text.NativeRendering
-            // Box-centered against the Row, not baseline — see Mpd.qml.
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
             font.family: root.theme.fontFamily
@@ -129,12 +120,9 @@ Item {
     PopupWindow {
         id: popup
 
-        // See shared/Tooltip.qml for why this needs a grace-period timer
-        // rather than a plain `hover.containsMouse || popupHover.containsMouse`
-        // OR: the module and the popup are separate surfaces 4px apart (see
-        // onAnchoring below), so the instant the cursor leaves the module,
-        // a non-debounced OR would unmap the popup before the cursor ever
-        // reaches it.
+        // Grace-period timer so moving the cursor from the module onto the
+        // popup (a separate surface a few px away) doesn't close it
+        // mid-transit — see shared/Tooltip.qml.
         property bool _open: false
 
         anchor {
@@ -271,16 +259,10 @@ Item {
                     Repeater {
                         model: root.hourly
                         delegate: ColumnLayout {
-                            // fillWidth alone doesn't let this column grow:
-                            // QtQuick.Layouts auto-binds a nested Layout's
-                            // (this ColumnLayout's) maximumWidth to its own
-                            // implicitWidth by default, clamping it right
-                            // back to its natural content size regardless of
-                            // fillWidth — see AGENT.md for how this was
-                            // diagnosed. minimumWidth/preferredWidth don't
-                            // need the same override: they only affect the
-                            // exact per-column split of the extra space, not
-                            // whether the row reaches full width at all.
+                            // maximumWidth must be overridden or fillWidth
+                            // does nothing: QtQuick.Layouts auto-clamps a
+                            // nested Layout's maximumWidth to its own
+                            // implicitWidth by default.
                             Layout.fillWidth: true
                             Layout.maximumWidth: Number.POSITIVE_INFINITY
                             spacing: 3

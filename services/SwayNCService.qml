@@ -2,15 +2,11 @@ pragma Singleton
 import QtQuick
 import Quickshell.Io
 
-// Shared swaync-client subscription for the whole qs process — one long-lived
-// `swaync-client -swb` subscription system-wide instead of one per
-// monitor/Bar. SwayNC.qml (one instance per output) just reads these
-// properties; only this singleton owns the Process/Timer.
-//
-// This being a *singleton* also caps how many orphaned `swaync-client -swb`
-// processes an ungracefully-killed qs can leave behind at one-per-monitor
-// (previously each Bar spawned its own subscription, so N monitors meant N
-// orphans per bad shutdown instead of 1).
+// Shared swaync-client subscription for the whole process — one long-lived
+// `swaync-client -swb` subscription instead of one per monitor/Bar. Also
+// caps orphaned processes from an ungraceful shutdown at one instead of
+// one-per-monitor. SwayNC.qml just reads these properties; only this
+// singleton owns the Process/Timer.
 QtObject {
     id: root
 

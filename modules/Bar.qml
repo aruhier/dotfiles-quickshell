@@ -37,9 +37,8 @@ PanelWindow {
         color: theme.barBorder
     }
 
-    // Everything above the border stripe — the actual 22px-tall bar content,
-    // matching waybar's "height": 22 (the border is genuine extra height
-    // below it, not an overlay on top of it).
+    // The 22px content area above the border stripe (border is extra
+    // height below it, not an overlay).
     Item {
         id: content
         anchors {
@@ -50,9 +49,8 @@ PanelWindow {
         height: theme.barHeight
 
         // ---- left ----
-        // Flush against the screen edge, rounded only on the inner (right)
-        // side — mirrors .modules-left's one-sided pill in style.css (it
-        // isn't a floating capsule with margins on both sides).
+        // Flush against the screen edge, rounded only on the inner side —
+        // mirrors .modules-left's one-sided pill.
         Rectangle {
             id: leftGroup
             color: theme.groupBg
@@ -61,15 +59,9 @@ PanelWindow {
             anchors.left: parent.left
             anchors.top: parent.top
             anchors.bottom: parent.bottom
-            // Only the inner (right) edge gets theme.groupEdgePadding, so
-            // the outer/flush edge sits flush against the screen edge like
-            // waybar (see leftRow's anchors below; a symmetric centerIn here
-            // previously added a spurious pad on the flush side too). No
-            // extra outer-edge margin here (unlike rightGroup below):
-            // Mpd's icon glyph's own left-side bearing already lands its ink
-            // ~10px from the edge, matching a real waybar screenshot
-            // (measured pixel-for-pixel, see AGENT.md) — adding
-            // theme.moduleOuterMargin here too would overshoot to ~14px.
+            // Only the inner edge gets groupEdgePadding; no outer margin
+            // here since Mpd's own glyph bearing already lands its ink at
+            // the right spot (unlike rightGroup, see below).
             implicitWidth: leftRow.implicitWidth + theme.groupEdgePadding
             visible: leftRow.implicitWidth > 0
 
@@ -104,15 +96,10 @@ PanelWindow {
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.bottom: parent.bottom
-            // Mirror of leftGroup: only the inner (left) edge gets
-            // theme.groupEdgePadding. Unlike leftGroup, the outer/flush edge
-            // here DOES need theme.moduleOuterMargin: Clock (the outermost
-            // module here) ends in a plain digit, whose glyph has near-zero
-            // right-side bearing, so without an explicit allowance for the
-            // module's own CSS `margin: 0 4px` its ink lands only ~7px from
-            // the screen edge instead of waybar's measured 10px (Mpd on the
-            // left avoids needing this only because its icon glyph's own
-            // left bearing happens to fill the gap — see leftGroup).
+            // Mirror of leftGroup, but the outer edge here needs
+            // moduleOuterMargin too: Clock ends in a digit with near-zero
+            // right bearing, so it needs the explicit margin to match
+            // waybar's spacing.
             implicitWidth: rightRow.implicitWidth + theme.groupEdgePadding + theme.moduleOuterMargin
 
             RowLayout {
@@ -122,30 +109,14 @@ PanelWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 10
 
-                // Tray/Privacy/Weather are DP-1-only (see isDp1 above) and
-                // each carry real per-instance cost beyond a bare Item — Tray
-                // decodes/uploads a texture per systray icon, Privacy and
-                // Weather each mount their own hover popup — so they're
-                // wrapped in a Loader gated on isDp1 instead of just being
-                // built and hidden via `visible`. A plain `visible: false`
-                // instance still fully exists (still runs, still costs
-                // memory/CPU) on the two non-DP1 bars; Loader with
-                // `active: false` never instantiates the component at all.
-                // isDp1 is fixed for a given bar's lifetime (derived from
-                // modelData.name, which doesn't change), so `active` here
-                // never toggles after creation — unlike Privacy's own
-                // internal `visible: micActive`, which still needs to keep
-                // animating the smooth width-collapse once loaded (see
-                // Layout.preferredWidth below).
+                // Tray/Privacy/Weather are DP-1-only and each cost more than
+                // a bare Item (icon textures, hover popups), so they're
+                // Loader-gated instead of just hidden via `visible`.
                 Loader {
                     active: barWindow.isDp1
-                    // `active: false` alone leaves this Loader a visible
-                    // zero-width RowLayout item — QtQuick.Layouts still
-                    // reserves `spacing` on both sides of a *visible*
-                    // zero-width item, only a genuinely invisible item is
-                    // excluded from the row (and its spacing) entirely. That
-                    // leftover spacing was a real gap on the two non-DP1
-                    // bars where this module never renders anything.
+                    // `active: false` alone leaves a visible zero-width item,
+                    // which still reserves RowLayout spacing on both sides;
+                    // `visible: active` excludes it properly.
                     visible: active
                     Layout.preferredWidth: item ? item.implicitWidth : 0
                     sourceComponent: Tray {
@@ -160,12 +131,8 @@ PanelWindow {
                 }
                 Loader {
                     active: barWindow.isDp1
-                    // Same spacing-exclusion need as Tray/Weather's `visible:
-                    // active` below, but this Loader also has to track
-                    // Privacy's own internal `visible: micActive` (inside
-                    // Privacy.qml) once loaded, not just isDp1 — otherwise a
-                    // muted mic on DP-1 would reintroduce the exact same
-                    // stray-spacing gap this fix is for.
+                    // Also tracks Privacy's own visible: micActive once
+                    // loaded, not just isDp1.
                     visible: item ? item.visible : false
                     Layout.preferredWidth: item && item.visible ? item.implicitWidth : 0
                     sourceComponent: Privacy {
@@ -177,8 +144,6 @@ PanelWindow {
                 }
                 Loader {
                     active: barWindow.isDp1
-                    // See Tray's Loader above for why `visible` is needed
-                    // alongside `active`.
                     visible: active
                     Layout.preferredWidth: item ? item.implicitWidth : 0
                     sourceComponent: Weather {

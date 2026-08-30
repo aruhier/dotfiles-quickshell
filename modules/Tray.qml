@@ -11,13 +11,9 @@ Item {
 
     required property var theme
 
-    // Matches waybar's shared module rule `padding: 0 6px` (same rule #mpd
-    // uses), so the gap here lines up with the one on the right of #mpd.
+    // Matches waybar's shared `padding: 0 6px` module rule.
     implicitWidth: row.implicitWidth + 12
     implicitHeight: theme.barHeight
-    // Smooth resize as tray icons come and go — see Theme.qml's
-    // resizeDuration. (Individual icons still pop in/out instantly; only
-    // the module's overall width eases.)
     clip: true
 
     Behavior on implicitWidth {
@@ -82,16 +78,8 @@ Item {
                     anchorItem: trayIcon
                     theme: root.theme
                     show: hover.containsMouse
-                    // `title` first, not `tooltipTitle`: some apps (e.g.
-                    // CopyQ) report garbage in their SNI ToolTip text (seen
-                    // in practice: a leaked FreeType/Qt debug string, not
-                    // anything app-related) while `title` is reliably the
-                    // clean app name for every app tested. Waybar's own
-                    // src/modules/sni/item.cpp prefers tooltip.text first
-                    // and would show the same garbage for a broken app like
-                    // this; deviating here on purpose since showing a
-                    // command-looking string instead of an app name is a
-                    // real, visible bug worth avoiding.
+                    // `title` first: some apps report garbage in their SNI
+                    // tooltip text; `title` is reliably clean.
                     text: trayIcon.modelData.title || trayIcon.modelData.tooltipTitle || trayIcon.modelData.id
                 }
             }

@@ -2,16 +2,12 @@ pragma Singleton
 import QtQuick
 import Quickshell.Io
 
-// Shared mpd state for the whole qs process — one persistent `mpc idleloop`
-// subscription system-wide instead of one per monitor/Bar, and instead of
-// polling `mpc status` on a fixed timer regardless of whether anything
-// changed. `mpc idleloop <subsystem>` blocks on mpd's own `idle` protocol
-// command and only prints a line when that subsystem actually changes
-// (confirmed: a volume/mixer change while subscribed to just "player"
-// produces no output at all) — refresh() then re-reads status/current on
-// demand instead of every 2s regardless of whether anything happened.
-// Mpd.qml (one instance per output) just reads these properties; only this
-// singleton owns the Processes/Timer.
+// Shared mpd state for the whole process — one `mpc idleloop` subscription
+// instead of one per monitor/Bar, and instead of polling on a fixed timer.
+// `mpc idleloop <subsystem>` blocks on mpd's `idle` command and only prints
+// when that subsystem changes; refresh() re-reads status/current on demand.
+// Mpd.qml just reads these properties; only this singleton owns the
+// Processes/Timer.
 QtObject {
     id: root
 
@@ -29,10 +25,8 @@ QtObject {
             root.playbackState = "disconnected";
             return;
         }
-        // mpc status prints [state] on the last line before "volume:" only
-        // when a song is loaded (line 0 is then the song title, not
-        // "volume:..."), so find the state line by content rather than a
-        // fixed index.
+        // The [state] line only appears when a song is loaded, so find it
+        // by content rather than a fixed line index.
         var lines = text.split("\n");
         var hasVolumeLine = false;
         var stateLine = null;
@@ -87,11 +81,8 @@ QtObject {
         }
     }
 
-    // Long-lived subscription: one connection blocked in mpd's own `idle`
-    // command instead of a busy poll. Restricted to "player" (play/pause/
-    // stop/track-change) since that's the only subsystem this module
-    // displays — a mixer (volume) or options change correctly produces no
-    // output here and no wasted refresh.
+    // Long-lived subscription; restricted to "player" since that's the only
+    // subsystem this module displays.
     property Process idleProc: Process {
         id: idleProc
         command: ["mpc", "idleloop", "player"]
@@ -103,10 +94,8 @@ QtObject {
         onExited: restartTimer.start()
     }
 
-    // mpc idleloop exits (rather than retrying itself) if mpd isn't running
-    // or drops the connection — reconnect after a delay, same pattern as
-    // services/SwayNCService.qml's subscription. Also re-syncs state on
-    // reconnect in case something changed while disconnected.
+    // idleloop exits if mpd isn't running or drops the connection —
+    // reconnect after a delay and re-sync state.
     property Timer restartTimer: Timer {
         id: restartTimer
         interval: 5000
