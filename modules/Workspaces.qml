@@ -116,26 +116,50 @@ Rectangle {
 
         // The focused delegate's offset *within* row, sprung on its own —
         // this is what should slide when focus moves between existing
-        // workspaces. row.x (added below, unanimated) is deliberately kept
-        // out of this spring: row.x already eases smoothly on its own via
-        // root's implicitWidth spring + anchors.centerIn, so re-adding it
-        // straight through every frame keeps this glued to row's real
-        // position instead of chasing it with a second, independent spring
-        // — that double-spring is what visibly fought the pill's own
-        // resize when a workspace was created and focused at once.
-        property real focusedLocalX: root.focusedDelegate ? root.focusedDelegate.x : 0
+        // workspaces.
+        // Sticky fallback (": focusedLocalX" not ": 0") — Hyprland's IPC
+        // appears to deliver "workspace destroyed" and "new workspace
+        // focused" as separate updates, not atomically, so focusedDelegate
+        // can be transiently null for a frame while switching away from an
+        // empty workspace. Falling back to 0 there would snap the target to
+        // row's origin and back, flashing the indicator in the wrong place;
+        // holding the last known value instead just leaves it parked until
+        // the real focus target resolves.
+        property real focusedLocalX: root.focusedDelegate ? root.focusedDelegate.x : focusedLocalX
         Behavior on focusedLocalX {
             SpringAnimation {
-                spring: Theme.springSpring
-                damping: Theme.springDamping
+                spring: Theme.workspaceSpringSpring
+                damping: Theme.workspaceSpringDamping
                 epsilon: Theme.springEpsilon
             }
         }
 
-        x: row.x + focusedLocalX
-        y: root.focusedDelegate ? row.y + root.focusedDelegate.y : 0
-        width: root.focusedDelegate ? root.focusedDelegate.width : 0
-        height: root.focusedDelegate ? root.focusedDelegate.height : 0
+        // row.x mirrored through its own spring rather than read live.
+        // row.x is a plain RowLayout-managed geometry property — it snaps
+        // *instantly* the moment a delegate is destroyed (RowLayout
+        // recomputes synchronously), while focusedLocalX only reaches its
+        // new target on the next animation tick (springs, doesn't jump).
+        // Reading row.x live meant "already-new row.x" got added to
+        // "still-old focusedLocalX" for one frame — confirmed via debug
+        // logging: row.x jumping 15->32 instantly while focusedLocalX was
+        // still at the previous focus's value (306) produced a real,
+        // reproducible ~2px overflow past root's (not-yet-shrunk) edge
+        // every time a focused workspace was destroyed. Springing this too
+        // means both halves move smoothly together and can't mismatch by a
+        // whole delegate-width in a single frame.
+        property real rowXOffset: row.x
+        Behavior on rowXOffset {
+            SpringAnimation {
+                spring: Theme.workspaceSpringSpring
+                damping: Theme.workspaceSpringDamping
+                epsilon: Theme.springEpsilon
+            }
+        }
+
+        x: rowXOffset + focusedLocalX
+        y: root.focusedDelegate ? row.y + root.focusedDelegate.y : y
+        width: root.focusedDelegate ? root.focusedDelegate.width : width
+        height: root.focusedDelegate ? root.focusedDelegate.height : height
 
         Behavior on width {
             SpringAnimation {
