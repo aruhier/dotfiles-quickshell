@@ -19,9 +19,10 @@ Rectangle {
     clip: true
 
     Behavior on implicitWidth {
-        NumberAnimation {
-            duration: Theme.resizeDuration
-            easing.type: Theme.resizeEasing
+        SpringAnimation {
+            spring: Theme.springSpring
+            damping: Theme.springDamping
+            epsilon: Theme.springEpsilon
         }
     }
 

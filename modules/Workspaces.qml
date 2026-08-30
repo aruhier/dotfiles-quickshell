@@ -28,9 +28,10 @@ Rectangle {
     clip: true
 
     Behavior on implicitWidth {
-        NumberAnimation {
-            duration: Theme.resizeDuration
-            easing.type: Theme.resizeEasing
+        SpringAnimation {
+            spring: Theme.workspaceSpringSpring
+            damping: Theme.workspaceSpringDamping
+            epsilon: Theme.springEpsilon
         }
     }
 
@@ -67,9 +68,10 @@ Rectangle {
                 // button chrome isn't in style.css, only measurable).
                 Layout.preferredWidth: isSpecial ? 0 : Math.round(Math.max(label.implicitWidth + 18, 34))
                 Behavior on Layout.preferredWidth {
-                    NumberAnimation {
-                        duration: Theme.resizeDuration
-                        easing.type: Theme.resizeEasing
+                    SpringAnimation {
+                        spring: Theme.workspaceSpringSpring
+                        damping: Theme.workspaceSpringDamping
+                        epsilon: Theme.springEpsilon
                     }
                 }
                 // Square, flush buttons; rounding avoids stray 1px seams.
@@ -103,6 +105,47 @@ Rectangle {
         }
     }
 
+    // Shared square that slides/resizes to whichever delegate is focused,
+    // instead of each delegate snapping its own fill. Painted above `row`
+    // but below `labels`.
+    Rectangle {
+        id: selection
+        visible: root.focusedDelegate !== null
+        color: Theme.accent
+        antialiasing: false
+
+        // The focused delegate's offset *within* row, sprung on its own —
+        // this is what should slide when focus moves between existing
+        // workspaces. row.x (added below, unanimated) is deliberately kept
+        // out of this spring: row.x already eases smoothly on its own via
+        // root's implicitWidth spring + anchors.centerIn, so re-adding it
+        // straight through every frame keeps this glued to row's real
+        // position instead of chasing it with a second, independent spring
+        // — that double-spring is what visibly fought the pill's own
+        // resize when a workspace was created and focused at once.
+        property real focusedLocalX: root.focusedDelegate ? root.focusedDelegate.x : 0
+        Behavior on focusedLocalX {
+            SpringAnimation {
+                spring: Theme.springSpring
+                damping: Theme.springDamping
+                epsilon: Theme.springEpsilon
+            }
+        }
+
+        x: row.x + focusedLocalX
+        y: root.focusedDelegate ? row.y + root.focusedDelegate.y : 0
+        width: root.focusedDelegate ? root.focusedDelegate.width : 0
+        height: root.focusedDelegate ? root.focusedDelegate.height : 0
+
+        Behavior on width {
+            SpringAnimation {
+                spring: Theme.workspaceSpringSpring
+                damping: Theme.workspaceSpringDamping
+                epsilon: Theme.springEpsilon
+            }
+        }
+    }
+
     // Index of the focused workspace, -1 if none.
     readonly property int focusedIndex: {
         var wss = Hyprland.workspaces.values;
@@ -115,33 +158,6 @@ Rectangle {
     // repeater.itemAt() alone never re-evaluates once items exist; reading
     // repeater.count (a real NOTIFY property) keeps this live.
     readonly property var focusedDelegate: repeater.count > 0 && focusedIndex >= 0 ? repeater.itemAt(focusedIndex) : null
-
-    // Shared square that slides/resizes to whichever delegate is focused,
-    // instead of each delegate snapping its own fill. Painted above `row`
-    // but below `labels`.
-    Rectangle {
-        id: selection
-        visible: root.focusedDelegate !== null
-        color: Theme.accent
-        antialiasing: false
-        x: root.focusedDelegate ? row.x + root.focusedDelegate.x : 0
-        y: root.focusedDelegate ? row.y + root.focusedDelegate.y : 0
-        width: root.focusedDelegate ? root.focusedDelegate.width : 0
-        height: root.focusedDelegate ? root.focusedDelegate.height : 0
-
-        Behavior on x {
-            NumberAnimation {
-                duration: Theme.resizeDuration
-                easing.type: Theme.resizeEasing
-            }
-        }
-        Behavior on width {
-            NumberAnimation {
-                duration: Theme.resizeDuration
-                easing.type: Theme.resizeEasing
-            }
-        }
-    }
 
     // Static top layer of visible labels, positioned over their matching
     // delegate but never moving themselves — only `selection` slides.

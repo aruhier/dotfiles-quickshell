@@ -56,8 +56,27 @@ QtObject {
     // .modules-center's pill caps: fixed 15px border on the container.
     readonly property int centerCapWidth: 15
 
-    // Modules ease implicitWidth through this instead of snapping when
-    // content size changes.
-    readonly property int resizeDuration: 150
-    readonly property int resizeEasing: Easing.OutCubic
+    // Modules ease implicitWidth (and Workspaces' sliding indicator) through
+    // a SpringAnimation instead of snapping when content size changes.
+    // Hyprland's own spring config (mass: 0.6, stiffness: 460, damping: 35)
+    // does NOT translate directly here — plugging those in broke the
+    // animation entirely, so Qt's SpringAnimation evidently doesn't share
+    // Hyprland's unit convention despite the same underlying ODE shape.
+    // Back to the values that worked: modest spring, small damping.
+    readonly property real springSpring: 4.0
+    readonly property real springDamping: 0.4
+    // Stops the spring once within this many px/units of the target,
+    // instead of asymptotically approaching it forever.
+    readonly property real springEpsilon: 0.25
+
+    // Faster variant for Workspaces.qml's own resize (pill width, delegate
+    // width, and the selection indicator's width, which must all stay in
+    // sync with each other) — kept separate from springSpring/springDamping
+    // so tuning it doesn't also speed up every other module's resize.
+    // Same 2x-spring/proportional-damping bump as the earlier "snappier"
+    // attempt on the shared constants, safe to try here now that
+    // Workspaces.qml's double-spring fight (selection.x vs the pill resize)
+    // is fixed and no longer around to make it read as jittery.
+    readonly property real workspaceSpringSpring: 8.0
+    readonly property real workspaceSpringDamping: 0.56
 }
