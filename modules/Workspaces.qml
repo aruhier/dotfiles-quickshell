@@ -10,8 +10,14 @@ import Quickshell.Hyprland
 //   - .active (waybar's isActive() = focused workspace of the focused
 //     monitor, i.e. quickshell's "focused" — NOT quickshell's "active",
 //     which is true once per monitor and would highlight several
-//     workspaces at once): theme.accent, bold
+//     workspaces at once): theme.accent
 //   - .urgent: theme.workspaceUrgent
+// Beyond waybar parity: each bar also bolds the workspace that's active on
+// *its own* monitor, focused or not (see wsDelegate.activeOnThisScreen).
+// When that monitor isn't the system-focused one, the pill also gets a
+// blended background (Theme.qml's workspaceActiveBg) instead of the
+// sliding accent `selection` indicator, which only ever follows the one
+// true focused workspace — see wsDelegate.activeNotFocused.
 // The button.visible.current_output box-shadow rule in style.css is dead
 // CSS for hyprland/workspaces (that module never sets a "current_output"
 // class, only sway/workspaces does), so it's intentionally not replicated.
@@ -19,6 +25,10 @@ Rectangle {
     id: root
 
     required property var theme
+    // This bar's own output (e.g. "DP-1"), from Bar.qml's `screen`. Needed
+    // to tell "active on this monitor" apart from "active on some other
+    // monitor" — see wsDelegate.activeOnThisScreen.
+    required property string screenName
 
     // .modules-center's cream border-left/right (theme.centerCapWidth),
     // rounded into caps by the pill radius; buttons themselves have
@@ -58,6 +68,17 @@ Rectangle {
                 readonly property bool isSpecial: modelData.name.startsWith("special")
                 readonly property int windows: modelData.lastIpcObject && modelData.lastIpcObject.windows !== undefined
                     ? modelData.lastIpcObject.windows : 0
+                // Active on this bar's own monitor. modelData.active alone
+                // is true once per monitor at a time, so without matching
+                // against screenName every bar would mark one pill per
+                // monitor instead of just its own.
+                readonly property bool activeOnThisScreen: modelData.active
+                    && modelData.monitor !== null && modelData.monitor.name === root.screenName
+                // Active here, but this monitor isn't the system-focused
+                // one (a workspace active on the focused monitor is always
+                // also modelData.focused) — the "other monitor" case that
+                // gets the blended background below instead of `selection`.
+                readonly property bool activeNotFocused: activeOnThisScreen && !modelData.focused
 
                 visible: !isSpecial
                 Layout.preferredHeight: isSpecial ? 0 : root.theme.barHeight
@@ -87,11 +108,13 @@ Rectangle {
                 // this avoids antialiasing softening the shared edge too.
                 antialiasing: false
 
-                // The focused look (accent fill) is no longer painted here —
-                // it's drawn once by the shared `selection` indicator below,
-                // which slides between delegates instead of each one
-                // snapping its own color.
+                // Focused look (accent fill) is drawn once by the shared
+                // `selection` indicator below, not here — it slides between
+                // delegates instead of each one snapping its own color.
+                // activeNotFocused gets its own static background instead,
+                // since `selection` only ever tracks the one focused index.
                 color: modelData.urgent ? root.theme.workspaceUrgent
+                    : activeNotFocused ? root.theme.workspaceActiveBg
                     : windows > 0 ? root.theme.workspaceBg
                     : root.theme.workspaceEmptyBg
 
@@ -213,7 +236,9 @@ Rectangle {
             color: modelData.focused ? root.theme.accentText : root.theme.workspaceEmptyText
             font.family: root.theme.fontFamily
             font.pixelSize: root.theme.fontSize
-            font.bold: modelData.focused
+            // bgItem is this label's matching wsDelegate — reuse its
+            // activeOnThisScreen rather than redoing the monitor check.
+            font.bold: modelData.focused || (bgItem && bgItem.activeOnThisScreen)
         }
     }
 }

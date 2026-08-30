@@ -92,6 +92,7 @@ PanelWindow {
         Workspaces {
             anchors.centerIn: parent
             theme: barWindow.theme
+            screenName: barWindow.modelData.name
         }
 
         // ---- right ----

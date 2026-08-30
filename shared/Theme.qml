@@ -18,6 +18,12 @@ QtObject {
     readonly property color workspaceEmptyBg: "#E5D4CE"
     readonly property color workspaceEmptyText: "#252527"
     readonly property color workspaceUrgent: "#F98BA4"
+    // Not from style.css — an intentional enhancement beyond waybar parity
+    // (see Workspaces.qml): the background for a workspace that's active on
+    // its own monitor but isn't the system-wide focused one, sitting
+    // visually between an ordinary populated workspace (workspaceBg) and
+    // the focused/active one (accent). 50% accent tinted over workspaceBg.
+    readonly property color workspaceActiveBg: Qt.tint(workspaceBg, Qt.rgba(accent.r, accent.g, accent.b, 0.5))
 
     readonly property color critical: "#f53c3c"
     readonly property color privacyActive: "#D14005"
