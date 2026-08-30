@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Widgets
 import Quickshell.Services.SystemTray
+import "../shared"
 
 // Mirrors waybar's "tray" module.
 Item {
@@ -39,7 +40,9 @@ Item {
                 }
 
                 MouseArea {
+                    id: hover
                     anchors.fill: parent
+                    hoverEnabled: true
                     acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
                     onClicked: (mouse) => {
                         if (mouse.button === Qt.LeftButton) {
@@ -62,6 +65,13 @@ Item {
                     anchor.item: trayIcon
                     anchor.edges: Edges.Bottom | Edges.Left
                     anchor.gravity: Edges.Bottom | Edges.Right
+                }
+
+                Tooltip {
+                    anchorItem: trayIcon
+                    theme: root.theme
+                    show: hover.containsMouse
+                    text: trayIcon.modelData.tooltipTitle || trayIcon.modelData.title || trayIcon.modelData.id
                 }
             }
         }

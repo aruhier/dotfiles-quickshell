@@ -27,36 +27,12 @@ PopupWindow {
     }
 
     color: "transparent"
-    // Stay open while the cursor is over the tooltip itself, not just the
-    // anchor. A plain `show || contentHover.containsMouse` OR doesn't work
-    // for this: the anchor and the popup are separate surfaces 4px apart
-    // (see onAnchoring below), so the instant the cursor leaves the anchor,
-    // `show` goes false and the popup (having no idea the cursor is still
-    // travelling toward it) unmaps itself before the cursor ever reaches
-    // `contentHover` — which then never gets a chance to see it. Fixed with
-    // a short grace-period timer instead: closing is delayed, not
-    // immediate, so a normal-speed cursor crossing that 4px gap re-enters
-    // (via `show` or `contentHover`) well before the timer fires.
-    property bool _open: false
-    visible: _open && text.length > 0
-
-    onShowChanged: {
-        if (show) {
-            hideTimer.stop();
-            _open = true;
-        } else {
-            hideTimer.restart();
-        }
-    }
-
-    Timer {
-        id: hideTimer
-        interval: 200
-        onTriggered: {
-            if (!popup.show && !contentHover.containsMouse)
-                popup._open = false;
-        }
-    }
+    // Unlike Weather.qml's bespoke popup, this tooltip is plain text with no
+    // interactive content to move the cursor onto, so it closes the instant
+    // `show` goes false — no grace-period timer. That immediacy is the
+    // point: sweeping across several bar icons in a row should never show
+    // two tooltips overlapping while one waits out a delay.
+    visible: show && text.length > 0
 
     Rectangle {
         id: content
@@ -65,20 +41,6 @@ PopupWindow {
         border.color: popup.theme.accent
         border.width: 1
         radius: 6
-
-        MouseArea {
-            id: contentHover
-            anchors.fill: parent
-            hoverEnabled: true
-            onContainsMouseChanged: {
-                if (containsMouse) {
-                    hideTimer.stop();
-                    popup._open = true;
-                } else {
-                    hideTimer.restart();
-                }
-            }
-        }
 
         Text {
             renderType: Text.NativeRendering
