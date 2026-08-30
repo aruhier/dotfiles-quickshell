@@ -8,16 +8,14 @@ import "../shared"
 Item {
     id: root
 
-    required property var theme
-
     implicitWidth: content.implicitWidth + 12
-    implicitHeight: theme.barHeight
+    implicitHeight: Theme.barHeight
     clip: true
 
     Behavior on implicitWidth {
         NumberAnimation {
-            duration: root.theme.resizeDuration
-            easing.type: root.theme.resizeEasing
+            duration: Theme.resizeDuration
+            easing.type: Theme.resizeEasing
         }
     }
 
@@ -43,9 +41,9 @@ Item {
             renderType: Text.NativeRendering
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
-            font.family: root.theme.fontFamily
-            font.pixelSize: root.theme.iconSize(root.iconSizeRatio)
-            color: root.theme.groupText
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.iconSize(root.iconSizeRatio)
+            color: Theme.groupText
             text: "󰃭"
         }
 
@@ -53,9 +51,9 @@ Item {
             id: label
             renderType: Text.NativeRendering
             anchors.verticalCenter: parent.verticalCenter
-            font.family: root.theme.fontFamily
-            font.pixelSize: root.theme.fontSize
-            color: root.theme.groupText
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize
+            color: Theme.groupText
             text: Qt.formatDateTime(root.now, "ddd dd MMM  hh:mm")
         }
     }
@@ -71,7 +69,6 @@ Item {
     HoverPopup {
         id: popup
         anchorItem: root
-        theme: root.theme
 
         // Month currently displayed, independent of the live clock — reset
         // to the current month each time the popup opens so navigating away
@@ -169,7 +166,7 @@ Item {
                     renderType: Text.NativeRendering
                     text: "‹"
                     font.pixelSize: 16
-                    color: root.theme.text
+                    color: Theme.text
                     MouseArea {
                         anchors.fill: parent
                         anchors.margins: -6
@@ -185,7 +182,7 @@ Item {
                     text: Qt.formatDate(new Date(popup.viewYear, popup.viewMonth, 1), "MMMM yyyy")
                     font.pixelSize: 14
                     font.bold: true
-                    color: root.theme.textBright
+                    color: Theme.textBright
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
@@ -197,7 +194,7 @@ Item {
                     renderType: Text.NativeRendering
                     text: "›"
                     font.pixelSize: 16
-                    color: root.theme.text
+                    color: Theme.text
                     MouseArea {
                         anchors.fill: parent
                         anchors.margins: -6
@@ -210,7 +207,7 @@ Item {
             Rectangle {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 1
-                color: root.theme.groupBg
+                color: Theme.groupBg
             }
 
             // ---- day-of-week header ----
@@ -227,7 +224,7 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         text: modelData
                         font.pixelSize: 11
-                        color: root.theme.text
+                        color: Theme.text
                         opacity: 0.7
                     }
                 }
@@ -239,14 +236,14 @@ Item {
                         Layout.preferredWidth: 28
                         Layout.preferredHeight: 24
                         radius: 6
-                        color: modelData.isToday ? root.theme.accent : "transparent"
+                        color: modelData.isToday ? Theme.accent : "transparent"
 
                         Text {
                             renderType: Text.NativeRendering
                             anchors.centerIn: parent
                             text: modelData.day
                             font.pixelSize: 12
-                            color: modelData.isToday ? root.theme.accentText : (modelData.inMonth ? root.theme.textBright : root.theme.text)
+                            color: modelData.isToday ? Theme.accentText : (modelData.inMonth ? Theme.textBright : Theme.text)
                             opacity: modelData.inMonth ? 1.0 : 0.35
                         }
                     }

@@ -12,7 +12,6 @@ PanelWindow {
     required property var modelData
     screen: modelData
 
-    readonly property var theme: Theme {}
     readonly property bool isDp1: modelData.name === "DP-1"
 
     anchors {
@@ -21,9 +20,9 @@ PanelWindow {
         right: true
     }
     margins.bottom: 1
-    implicitHeight: theme.barHeight + theme.barBorderHeight
+    implicitHeight: Theme.barHeight + Theme.barBorderHeight
     exclusionMode: ExclusionMode.Auto
-    color: theme.barBg
+    color: Theme.barBg
 
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "quickshell-bar"
@@ -33,8 +32,8 @@ PanelWindow {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        height: theme.barBorderHeight
-        color: theme.barBorder
+        height: Theme.barBorderHeight
+        color: Theme.barBorder
     }
 
     // The 22px content area above the border stripe (border is extra
@@ -46,14 +45,14 @@ PanelWindow {
             left: parent.left
             right: parent.right
         }
-        height: theme.barHeight
+        height: Theme.barHeight
 
         // ---- left ----
         // Flush against the screen edge, rounded only on the inner side —
         // mirrors .modules-left's one-sided pill.
         Rectangle {
             id: leftGroup
-            color: theme.groupBg
+            color: Theme.groupBg
             topRightRadius: height / 2
             bottomRightRadius: height / 2
             anchors.left: parent.left
@@ -62,7 +61,7 @@ PanelWindow {
             // Only the inner edge gets groupEdgePadding; no outer margin
             // here since Mpd's own glyph bearing already lands its ink at
             // the right spot (unlike rightGroup, see below).
-            implicitWidth: leftRow.implicitWidth + theme.groupEdgePadding
+            implicitWidth: leftRow.implicitWidth + Theme.groupEdgePadding
             visible: leftRow.implicitWidth > 0
 
             RowLayout {
@@ -71,26 +70,21 @@ PanelWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 10
 
-                Mpd {
-                    theme: barWindow.theme
-                }
-                Submap {
-                    theme: barWindow.theme
-                }
+                Mpd {}
+                Submap {}
             }
         }
 
         // ---- center ----
         Workspaces {
             anchors.centerIn: parent
-            theme: barWindow.theme
             screenName: barWindow.modelData.name
         }
 
         // ---- right ----
         Rectangle {
             id: rightGroup
-            color: theme.groupBg
+            color: Theme.groupBg
             topLeftRadius: height / 2
             bottomLeftRadius: height / 2
             anchors.right: parent.right
@@ -100,12 +94,12 @@ PanelWindow {
             // moduleOuterMargin too: Clock ends in a digit with near-zero
             // right bearing, so it needs the explicit margin to match
             // waybar's spacing.
-            implicitWidth: rightRow.implicitWidth + theme.groupEdgePadding + theme.moduleOuterMargin
+            implicitWidth: rightRow.implicitWidth + Theme.groupEdgePadding + Theme.moduleOuterMargin
 
             RowLayout {
                 id: rightRow
                 anchors.right: parent.right
-                anchors.rightMargin: theme.moduleOuterMargin
+                anchors.rightMargin: Theme.moduleOuterMargin
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 10
 
@@ -119,40 +113,26 @@ PanelWindow {
                     // `visible: active` excludes it properly.
                     visible: active
                     Layout.preferredWidth: item ? item.implicitWidth : 0
-                    sourceComponent: Tray {
-                        theme: barWindow.theme
-                    }
+                    sourceComponent: Tray {}
                 }
-                Backlight {
-                    theme: barWindow.theme
-                }
-                Volume {
-                    theme: barWindow.theme
-                }
+                Backlight {}
+                Volume {}
                 Loader {
                     active: barWindow.isDp1
                     // Also tracks Privacy's own visible: micActive once
                     // loaded, not just isDp1.
                     visible: item ? item.visible : false
                     Layout.preferredWidth: item && item.visible ? item.implicitWidth : 0
-                    sourceComponent: Privacy {
-                        theme: barWindow.theme
-                    }
+                    sourceComponent: Privacy {}
                 }
-                SwayNC {
-                    theme: barWindow.theme
-                }
+                SwayNC {}
                 Loader {
                     active: barWindow.isDp1
                     visible: active
                     Layout.preferredWidth: item ? item.implicitWidth : 0
-                    sourceComponent: Weather {
-                        theme: barWindow.theme
-                    }
+                    sourceComponent: Weather {}
                 }
-                Clock {
-                    theme: barWindow.theme
-                }
+                Clock {}
             }
         }
     }

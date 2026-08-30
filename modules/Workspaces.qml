@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Hyprland
+import "../shared"
 
 // Mirrors waybar's "hyprland/workspaces" with all-outputs: true — every
 // workspace on every monitor shown on every bar. Colors match style.css:
@@ -14,14 +15,13 @@ import Quickshell.Hyprland
 Rectangle {
     id: root
 
-    required property var theme
     // This bar's own output name, to tell "active on this monitor" apart
     // from "active on some other monitor".
     required property string screenName
 
-    readonly property int capWidth: theme.centerCapWidth
+    readonly property int capWidth: Theme.centerCapWidth
 
-    color: theme.workspaceEmptyBg
+    color: Theme.workspaceEmptyBg
     radius: height / 2
     implicitWidth: row.implicitWidth + capWidth * 2
     implicitHeight: row.implicitHeight
@@ -29,8 +29,8 @@ Rectangle {
 
     Behavior on implicitWidth {
         NumberAnimation {
-            duration: root.theme.resizeDuration
-            easing.type: root.theme.resizeEasing
+            duration: Theme.resizeDuration
+            easing.type: Theme.resizeEasing
         }
     }
 
@@ -59,14 +59,14 @@ Rectangle {
                 readonly property bool activeNotFocused: activeOnThisScreen && !modelData.focused
 
                 visible: !isSpecial
-                Layout.preferredHeight: isSpecial ? 0 : root.theme.barHeight
+                Layout.preferredHeight: isSpecial ? 0 : Theme.barHeight
                 // 34px empirical minimum from a waybar screenshot (GTK's own
                 // button chrome isn't in style.css, only measurable).
                 Layout.preferredWidth: isSpecial ? 0 : Math.round(Math.max(label.implicitWidth + 18, 34))
                 Behavior on Layout.preferredWidth {
                     NumberAnimation {
-                        duration: root.theme.resizeDuration
-                        easing.type: root.theme.resizeEasing
+                        duration: Theme.resizeDuration
+                        easing.type: Theme.resizeEasing
                     }
                 }
                 // Square, flush buttons; rounding avoids stray 1px seams.
@@ -74,10 +74,10 @@ Rectangle {
 
                 // Focused fill is drawn by the shared `selection` indicator
                 // below, not here.
-                color: modelData.urgent ? root.theme.workspaceUrgent
-                    : activeNotFocused ? root.theme.workspaceActiveBg
-                    : windows > 0 ? root.theme.workspaceBg
-                    : root.theme.workspaceEmptyBg
+                color: modelData.urgent ? Theme.workspaceUrgent
+                    : activeNotFocused ? Theme.workspaceActiveBg
+                    : windows > 0 ? Theme.workspaceBg
+                    : Theme.workspaceEmptyBg
 
                 // Invisible — only exists to size Layout.preferredWidth. The
                 // real label lives in the separate `labels` Repeater below,
@@ -87,8 +87,8 @@ Rectangle {
                     id: label
                     visible: false
                     text: modelData.name
-                    font.family: root.theme.fontFamily
-                    font.pixelSize: root.theme.fontSize
+                    font.family: Theme.fontFamily
+                    font.pixelSize: Theme.fontSize
                 }
 
                 MouseArea {
@@ -119,7 +119,7 @@ Rectangle {
     Rectangle {
         id: selection
         visible: root.focusedDelegate !== null
-        color: root.theme.accent
+        color: Theme.accent
         antialiasing: false
         x: root.focusedDelegate ? row.x + root.focusedDelegate.x : 0
         y: root.focusedDelegate ? row.y + root.focusedDelegate.y : 0
@@ -128,14 +128,14 @@ Rectangle {
 
         Behavior on x {
             NumberAnimation {
-                duration: root.theme.resizeDuration
-                easing.type: root.theme.resizeEasing
+                duration: Theme.resizeDuration
+                easing.type: Theme.resizeEasing
             }
         }
         Behavior on width {
             NumberAnimation {
-                duration: root.theme.resizeDuration
-                easing.type: root.theme.resizeEasing
+                duration: Theme.resizeDuration
+                easing.type: Theme.resizeEasing
             }
         }
     }
@@ -157,9 +157,9 @@ Rectangle {
             x: bgItem ? row.x + bgItem.x + (bgItem.width - implicitWidth) / 2 : 0
             y: bgItem ? row.y + bgItem.y + (bgItem.height - implicitHeight) / 2 : 0
             text: modelData.name
-            color: modelData.focused ? root.theme.accentText : root.theme.workspaceEmptyText
-            font.family: root.theme.fontFamily
-            font.pixelSize: root.theme.fontSize
+            color: modelData.focused ? Theme.accentText : Theme.workspaceEmptyText
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize
             font.bold: modelData.focused || (bgItem && bgItem.activeOnThisScreen)
         }
     }

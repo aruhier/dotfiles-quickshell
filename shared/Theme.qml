@@ -1,6 +1,8 @@
+pragma Singleton
 import QtQuick
 
-// Palette + metrics mirrored from ~/dotfiles/waybar/style.css.
+// Palette + metrics mirrored from ~/dotfiles/waybar/style.css. Singleton:
+// pure static data shared process-wide instead of one instance per output.
 QtObject {
     readonly property color barBg: "#2d2d2d"
     readonly property color barBorder: "#6AA099"

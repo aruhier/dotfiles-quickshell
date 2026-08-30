@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.Pipewire
+import "../shared"
 
 // Approximates waybar's "privacy" module: shows a mic icon while any app has
 // an open audio-capture stream (waybar also checks RUNNING state; quickshell's
@@ -15,8 +16,6 @@ import Quickshell.Services.Pipewire
 Item {
     id: root
 
-    required property var theme
-
     readonly property bool micActive: {
         var nodes = Pipewire.nodes.values;
         for (var i = 0; i < nodes.length; i++) {
@@ -30,13 +29,13 @@ Item {
     // Unconditional — see Mpd.qml for why gating width on the same property
     // as `visible` breaks visibility.
     implicitWidth: label.implicitWidth + 8
-    implicitHeight: theme.barHeight
+    implicitHeight: Theme.barHeight
     clip: true
 
     Behavior on implicitWidth {
         NumberAnimation {
-            duration: root.theme.resizeDuration
-            easing.type: root.theme.resizeEasing
+            duration: Theme.resizeDuration
+            easing.type: Theme.resizeEasing
         }
     }
 
@@ -50,8 +49,8 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
         anchors.verticalCenterOffset: root.iconVerticalOffset
-        font.family: root.theme.fontFamily
-        font.pixelSize: root.theme.iconSize(root.iconSizeRatio)
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.iconSize(root.iconSizeRatio)
         color: "#D14005"
         text: "󰍬"
     }

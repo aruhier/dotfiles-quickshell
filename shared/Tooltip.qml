@@ -8,7 +8,6 @@ PopupWindow {
     id: popup
 
     required property Item anchorItem
-    required property var theme
     property string text: ""
     property bool show: false
     property int maxWidth: 480
@@ -35,7 +34,7 @@ PopupWindow {
         id: content
         anchors.fill: parent
         color: "#1e1e1e"
-        border.color: popup.theme.accent
+        border.color: Theme.accent
         border.width: 1
         radius: 6
 
@@ -47,9 +46,9 @@ PopupWindow {
             text: popup.text
             textFormat: Text.RichText
             wrapMode: Text.WordWrap
-            color: popup.theme.groupText
-            font.family: popup.theme.fontFamily
-            font.pixelSize: popup.theme.fontSize
+            color: Theme.groupText
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize
         }
     }
 

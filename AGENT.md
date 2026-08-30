@@ -27,10 +27,12 @@ modules/*.qml         one file per Waybar module — thin views, no owned
                       subprocesses/network/timers for cross-monitor state
 services/*.qml        pragma-Singleton types holding state + the actual
                       subprocess/network I/O for anything system-wide
-                      (MpdService, SwayNCService, WeatherService) — one
-                      poll/subscription/fetch cycle for the whole process
-                      regardless of monitor count
-shared/Theme.qml      palette + metrics, mirrored from style.css
+                      (BacklightService, MpdService, SwayNCService,
+                      WeatherService) — one poll/subscription/fetch cycle
+                      for the whole process regardless of monitor count
+shared/Theme.qml      pragma-Singleton palette + metrics, mirrored from
+                      style.css — shared process-wide, not one instance
+                      per output
 shared/Tooltip.qml    reusable hover popup
 shared/WeatherIcons.js glyph/description lookup table for weather codes
 ```

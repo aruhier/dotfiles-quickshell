@@ -21,7 +21,6 @@ PopupWindow {
     id: popup
 
     required property Item anchorItem
-    required property var theme
 
     property int cornerRadius: 10
     property int padding: 14
@@ -83,7 +82,7 @@ PopupWindow {
     Rectangle {
         anchors.fill: parent
         color: "#1e1e1e"
-        border.color: popup.theme.accent
+        border.color: Theme.accent
         border.width: 1
         radius: popup.cornerRadius
 

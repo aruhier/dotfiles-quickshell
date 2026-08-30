@@ -1,27 +1,29 @@
 import QtQuick
-import Quickshell.Io
+import "../services"
+import "../shared"
 
-// Mirrors waybar's "backlight" module. Reads /sys/class/backlight directly;
-// hides itself when there's no backlight device (e.g. external monitors).
+// Mirrors waybar's "backlight" module. Actual /sys/class/backlight polling
+// lives in services/BacklightService.qml (singleton, one poll cycle for the
+// whole process regardless of monitor count); this is just a thin view over
+// that shared state. Hides itself when there's no backlight device (e.g.
+// external monitors).
 Item {
     id: root
 
-    required property var theme
-
-    property real percent: 0
-    property bool available: false
+    readonly property real percent: BacklightService.percent
+    readonly property bool available: BacklightService.available
 
     visible: available
     // Unconditional, not gated on `available`: see Mpd.qml for why gating
     // width on the same property as `visible` breaks visibility.
     implicitWidth: content.implicitWidth + 12
-    implicitHeight: theme.barHeight
+    implicitHeight: Theme.barHeight
     clip: true
 
     Behavior on implicitWidth {
         NumberAnimation {
-            duration: root.theme.resizeDuration
-            easing.type: root.theme.resizeEasing
+            duration: Theme.resizeDuration
+            easing.type: Theme.resizeEasing
         }
     }
 
@@ -38,9 +40,9 @@ Item {
             id: label
             renderType: Text.NativeRendering
             anchors.verticalCenter: parent.verticalCenter
-            font.family: root.theme.fontFamily
-            font.pixelSize: root.theme.fontSize
-            color: root.theme.groupText
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize
+            color: Theme.groupText
             text: Math.round(root.percent) + "%"
         }
 
@@ -48,9 +50,9 @@ Item {
             renderType: Text.NativeRendering
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
-            font.family: root.theme.fontFamily
-            font.pixelSize: root.theme.iconSize(root.iconSizeRatio)
-            color: root.theme.groupText
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.iconSize(root.iconSizeRatio)
+            color: Theme.groupText
             text: root.percent < 50 ? "󰃞" : "󰃠"
         }
     }
@@ -60,47 +62,7 @@ Item {
         onWheel: (event) => {
             if (!root.available)
                 return;
-            bumpProc.exec(["sh", "-c", "brightnessctl set " + (event.angleDelta.y > 0 ? "+5%" : "5%-") + " >/dev/null 2>&1 || true"]);
-        }
-    }
-
-    Process {
-        id: bumpProc
-        onExited: pollProc.running = true
-    }
-
-    Process {
-        id: pollProc
-        command: ["sh", "-c", "d=$(ls /sys/class/backlight 2>/dev/null | head -1); if [ -n \"$d\" ]; then cur=$(cat /sys/class/backlight/$d/brightness); max=$(cat /sys/class/backlight/$d/max_brightness); echo \"$cur $max\"; fi"]
-        stdout: StdioCollector {
-            id: collector
-            onStreamFinished: {
-                var out = collector.text.trim();
-                if (!out) {
-                    root.available = false;
-                    return;
-                }
-                var parts = out.split(" ");
-                var cur = parseFloat(parts[0]);
-                var max = parseFloat(parts[1]);
-                if (max > 0) {
-                    root.percent = (cur / max) * 100;
-                    root.available = true;
-                } else {
-                    root.available = false;
-                }
-            }
-        }
-    }
-
-    Timer {
-        interval: 5000
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: {
-            pollProc.running = false;
-            pollProc.running = true;
+            BacklightService.bump(event.angleDelta.y > 0 ? "+5%" : "5%-");
         }
     }
 }

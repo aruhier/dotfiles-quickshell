@@ -1,5 +1,6 @@
 import QtQuick
 import "../services"
+import "../shared"
 
 // Mirrors waybar's "mpd" module (via mpc, since quickshell has no built-in
 // mpd client and mpd isn't exposed over mpris here). Actual polling lives
@@ -7,8 +8,6 @@ import "../services"
 // process); this is just a thin view over that shared state.
 Item {
     id: root
-
-    required property var theme
 
     // Named playbackState, not "state" — Item already has a built-in
     // "state" property and shadowing it silently breaks bindings.
@@ -24,13 +23,13 @@ Item {
     // implicitWidth in a binding also gated on `visible` leaves `visible`
     // stuck due to a QML binding-evaluation quirk.
     implicitWidth: content.implicitWidth + 12
-    implicitHeight: theme.barHeight
+    implicitHeight: Theme.barHeight
     clip: true
 
     Behavior on implicitWidth {
         NumberAnimation {
-            duration: root.theme.resizeDuration
-            easing.type: root.theme.resizeEasing
+            duration: Theme.resizeDuration
+            easing.type: Theme.resizeEasing
         }
     }
 
@@ -58,9 +57,9 @@ Item {
             // float above the label instead of looking centered against it.
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
-            font.family: root.theme.fontFamily
-            font.pixelSize: root.theme.iconSize(root.iconSizeRatio)
-            color: root.theme.groupText
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.iconSize(root.iconSizeRatio)
+            color: Theme.groupText
             text: root.playbackState === "playing" ? "󰐊"
                 : root.playbackState === "paused" ? "󰏤"
                 : "󰓛"
@@ -71,9 +70,9 @@ Item {
             renderType: Text.NativeRendering
             anchors.verticalCenter: parent.verticalCenter
             visible: root.hasTrack
-            font.family: root.theme.fontFamily
-            font.pixelSize: root.theme.fontSize
-            color: root.theme.groupText
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize
+            color: Theme.groupText
             text: root.hasTrack ? root.truncate(root.artist, root.artistLen) + " - " + root.truncate(root.title, root.titleLen) : ""
         }
     }

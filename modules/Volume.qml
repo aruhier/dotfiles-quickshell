@@ -1,12 +1,11 @@
 import QtQuick
 import Quickshell
 import Quickshell.Services.Pipewire
+import "../shared"
 
 // Mirrors waybar's "pulseaudio" module (backed by pipewire-pulse here).
 Item {
     id: root
-
-    required property var theme
 
     readonly property var sink: Pipewire.defaultAudioSink
     readonly property bool muted: sink && sink.ready && sink.audio ? sink.audio.muted : false
@@ -17,13 +16,13 @@ Item {
     }
 
     implicitWidth: content.implicitWidth + 12
-    implicitHeight: theme.barHeight
+    implicitHeight: Theme.barHeight
     clip: true
 
     Behavior on implicitWidth {
         NumberAnimation {
-            duration: root.theme.resizeDuration
-            easing.type: root.theme.resizeEasing
+            duration: Theme.resizeDuration
+            easing.type: Theme.resizeEasing
         }
     }
 
@@ -42,9 +41,9 @@ Item {
             renderType: Text.NativeRendering
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
-            font.family: root.theme.fontFamily
-            font.pixelSize: root.theme.iconSize(root.iconSizeRatio)
-            color: root.theme.groupText
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.iconSize(root.iconSizeRatio)
+            color: Theme.groupText
             // waybar's "format-muted" replaces the whole format while muted.
             text: root.muted ? "󰝟" : root.pct < 33 ? "󰕿" : root.pct < 66 ? "󰖀" : "󰕾"
         }
@@ -54,9 +53,9 @@ Item {
             renderType: Text.NativeRendering
             anchors.verticalCenter: parent.verticalCenter
             visible: !root.muted
-            font.family: root.theme.fontFamily
-            font.pixelSize: root.theme.fontSize
-            color: root.theme.groupText
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.fontSize
+            color: Theme.groupText
             text: root.pct + "%"
         }
     }

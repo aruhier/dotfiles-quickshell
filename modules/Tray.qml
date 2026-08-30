@@ -9,17 +9,15 @@ import "../shared"
 Item {
     id: root
 
-    required property var theme
-
     // Matches waybar's shared `padding: 0 6px` module rule.
     implicitWidth: row.implicitWidth + 12
-    implicitHeight: theme.barHeight
+    implicitHeight: Theme.barHeight
     clip: true
 
     Behavior on implicitWidth {
         NumberAnimation {
-            duration: root.theme.resizeDuration
-            easing.type: root.theme.resizeEasing
+            duration: Theme.resizeDuration
+            easing.type: Theme.resizeEasing
         }
     }
 
@@ -76,7 +74,6 @@ Item {
 
                 Tooltip {
                     anchorItem: trayIcon
-                    theme: root.theme
                     show: hover.containsMouse
                     // `title` first: some apps report garbage in their SNI
                     // tooltip text; `title` is reliably clean.
