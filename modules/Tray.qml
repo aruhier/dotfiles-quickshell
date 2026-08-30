@@ -14,6 +14,13 @@ Item {
     implicitHeight: Theme.barHeight
     clip: true
 
+    // Currently-hovered delegate Item, or null. One Tooltip PopupWindow is
+    // shared across every tray icon instead of each delegate owning its
+    // own — a PopupWindow is a real compositor surface, and only one can
+    // ever be shown at a time anyway (MouseAreas don't overlap), so N-1 of
+    // them just sat there idle for the process lifetime.
+    property Item hoveredIcon: null
+
     Behavior on implicitWidth {
         NumberAnimation {
             duration: Theme.resizeDuration
@@ -49,6 +56,12 @@ Item {
                     anchors.fill: parent
                     hoverEnabled: true
                     acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+                    onContainsMouseChanged: {
+                        if (containsMouse)
+                            root.hoveredIcon = trayIcon;
+                        else if (root.hoveredIcon === trayIcon)
+                            root.hoveredIcon = null;
+                    }
                     onClicked: (mouse) => {
                         if (mouse.button === Qt.LeftButton) {
                             if (trayIcon.modelData.hasMenu && trayIcon.modelData.onlyMenu)
@@ -72,14 +85,22 @@ Item {
                     anchor.gravity: Edges.Bottom | Edges.Right
                 }
 
-                Tooltip {
-                    anchorItem: trayIcon
-                    show: hover.containsMouse
-                    // `title` first: some apps report garbage in their SNI
-                    // tooltip text; `title` is reliably clean.
-                    text: trayIcon.modelData.title || trayIcon.modelData.tooltipTitle || trayIcon.modelData.id
+                // Guard against a tray icon disappearing mid-hover (app
+                // quits while its tooltip is showing) leaving root.hoveredIcon
+                // pointing at a destroyed delegate.
+                Component.onDestruction: {
+                    if (root.hoveredIcon === trayIcon)
+                        root.hoveredIcon = null;
                 }
             }
         }
+    }
+
+    Tooltip {
+        anchorItem: root.hoveredIcon || root
+        show: root.hoveredIcon !== null
+        // `title` first: some apps report garbage in their SNI tooltip
+        // text; `title` is reliably clean.
+        text: root.hoveredIcon ? (root.hoveredIcon.modelData.title || root.hoveredIcon.modelData.tooltipTitle || root.hoveredIcon.modelData.id) : ""
     }
 }
