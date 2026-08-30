@@ -25,7 +25,9 @@ shell.qml            Variants{ model: Quickshell.screens } → one Bar per outpu
 modules/Bar.qml       PanelWindow per output; left/center/right groups
 modules/*.qml         one file per Waybar module (Clock, Mpd, Workspaces, ...)
 shared/Theme.qml      the palette + metrics, mirrored from style.css — single
-                      source of truth for colors so modules never hardcode hex
+                      source of truth for colors *and* magic-number layout
+                      constants (padding, cap widths, ...) so modules never
+                      hardcode hex or bare pixel numbers
 shared/Tooltip.qml    reusable hover popup (Waybar's GTK tooltip equivalent)
 shared/WeatherIcons.js glyph/description lookup table for weather codes
 ```
@@ -266,6 +268,21 @@ Waybar side (`config.d/common.json`), diff against those directly instead
 of just the CSS — spacing/icon-size for `tray` (and potentially other
 modules) live in the JSON config, not `style.css`, and are easy to miss if
 you only ever grep the stylesheet.
+
+**Follow-up fix (2026-08-30):** even after the spacing/icon-size fix above,
+`Tray.qml` still had a gap wrong: `implicitWidth: row.implicitWidth` had no
+allowance for `style.css`'s shared per-module rule (`#tray, #mpd, #privacy,
+#custom-swaync, #custom-weather, ... { padding: 0 6px; margin: 0 4px; }`,
+around line 100 of `style.css`) that every one of these single-icon-ish
+modules gets, including `#tray`. That rule is easy to miss because it's a
+comma-list selector shared across many modules, not a `#tray`-specific
+block — grepping for `#tray` alone skips it. Fixed by widening to
+`row.implicitWidth + 12` (the `0 6px` padding on both sides), which lines
+the tray's left edge up with e.g. mpd's right-side gap. **Lesson:** when
+diffing a module's box model against `style.css`, always check for a
+shared/grouped selector matching that module's ID in addition to any
+module-specific block — `grep -n '#modulename'` alone misses rules where
+the module is one name in a longer selector list.
 
 Also worth knowing for scaled outputs: **DP-1 runs at Hyprland `scale:
 1.25`**, not 1 — `hyprctl monitors -j` now reports `"scale": 1.25` for it

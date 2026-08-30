@@ -46,4 +46,14 @@ QtObject {
     // #waybar > box's border-bottom: 3px solid — genuine extra height below
     // the 22px content area, not an overlay on top of it.
     readonly property int barBorderHeight: 3
+
+    // One-sided inner-edge pad for the left/right groups: style.css's
+    // `.modules-left { border-width: 0 12px 0 0; }` / `.modules-right
+    // { border-width: 0 0 0 12px; }` — only the side facing the center gets
+    // it, the flush/outer edge gets none (see Bar.qml's leftGroup/rightGroup).
+    readonly property int groupEdgePadding: 12
+    // .modules-center's cream pill caps: a fixed 15px border-left/right on
+    // the container itself, independent of the buttons inside (see
+    // Workspaces.qml).
+    readonly property int centerCapWidth: 15
 }

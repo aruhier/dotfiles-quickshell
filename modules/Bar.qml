@@ -61,13 +61,11 @@ PanelWindow {
             anchors.left: parent.left
             anchors.top: parent.top
             anchors.bottom: parent.bottom
-            // Only the inner (right) edge gets the 12px pad, matching
-            // style.css's `.modules-left { border-width: 0 12px 0 0; }` —
-            // the outer/flush edge gets none, so content sits flush against
-            // the screen edge like waybar (see leftRow's anchors below; a
-            // symmetric centerIn here previously added a spurious 12px on
-            // the flush side too).
-            implicitWidth: leftRow.implicitWidth + 12
+            // Only the inner (right) edge gets theme.groupEdgePadding, so
+            // the outer/flush edge sits flush against the screen edge like
+            // waybar (see leftRow's anchors below; a symmetric centerIn here
+            // previously added a spurious pad on the flush side too).
+            implicitWidth: leftRow.implicitWidth + theme.groupEdgePadding
             visible: leftRow.implicitWidth > 0
 
             RowLayout {
@@ -100,10 +98,9 @@ PanelWindow {
             anchors.right: parent.right
             anchors.top: parent.top
             anchors.bottom: parent.bottom
-            // Mirror of leftGroup: only the inner (left) edge gets the 12px
-            // pad (style.css's `.modules-right { border-width: 0 0 0 12px; }`),
-            // outer/flush edge gets none.
-            implicitWidth: rightRow.implicitWidth + 12
+            // Mirror of leftGroup: only the inner (left) edge gets
+            // theme.groupEdgePadding, outer/flush edge gets none.
+            implicitWidth: rightRow.implicitWidth + theme.groupEdgePadding
 
             RowLayout {
                 id: rightRow

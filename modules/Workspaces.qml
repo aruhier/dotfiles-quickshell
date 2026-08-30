@@ -20,9 +20,10 @@ Rectangle {
 
     required property var theme
 
-    // .modules-center's 15px cream border-left/right, rounded into caps by
-    // the pill radius; buttons themselves have border-radius: 0.
-    readonly property int capWidth: 15
+    // .modules-center's cream border-left/right (theme.centerCapWidth),
+    // rounded into caps by the pill radius; buttons themselves have
+    // border-radius: 0.
+    readonly property int capWidth: theme.centerCapWidth
 
     color: theme.workspaceEmptyBg
     radius: height / 2
