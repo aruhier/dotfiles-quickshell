@@ -205,10 +205,35 @@ Item {
             else
                 root.fetchForecast();
         }
+        onContainsMouseChanged: {
+            if (containsMouse) {
+                popupHideTimer.stop();
+                popup._open = true;
+            } else {
+                popupHideTimer.restart();
+            }
+        }
+    }
+
+    Timer {
+        id: popupHideTimer
+        interval: 200
+        onTriggered: {
+            if (!hover.containsMouse && !popupHover.containsMouse)
+                popup._open = false;
+        }
     }
 
     PopupWindow {
         id: popup
+
+        // See shared/Tooltip.qml for why this needs a grace-period timer
+        // rather than a plain `hover.containsMouse || popupHover.containsMouse`
+        // OR: the module and the popup are separate surfaces 4px apart (see
+        // onAnchoring below), so the instant the cursor leaves the module,
+        // a non-debounced OR would unmap the popup before the cursor ever
+        // reaches it.
+        property bool _open: false
 
         anchor {
             window: root.QsWindow.window
@@ -224,7 +249,7 @@ Item {
         }
 
         color: "transparent"
-        visible: hover.containsMouse && root.hasContent
+        visible: _open && root.hasContent
         implicitWidth: 400
         implicitHeight: body.implicitHeight + 28
 
@@ -234,6 +259,20 @@ Item {
             border.color: root.theme.accent
             border.width: 1
             radius: 10
+
+            MouseArea {
+                id: popupHover
+                anchors.fill: parent
+                hoverEnabled: true
+                onContainsMouseChanged: {
+                    if (containsMouse) {
+                        popupHideTimer.stop();
+                        popup._open = true;
+                    } else {
+                        popupHideTimer.restart();
+                    }
+                }
+            }
 
             ColumnLayout {
                 id: body

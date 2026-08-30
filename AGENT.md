@@ -195,6 +195,25 @@ conditions in `Bar.qml` to match.
   interior gaps — and re-derive the fix per-glyph/per-side by measurement,
   not by assuming a symmetric formula will look symmetric.
 
+- **A hover popup (`shared/Tooltip.qml`, and `Weather.qml`'s own bespoke
+  one) that should "stay open when the cursor moves onto it" needs a
+  grace-period timer, not just `anchorHover.containsMouse ||
+  popupHover.containsMouse`.** The popup is a separate `PopupWindow`
+  surface, positioned a few px below the anchor (`onAnchoring`'s `+ 4`).
+  With a plain OR: the instant the cursor leaves the anchor, `visible`
+  re-evaluates to false (the popup's own `containsMouse` is still false —
+  the cursor hasn't arrived yet) and the popup unmaps itself *before* the
+  cursor crosses that gap, so its `MouseArea` never gets a chance to see the
+  cursor arrive — it just looks like the popup closes the moment you try to
+  move onto it. Fixed by delaying the close instead of doing it immediately:
+  a `Timer` (~200ms) starts counting only once *both* the anchor and the
+  popup report `containsMouse: false`, and gets stopped/reset the moment
+  either one reports true again — a normal-speed cursor crossing a few px
+  comfortably beats 200ms, so the popup never actually closes mid-transit.
+  Both `Tooltip.qml` and `Weather.qml`'s popup need this same pattern
+  independently (they don't share an implementation) — if a third module
+  ever grows its own hover popup, it needs it too.
+
 - **Adjacent same-color `Rectangle`s in a `RowLayout` can show a 1px seam.**
   If sibling widths are fractional (e.g. `label.implicitWidth + 18` where
   `implicitWidth` is rarely an integer), `RowLayout` accumulates rounding
