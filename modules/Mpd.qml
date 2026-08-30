@@ -40,7 +40,13 @@ Item {
     // compensate — tuned per module since different glyphs (and, here, a
     // variable-length label) sit differently within their own box; re-tune
     // by eye if it drifts.
-    readonly property int iconVerticalOffset: 1
+    readonly property real iconVerticalOffset: 0
+
+    // The play/pause/stop glyphs read visually smaller than other modules'
+    // icons at the shared iconFontSize (small filled shapes vs. e.g. a full
+    // bell/speaker outline) — bias this module's icon size up a bit. See
+    // Theme.qml's iconSize().
+    readonly property real iconSizeRatio: 1.1
 
     Row {
         id: content
@@ -61,7 +67,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
             font.family: root.theme.fontFamily
-            font.pixelSize: root.theme.iconFontSize
+            font.pixelSize: root.theme.iconSize(root.iconSizeRatio)
             color: root.theme.groupText
             text: root.playbackState === "playing" ? "󰐊"
                 : root.playbackState === "paused" ? "󰏤"

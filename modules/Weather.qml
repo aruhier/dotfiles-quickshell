@@ -31,7 +31,13 @@ Item {
 
     // Nudges the compact bar icon down from its box-center — see Mpd.qml's
     // iconVerticalOffset for why. Tuned per module.
-    readonly property int iconVerticalOffset: 1
+    readonly property real iconVerticalOffset: 0.5
+
+    // Bias against the shared iconFontSize — see Theme.qml's iconSize().
+    // 1.0 = no change; no bias needed here. (Only the bar glyph uses this —
+    // the popup's forecast icons below use their own hardcoded sizes, not
+    // theme.iconFontSize.)
+    readonly property real iconSizeRatio: 0.9
 
     function displayTemp(c) {
         return Math.round(c) + "°C";
@@ -184,7 +190,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
             font.family: root.theme.fontFamily
-            font.pixelSize: root.theme.iconFontSize
+            font.pixelSize: root.theme.iconSize(root.iconSizeRatio)
             color: root.theme.groupText
             text: root.current ? WeatherIcons.iconFor(root.current.code, root.current.isDay) : root.errored ? "?" : ""
         }

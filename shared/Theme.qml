@@ -50,6 +50,28 @@ QtObject {
     // of fontSize to compensate. Empirical value, not derived from waybar's
     // CSS (which has no separate icon size) — re-tune by eye if it drifts.
     readonly property int iconFontSize: 15
+
+    // Per-module icon-glyph size bias: a module multiplies iconFontSize by
+    // its own ratio (1.0 = no change, the default) when its specific glyph
+    // needs to read bigger/smaller than every other module's icon — e.g. one
+    // glyph looking visually smaller than its neighbors despite the shared
+    // pixelSize. The ratio itself is a per-module tuning knob and lives on
+    // the module (a local property next to the Text it sizes), not here —
+    // this just centralizes the base value so modules don't hand-roll the
+    // math. Only modules that need a bias call this; everyone else keeps
+    // using iconFontSize directly.
+    //
+    // Deliberately not rounded to an int: Text.font.pixelSize is a real
+    // property here (confirmed empirically — a fractional value loads with
+    // no QML type error, unlike an actually int-typed property), and on a
+    // fractionally-scaled output (e.g. DP-1 at 1.25x) rounding to a whole
+    // logical pixel first then letting the compositor scale it can land on a
+    // different physical size than handing Qt the precise fractional value
+    // up front. Let Qt's own text layer handle the fractional size.
+    function iconSize(ratio) {
+        return iconFontSize * (ratio === undefined ? 1.0 : ratio);
+    }
+
     readonly property int barHeight: 22
     // #waybar > box's border-bottom: 3px solid — genuine extra height below
     // the 22px content area, not an overlay on top of it.

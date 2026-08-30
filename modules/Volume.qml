@@ -23,7 +23,11 @@ Item {
 
     // Nudges the icon down from its box-center — see Mpd.qml's
     // iconVerticalOffset for why. Tuned per module.
-    readonly property int iconVerticalOffset: 1
+    readonly property real iconVerticalOffset: 0.5
+
+    // Bias against the shared iconFontSize — see Theme.qml's iconSize().
+    // 1.0 = no change; no bias needed here.
+    readonly property real iconSizeRatio: 1.1
 
     Row {
         id: content
@@ -36,7 +40,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
             font.family: root.theme.fontFamily
-            font.pixelSize: root.theme.iconFontSize
+            font.pixelSize: root.theme.iconSize(root.iconSizeRatio)
             color: root.theme.groupText
             // waybar's "format-muted" is a standalone format (icon only,
             // no volume%) that replaces "format" entirely while muted.
