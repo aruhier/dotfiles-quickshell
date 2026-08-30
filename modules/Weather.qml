@@ -198,7 +198,12 @@ Item {
                 spacing: 4
 
                 Repeater {
-                    model: root.hourly
+                    // Gated on popup.visible (not just root.hourly) so the
+                    // delegate items are destroyed while the popup is
+                    // closed, mirroring Clock.qml's calendar-grid pattern,
+                    // rather than staying resident for as long as
+                    // WeatherService has data (i.e. always).
+                    model: popup.visible ? root.hourly : []
                     delegate: ColumnLayout {
                         // maximumWidth must be overridden or fillWidth
                         // does nothing: QtQuick.Layouts auto-clamps a
@@ -247,7 +252,7 @@ Item {
                 spacing: 6
 
                 Repeater {
-                    model: root.daily
+                    model: popup.visible ? root.daily : []
                     delegate: RowLayout {
                         Layout.fillWidth: true
                         spacing: 8
