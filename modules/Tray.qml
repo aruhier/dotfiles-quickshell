@@ -10,7 +10,9 @@ Item {
 
     required property var theme
 
-    implicitWidth: row.implicitWidth
+    // Matches waybar's shared module rule `padding: 0 6px` (same rule #mpd
+    // uses), so the gap here lines up with the one on the right of #mpd.
+    implicitWidth: row.implicitWidth + 12
     implicitHeight: theme.barHeight
 
     RowLayout {
