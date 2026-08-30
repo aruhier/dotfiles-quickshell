@@ -35,6 +35,26 @@ Rectangle {
         }
     }
 
+    // Shared text metrics for pill sizing, instead of an invisible Text per
+    // delegate — font is constant across delegates, only the string differs.
+    FontMetrics {
+        id: wsMetrics
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontSize
+    }
+
+    // `row` sizes/positions purely from its own children (RowLayout
+    // recomputes synchronously — its width/x can snap the instant a
+    // delegate is added or removed, same as it always has). `selection`
+    // and the label Repeater are deliberately kept as its *siblings* here,
+    // not reparented inside it — QtQuick.Layouts has no "ignoreLayout"
+    // opt-out on this Qt build (confirmed against plugins.qmltypes) that
+    // would let them live inside a RowLayout without being managed as
+    // layout cells, and a non-Layout wrapper Item around `row` doesn't
+    // actually help either: that wrapper's own position would *still* snap
+    // instantly for the same reason `row.x` does, so nothing would be
+    // gained over keeping `row` as-is. See `selection.targetX` below for
+    // how the resulting instant-snap is actually handled.
     RowLayout {
         id: row
         anchors.centerIn: parent
@@ -66,7 +86,7 @@ Rectangle {
                 Layout.preferredHeight: isSpecial ? 0 : Theme.barHeight
                 // 34px empirical minimum from a waybar screenshot (GTK's own
                 // button chrome isn't in style.css, only measurable).
-                Layout.preferredWidth: isSpecial ? 0 : Math.round(Math.max(label.implicitWidth + 18, 34))
+                Layout.preferredWidth: isSpecial ? 0 : Math.round(Math.max(wsMetrics.advanceWidth(modelData.name) + 18, 34))
                 Behavior on Layout.preferredWidth {
                     SpringAnimation {
                         spring: Theme.workspaceSpringSpring
@@ -83,18 +103,6 @@ Rectangle {
                     : activeNotFocused ? Theme.workspaceActiveBg
                     : windows > 0 ? Theme.workspaceBg
                     : Theme.workspaceEmptyBg
-
-                // Invisible — only exists to size Layout.preferredWidth. The
-                // real label lives in the separate `labels` Repeater below,
-                // since a sibling can't paint above this delegate's fill but
-                // below another delegate's text for many delegates at once.
-                Text {
-                    id: label
-                    visible: false
-                    text: modelData.name
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSize
-                }
 
                 MouseArea {
                     anchors.fill: parent
@@ -117,6 +125,24 @@ Rectangle {
         // The focused delegate's offset *within* row, sprung on its own —
         // this is what should slide when focus moves between existing
         // workspaces.
+        //
+        // Three variants of this were tried and rejected before this one:
+        // (1) a single spring over row.x + focusedDelegate.x summed and
+        // gated together behind "focusedDelegate exists" — correct, but
+        // freezes solid during the gap between a workspace being destroyed
+        // and Hyprland reporting the new focus target, then has to catch up
+        // in one motion, which reads as two disconnected steps; (2) the
+        // same single spring but with row.x read live/ungated so it keeps
+        // tracking row's reflow during that gap — smoother-looking in
+        // principle, but sums a *live* row.x against a *frozen* local
+        // offset from before the deletion, landing on a geometrically
+        // arbitrary point that often coincides with a neighboring pill,
+        // i.e. the indicator visibly jumps to the wrong workspace first and
+        // then corrects. Springing each term separately (this version) and
+        // summing the two *animated* results is what was actually shipped
+        // and felt right — kept as-is; see rowXOffset below for why row.x
+        // also needs its own mirrored spring rather than being read live.
+        //
         // Sticky fallback (": focusedLocalX" not ": 0") — Hyprland's IPC
         // appears to deliver "workspace destroyed" and "new workspace
         // focused" as separate updates, not atomically, so focusedDelegate
@@ -170,21 +196,11 @@ Rectangle {
         }
     }
 
-    // Index of the focused workspace, -1 if none.
-    readonly property int focusedIndex: {
-        var wss = Hyprland.workspaces.values;
-        for (var i = 0; i < wss.length; i++) {
-            if (wss[i].focused)
-                return i;
-        }
-        return -1;
-    }
-    // repeater.itemAt() alone never re-evaluates once items exist; reading
-    // repeater.count (a real NOTIFY property) keeps this live.
-    readonly property var focusedDelegate: repeater.count > 0 && focusedIndex >= 0 ? repeater.itemAt(focusedIndex) : null
-
     // Static top layer of visible labels, positioned over their matching
-    // delegate but never moving themselves — only `selection` slides.
+    // delegate but never moving themselves — only `selection` slides. Reads
+    // row.x/bgItem.x live (unsprung) on purpose: labels aren't animated at
+    // all, so they always match the pills' actual current position exactly,
+    // with no spring-lag of their own to desync against.
     Repeater {
         model: Hyprland.workspaces
 
@@ -193,6 +209,8 @@ Rectangle {
             required property var modelData
             required property int index
 
+            // repeater.itemAt() alone never re-evaluates once items exist;
+            // reading repeater.count (a real NOTIFY property) keeps this live.
             readonly property var bgItem: repeater.count > index ? repeater.itemAt(index) : null
 
             renderType: Text.NativeRendering
@@ -206,4 +224,17 @@ Rectangle {
             font.bold: modelData.focused || (bgItem && bgItem.activeOnThisScreen)
         }
     }
+
+    // Index of the focused workspace, -1 if none.
+    readonly property int focusedIndex: {
+        var wss = Hyprland.workspaces.values;
+        for (var i = 0; i < wss.length; i++) {
+            if (wss[i].focused)
+                return i;
+        }
+        return -1;
+    }
+    // repeater.itemAt() alone never re-evaluates once items exist; reading
+    // repeater.count (a real NOTIFY property) keeps this live.
+    readonly property var focusedDelegate: repeater.count > 0 && focusedIndex >= 0 ? repeater.itemAt(focusedIndex) : null
 }
