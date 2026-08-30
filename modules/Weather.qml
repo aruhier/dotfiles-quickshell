@@ -355,7 +355,18 @@ Item {
                     Repeater {
                         model: root.hourly
                         delegate: ColumnLayout {
+                            // fillWidth alone doesn't let this column grow:
+                            // QtQuick.Layouts auto-binds a nested Layout's
+                            // (this ColumnLayout's) maximumWidth to its own
+                            // implicitWidth by default, clamping it right
+                            // back to its natural content size regardless of
+                            // fillWidth — see AGENT.md for how this was
+                            // diagnosed. minimumWidth/preferredWidth don't
+                            // need the same override: they only affect the
+                            // exact per-column split of the extra space, not
+                            // whether the row reaches full width at all.
                             Layout.fillWidth: true
+                            Layout.maximumWidth: Number.POSITIVE_INFINITY
                             spacing: 3
                             Text {
                                 renderType: Text.NativeRendering

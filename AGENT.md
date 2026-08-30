@@ -214,6 +214,41 @@ conditions in `Bar.qml` to match.
   independently (they don't share an implementation) — if a third module
   ever grows its own hover popup, it needs it too.
 
+- **`Layout.fillWidth: true` on a `Repeater` delegate that is itself a
+  `Layout` (e.g. a `ColumnLayout` inside a `RowLayout`, like
+  `Weather.qml`'s hourly-forecast columns) silently does nothing unless
+  `Layout.maximumWidth` is also explicitly overridden.** QtQuick.Layouts
+  auto-binds a nested `Layout` item's `minimumWidth`, `preferredWidth`, AND
+  `maximumWidth` to its own `implicitWidth` by default — for a plain
+  `Item`/`Rectangle` delegate this doesn't matter (those default
+  `minimumWidth`/`maximumWidth` to 0/∞), but for a `Layout`-type delegate it
+  means `fillWidth` has nowhere to expand into: `maximumWidth` clamps it
+  right back to its natural content size. Symptom looked exactly like "the
+  row isn't using the full popup width" — the 8 hourly columns stayed
+  clustered on the left with dead space after the last one, while a plain
+  `Rectangle` divider two lines above/below (using the same
+  `Layout.fillWidth: true`, but not itself a `Layout`) spans correctly.
+  Diagnosed by temporarily wrapping the `RowLayout` in a colored debug
+  `Rectangle`: confirmed the row itself got the full available width from
+  its parent `ColumnLayout` — the clamp was strictly inside the row, on each
+  delegate. Took two attempts to fix — first tried `preferredWidth: 0` and
+  `minimumWidth: 0`, no visible change at all; only adding
+  `maximumWidth: Number.POSITIVE_INFINITY` fixed it. Once identified, tested
+  removing the `preferredWidth`/`minimumWidth` overrides again with only
+  `maximumWidth` still overridden (pixel-diffed against the 3-property
+  version — visually identical, sub-pixel-only difference): **only
+  `maximumWidth` is actually load-bearing here** — `minimumWidth`/
+  `preferredWidth` only affect how the extra space is split *between*
+  columns, not whether the row reaches full width at all, so the final code
+  overrides just `maximumWidth`. **Lesson:** when a `Layout.fillWidth` item
+  refuses to grow and it's itself a `RowLayout`/`ColumnLayout`/`GridLayout`
+  (not a plain `Item`), suspect the default
+  `maximumWidth`-from-`implicitWidth` binding specifically; and if a
+  property fix produces zero visible change on restart, don't assume the
+  reload didn't take — add a crude visual probe (a colored debug
+  `Rectangle`) to see which nesting level is actually the one refusing to
+  move, rather than guessing at more properties blind.
+
 - **Adjacent same-color `Rectangle`s in a `RowLayout` can show a 1px seam.**
   If sibling widths are fractional (e.g. `label.implicitWidth + 18` where
   `implicitWidth` is rarely an integer), `RowLayout` accumulates rounding
