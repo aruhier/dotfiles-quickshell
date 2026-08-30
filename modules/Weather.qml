@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Widgets
 import "../services"
+import "../shared"
 import "../shared/WeatherIcons.js" as WeatherIcons
 
 // Native weather widget: bar icon+temperature plus its own popup (current +
@@ -101,6 +102,7 @@ Item {
         onContainsMouseChanged: {
             if (containsMouse) {
                 popupHideTimer.stop();
+                PopupCoordinator.activate(root);
                 popup._open = true;
             } else {
                 popupHideTimer.restart();
@@ -108,12 +110,21 @@ Item {
         }
     }
 
+    // Closes immediately (no grace period) when PopupCoordinator hands
+    // ownership to a different module's popup.
+    function forceClosePopup() {
+        popupHideTimer.stop();
+        popup._open = false;
+    }
+
     Timer {
         id: popupHideTimer
         interval: 200
         onTriggered: {
-            if (!hover.containsMouse && !popupHover.containsMouse)
+            if (!hover.containsMouse && !popupHover.containsMouse) {
                 popup._open = false;
+                PopupCoordinator.deactivate(root);
+            }
         }
     }
 
@@ -157,6 +168,7 @@ Item {
                 onContainsMouseChanged: {
                     if (containsMouse) {
                         popupHideTimer.stop();
+                        PopupCoordinator.activate(root);
                         popup._open = true;
                     } else {
                         popupHideTimer.restart();
