@@ -259,6 +259,59 @@ conditions in `Bar.qml` to match.
   also sets `antialiasing: false` (buttons are unrounded and sit flush, so
   there's no benefit to it, only a softened shared edge to avoid).
 
+## QML gotchas hit in this repo
+
+- **A property binding that only *calls* `Repeater.itemAt()` — without also
+  *reading* a real NOTIFY-backed property like `Repeater.count` in the same
+  expression — evaluates once and then never again, staying stale (often
+  `null`) forever, with zero warnings anywhere (not even `-vv`).** QML's
+  automatic dependency tracking only hooks into property *reads*; a method
+  call like `itemAt()` isn't one, so nothing tells the binding to
+  re-evaluate later even though the Repeater's items keep changing. Hit
+  this in `Workspaces.qml`'s sliding selection indicator (see below): both
+  `focusedDelegate` and each label's `bgItem` looked up their matching
+  delegate via `repeater.itemAt(i)`, and on this codebase's normal ~1s
+  startup timing, that first (and only) evaluation raced ahead of the
+  Repeater actually finishing item creation — so the indicator was
+  invisible from launch, and every workspace label was invisible too,
+  until a focus change happened to flip `focusedIndex` and force a
+  re-evaluation that then succeeded. Diagnosed by adding a temporary
+  bright debug `Rectangle` behind the suspect item (confirmed it never
+  rendered at all, ruling out "wrong position/color" in favor of "binding
+  never fires") — a useful general technique when something should be
+  visible and silently isn't, with no error to chase. Fixed by folding a
+  genuinely-tracked read into the same expression:
+  `repeater.count > index ? repeater.itemAt(index) : null` — `count` has a
+  real `countChanged` signal, so now the binding re-fires whenever the
+  Repeater's population changes, self-correcting regardless of the race.
+  **Lesson:** any QML binding that calls a model/view method (`itemAt()`,
+  and likely others in the same family) needs a real property read in the
+  same expression to actually stay live — never assume "it compiled with
+  no errors and no warnings" means a binding is doing what it looks like
+  it does.
+
+## Intentional enhancements beyond Waybar parity
+
+Waybar itself doesn't animate any of this — these were requested explicitly
+in-session as visual polish, not bugs to "fix" back to instant snapping:
+
+- **Every module eases its `implicitWidth`** (`Theme.qml`'s `resizeDuration`/
+  `resizeEasing`) instead of snapping when its content changes size (mpd
+  title length, volume%, tray icon count, ...). This alone reflows the
+  whole bar smoothly with no per-container animation needed — see
+  `Theme.qml`'s comment for why the cascade through each `RowLayout` is
+  automatic.
+- **`Workspaces.qml`'s focused-workspace highlight is a single shared
+  `selection` Rectangle that slides/resizes between delegates**, instead of
+  each delegate just snapping its own fill to accent color in place. The
+  actual workspace labels are a *separate* static top layer (`labels`
+  Repeater) that never moves — only the colored square underneath travels;
+  see that file's comments for why the label had to be pulled out of the
+  delegate to make this work (a sibling can't be "above this delegate's
+  fill but below that delegate's text" for many delegates at once), and see
+  the "QML gotchas" section above for the `Repeater.itemAt()` staleness bug
+  hit while building this.
+
 ## Known, deliberate deviations from Waybar
 
 - **`Privacy.qml`** only replicates the `audio-in` (mic) privacy indicator.
