@@ -91,4 +91,15 @@ QtObject {
     // the container itself, independent of the buttons inside (see
     // Workspaces.qml).
     readonly property int centerCapWidth: 15
+
+    // Shared "smooth resize" tuning: modules whose content changes size
+    // (mpd title length, volume%, tray icon count, ...) ease their
+    // implicitWidth through this instead of snapping. This alone is enough
+    // to reflow the whole bar smoothly with no per-container animation
+    // needed: each RowLayout's own implicitWidth (and in turn leftGroup/
+    // rightGroup's, which just bind to it) is a plain expression that
+    // re-reads its children's implicitWidth, so it — and everything
+    // downstream — recomputes on every animation frame for free.
+    readonly property int resizeDuration: 150
+    readonly property int resizeEasing: Easing.OutCubic
 }

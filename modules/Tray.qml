@@ -15,6 +15,17 @@ Item {
     // uses), so the gap here lines up with the one on the right of #mpd.
     implicitWidth: row.implicitWidth + 12
     implicitHeight: theme.barHeight
+    // Smooth resize as tray icons come and go — see Theme.qml's
+    // resizeDuration. (Individual icons still pop in/out instantly; only
+    // the module's overall width eases.)
+    clip: true
+
+    Behavior on implicitWidth {
+        NumberAnimation {
+            duration: root.theme.resizeDuration
+            easing.type: root.theme.resizeEasing
+        }
+    }
 
     RowLayout {
         id: row

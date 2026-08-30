@@ -25,6 +25,17 @@ Item {
     // binding-evaluation bug that leaves `visible` stuck.
     implicitWidth: content.implicitWidth + 12
     implicitHeight: theme.barHeight
+    // See Theme.qml's resizeDuration: content (already resized) would
+    // otherwise poke out past this Item's still-catching-up bounds while
+    // growing.
+    clip: true
+
+    Behavior on implicitWidth {
+        NumberAnimation {
+            duration: root.theme.resizeDuration
+            easing.type: root.theme.resizeEasing
+        }
+    }
 
     function truncate(s, len) {
         return s.length > len ? s.substring(0, len - 1) + "…" : s;

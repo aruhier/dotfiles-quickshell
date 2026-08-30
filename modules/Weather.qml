@@ -28,6 +28,16 @@ Item {
 
     implicitWidth: hasContent ? content.implicitWidth + 12 : 0
     implicitHeight: theme.barHeight
+    // Smooth resize — see Theme.qml's resizeDuration. Also covers the
+    // initial 0 -> real-width grow once the first forecast arrives.
+    clip: true
+
+    Behavior on implicitWidth {
+        NumberAnimation {
+            duration: root.theme.resizeDuration
+            easing.type: root.theme.resizeEasing
+        }
+    }
 
     // Nudges the compact bar icon down from its box-center — see Mpd.qml's
     // iconVerticalOffset for why. Tuned per module.

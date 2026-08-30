@@ -18,6 +18,15 @@ Item {
     // child's implicitWidth breaks visibility.
     implicitWidth: content.implicitWidth + 12
     implicitHeight: theme.barHeight
+    // Smooth resize — see Theme.qml's resizeDuration.
+    clip: true
+
+    Behavior on implicitWidth {
+        NumberAnimation {
+            duration: root.theme.resizeDuration
+            easing.type: root.theme.resizeEasing
+        }
+    }
 
     // Nudges the icon down from its box-center — see Mpd.qml's
     // iconVerticalOffset for why. Tuned per module.

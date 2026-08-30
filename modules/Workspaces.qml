@@ -29,6 +29,16 @@ Rectangle {
     radius: height / 2
     implicitWidth: row.implicitWidth + capWidth * 2
     implicitHeight: row.implicitHeight
+    // Smooth resize as workspaces are created/destroyed — see Theme.qml's
+    // resizeDuration.
+    clip: true
+
+    Behavior on implicitWidth {
+        NumberAnimation {
+            duration: root.theme.resizeDuration
+            easing.type: root.theme.resizeEasing
+        }
+    }
 
     RowLayout {
         id: row
@@ -60,6 +70,15 @@ Rectangle {
                 // (three separate button blocks all landed within 1px of
                 // 34px/button), not derived from any stylesheet value.
                 Layout.preferredWidth: isSpecial ? 0 : Math.round(Math.max(label.implicitWidth + 18, 34))
+                // Bold (focused) vs regular metrics shift a button's own
+                // width slightly — smooth that too, same tuning as the
+                // group's own resize (Theme.qml's resizeDuration).
+                Behavior on Layout.preferredWidth {
+                    NumberAnimation {
+                        duration: root.theme.resizeDuration
+                        easing.type: root.theme.resizeEasing
+                    }
+                }
                 // Buttons are square (no radius) and sit flush edge-to-edge;
                 // fractional per-item widths from RowLayout can leave a
                 // stray 1px gap between two buttons where root's own fill

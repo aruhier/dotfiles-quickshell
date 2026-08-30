@@ -18,6 +18,15 @@ Item {
 
     implicitWidth: content.implicitWidth + 12
     implicitHeight: theme.barHeight
+    // Smooth resize — see Theme.qml's resizeDuration.
+    clip: true
+
+    Behavior on implicitWidth {
+        NumberAnimation {
+            duration: root.theme.resizeDuration
+            easing.type: root.theme.resizeEasing
+        }
+    }
 
     readonly property int pct: Math.round(volume * 100)
 

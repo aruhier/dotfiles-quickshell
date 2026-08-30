@@ -18,6 +18,15 @@ Rectangle {
     // while reading a child's implicitWidth breaks visibility.
     implicitWidth: label.implicitWidth + 16
     implicitHeight: theme.barHeight - 4
+    // Smooth resize — see Theme.qml's resizeDuration.
+    clip: true
+
+    Behavior on implicitWidth {
+        NumberAnimation {
+            duration: root.theme.resizeDuration
+            easing.type: root.theme.resizeEasing
+        }
+    }
 
     Text {
         renderType: Text.NativeRendering

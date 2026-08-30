@@ -9,6 +9,15 @@ Item {
 
     implicitWidth: content.implicitWidth + 12
     implicitHeight: theme.barHeight
+    // Smooth resize — see Theme.qml's resizeDuration.
+    clip: true
+
+    Behavior on implicitWidth {
+        NumberAnimation {
+            duration: root.theme.resizeDuration
+            easing.type: root.theme.resizeEasing
+        }
+    }
 
     property date now: new Date()
 
