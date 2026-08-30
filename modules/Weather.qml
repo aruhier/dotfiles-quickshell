@@ -17,8 +17,6 @@ Item {
     property real longitude: NaN
     property string locationName: ""
 
-    property bool useFahrenheit: false
-
     property var current: null
     property var hourly: []
     property var daily: []
@@ -31,17 +29,11 @@ Item {
     implicitWidth: hasContent ? label.implicitWidth + 12 : 0
     implicitHeight: theme.barHeight
 
-    function c2f(c) {
-        return c * 9 / 5 + 32;
-    }
-
     function displayTemp(c) {
-        var v = root.useFahrenheit ? root.c2f(c) : c;
-        return Math.round(v) + "°" + (root.useFahrenheit ? "F" : "C");
+        return Math.round(c) + "°C";
     }
 
-    // Blue -> green -> amber -> red gradient, graded in Celsius regardless
-    // of the unit currently displayed.
+    // Blue -> green -> amber -> red gradient.
     function tempColor(c) {
         if (c < 0)
             return "#6DCEEB";
@@ -198,13 +190,7 @@ Item {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-        onClicked: mouse => {
-            if (mouse.button === Qt.RightButton)
-                root.useFahrenheit = !root.useFahrenheit;
-            else
-                root.fetchForecast();
-        }
+        onClicked: root.fetchForecast()
         onContainsMouseChanged: {
             if (containsMouse) {
                 popupHideTimer.stop();
