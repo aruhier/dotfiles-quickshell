@@ -56,6 +56,15 @@ PopupWindow {
         }
     }
 
-    implicitWidth: Math.min(label.implicitWidth, maxWidth) + 20
-    implicitHeight: label.implicitHeight + 16
+    // Rounded UP, not left fractional: label.implicitWidth/implicitHeight
+    // are text metrics and are essentially never whole numbers, but a
+    // PopupWindow's backing surface is an integer-pixel buffer — whatever
+    // truncates the fractional request down clips the far edge of
+    // `content`'s border by a sub-pixel sliver, which is enough to wash out
+    // its antialiased right/bottom edge while the near (0,0-anchored)
+    // top/left edges stay crisp regardless of rounding. Math.ceil (not
+    // Math.round) so the window is never smaller than the content actually
+    // needs — rounding down by even 0.5px reproduces the same clip.
+    implicitWidth: Math.ceil(Math.min(label.implicitWidth, maxWidth) + 20)
+    implicitHeight: Math.ceil(label.implicitHeight + 16)
 }
