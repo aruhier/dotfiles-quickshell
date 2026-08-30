@@ -96,11 +96,21 @@ Item {
         }
     }
 
-    Tooltip {
-        anchorItem: root.hoveredIcon || root
-        show: root.hoveredIcon !== null
-        // `title` first: some apps report garbage in their SNI tooltip
-        // text; `title` is reliably clean.
-        text: root.hoveredIcon ? (root.hoveredIcon.modelData.title || root.hoveredIcon.modelData.tooltipTitle || root.hoveredIcon.modelData.id) : ""
+    // LazyLoader, not Loader: Tooltip is a PopupWindow, not an Item — see
+    // Clock.qml's popupLoader for the rationale (a real GPU-backed window
+    // otherwise kept alive for the process lifetime after first use).
+    // Simpler than Clock's/Weather's: Tooltip has no close grace period
+    // (HoverPopup.qml's comment explains why), so 'active' can just mirror
+    // 'show' directly instead of needing an onVisibleChanged teardown hook.
+    LazyLoader {
+        active: root.hoveredIcon !== null
+
+        Tooltip {
+            anchorItem: root.hoveredIcon || root
+            show: root.hoveredIcon !== null
+            // `title` first: some apps report garbage in their SNI tooltip
+            // text; `title` is reliably clean.
+            text: root.hoveredIcon ? (root.hoveredIcon.modelData.title || root.hoveredIcon.modelData.tooltipTitle || root.hoveredIcon.modelData.id) : ""
+        }
     }
 }

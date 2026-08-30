@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import "../services"
 import "../shared"
 import "../shared/WeatherIcons.js" as WeatherIcons
@@ -95,250 +96,269 @@ Item {
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onClicked: WeatherService.fetchForecast()
-        onContainsMouseChanged: containsMouse ? popup.show() : popup.requestHide()
+        onContainsMouseChanged: {
+            if (containsMouse) {
+                popupLoader.active = true;
+                popupLoader.item.show();
+            } else if (popupLoader.item) {
+                popupLoader.item.requestHide();
+            }
+        }
     }
 
-    HoverPopup {
-        id: popup
-        anchorItem: root
+    // LazyLoader, not Loader: see Clock.qml's popupLoader for why (same
+    // pattern — real GPU-backed window, destroyed once the close grace
+    // period elapses instead of kept alive for the process lifetime).
+    LazyLoader {
+        id: popupLoader
+        active: false
 
-        visible: _open && root.hasContent
-        implicitWidth: 400
-        implicitHeight: body.implicitHeight + 2 * padding
+        HoverPopup {
+            id: popup
+            anchorItem: root
 
-        ColumnLayout {
-            id: body
-            anchors.fill: parent
-            spacing: 10
+            visible: _open && root.hasContent
+            onVisibleChanged: {
+                if (!visible)
+                    popupLoader.active = false;
+            }
+            implicitWidth: 400
+            implicitHeight: body.implicitHeight + 2 * padding
 
-            // ---- current conditions ----
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 12
-                visible: root.current !== null
+            ColumnLayout {
+                id: body
+                anchors.fill: parent
+                spacing: 10
 
-                Text {
-                    renderType: Text.NativeRendering
-                    text: root.current ? WeatherIcons.iconFor(root.current.code, root.current.isDay) : ""
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 40
-                    color: root.current ? root.tempColor(root.current.tempC) : Theme.textBright
-                }
-
-                ColumnLayout {
-                    spacing: 0
-                    Text {
-                        renderType: Text.NativeRendering
-                        text: root.current ? root.displayTemp(root.current.tempC) : ""
-                        font.pixelSize: 26
-                        font.bold: true
-                        color: Theme.textBright
-                    }
-                    Text {
-                        renderType: Text.NativeRendering
-                        text: root.current ? WeatherIcons.descriptionFor(root.current.code) : ""
-                        font.pixelSize: 12
-                        color: Theme.text
-                    }
-                }
-
-                Item {
+                // ---- current conditions ----
+                RowLayout {
                     Layout.fillWidth: true
-                }
+                    spacing: 12
+                    visible: root.current !== null
 
-                ColumnLayout {
-                    spacing: 2
-                    Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                     Text {
                         renderType: Text.NativeRendering
-                        Layout.alignment: Qt.AlignRight
-                        text: root.current ? "Feels " + root.displayTemp(root.current.feelsC) : ""
-                        font.pixelSize: 12
-                        color: Theme.text
+                        text: root.current ? WeatherIcons.iconFor(root.current.code, root.current.isDay) : ""
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 40
+                        color: root.current ? root.tempColor(root.current.tempC) : Theme.textBright
                     }
-                    Text {
-                        renderType: Text.NativeRendering
-                        Layout.alignment: Qt.AlignRight
-                        text: root.daily.length ? root.displayTemp(root.daily[0].maxC) + " / " + root.displayTemp(root.daily[0].minC) : ""
-                        font.pixelSize: 12
-                        color: Theme.text
-                    }
-                    Text {
-                        renderType: Text.NativeRendering
-                        Layout.alignment: Qt.AlignRight
-                        text: root.current ? root.current.humidity + "% hum · " + Math.round(root.current.windKmh) + " km/h" : ""
-                        font.pixelSize: 11
-                        color: Theme.text
-                        opacity: 0.8
-                    }
-                }
-            }
 
-            Text {
-                renderType: Text.NativeRendering
-                Layout.fillWidth: true
-                visible: root.current === null
-                text: root.loading ? "Fetching weather…" : "Weather unavailable — click to retry"
-                font.pixelSize: 12
-                color: Theme.text
-                horizontalAlignment: Text.AlignHCenter
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 1
-                color: Theme.groupBg
-                visible: root.hourly.length > 0
-            }
-
-            // ---- hourly forecast ----
-            RowLayout {
-                Layout.fillWidth: true
-                visible: root.hourly.length > 0
-                spacing: 4
-
-                Repeater {
-                    // Gated on popup.visible (not just root.hourly) so the
-                    // delegate items are destroyed while the popup is
-                    // closed, mirroring Clock.qml's calendar-grid pattern,
-                    // rather than staying resident for as long as
-                    // WeatherService has data (i.e. always).
-                    model: popup.visible ? root.hourly : []
-                    delegate: ColumnLayout {
-                        // maximumWidth must be overridden or fillWidth
-                        // does nothing: QtQuick.Layouts auto-clamps a
-                        // nested Layout's maximumWidth to its own
-                        // implicitWidth by default.
-                        Layout.fillWidth: true
-                        Layout.maximumWidth: Number.POSITIVE_INFINITY
-                        spacing: 3
+                    ColumnLayout {
+                        spacing: 0
                         Text {
                             renderType: Text.NativeRendering
-                            Layout.alignment: Qt.AlignHCenter
-                            text: Qt.formatTime(new Date(modelData.time), "HH:mm")
-                            font.pixelSize: 10
-                            color: Theme.text
-                        }
-                        Text {
-                            renderType: Text.NativeRendering
-                            Layout.alignment: Qt.AlignHCenter
-                            text: WeatherIcons.iconFor(modelData.code, modelData.isDay)
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 16
-                            color: root.tempColor(modelData.tempC)
-                        }
-                        Text {
-                            renderType: Text.NativeRendering
-                            Layout.alignment: Qt.AlignHCenter
-                            text: root.displayTemp(modelData.tempC)
-                            font.pixelSize: 11
+                            text: root.current ? root.displayTemp(root.current.tempC) : ""
+                            font.pixelSize: 26
+                            font.bold: true
                             color: Theme.textBright
                         }
-                    }
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 1
-                color: Theme.groupBg
-                visible: root.daily.length > 0
-            }
-
-            // ---- daily forecast ----
-            ColumnLayout {
-                Layout.fillWidth: true
-                visible: root.daily.length > 0
-                spacing: 6
-
-                Repeater {
-                    model: popup.visible ? root.daily : []
-                    delegate: RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 8
-
                         Text {
                             renderType: Text.NativeRendering
-                            Layout.preferredWidth: 56
-                            text: root.dayLabel(modelData.date, index)
+                            text: root.current ? WeatherIcons.descriptionFor(root.current.code) : ""
+                            font.pixelSize: 12
+                            color: Theme.text
+                        }
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                    }
+
+                    ColumnLayout {
+                        spacing: 2
+                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                        Text {
+                            renderType: Text.NativeRendering
+                            Layout.alignment: Qt.AlignRight
+                            text: root.current ? "Feels " + root.displayTemp(root.current.feelsC) : ""
                             font.pixelSize: 12
                             color: Theme.text
                         }
                         Text {
                             renderType: Text.NativeRendering
-                            Layout.preferredWidth: 22
-                            text: WeatherIcons.iconFor(modelData.code, true)
-                            font.family: Theme.fontFamily
-                            font.pixelSize: 15
-                            color: root.tempColor((modelData.maxC + modelData.minC) / 2)
+                            Layout.alignment: Qt.AlignRight
+                            text: root.daily.length ? root.displayTemp(root.daily[0].maxC) + " / " + root.displayTemp(root.daily[0].minC) : ""
+                            font.pixelSize: 12
+                            color: Theme.text
                         }
                         Text {
                             renderType: Text.NativeRendering
-                            Layout.preferredWidth: 36
-                            text: modelData.pop + "%"
+                            Layout.alignment: Qt.AlignRight
+                            text: root.current ? root.current.humidity + "% hum · " + Math.round(root.current.windKmh) + " km/h" : ""
                             font.pixelSize: 11
                             color: Theme.text
                             opacity: 0.8
                         }
-                        Item {
+                    }
+                }
+
+                Text {
+                    renderType: Text.NativeRendering
+                    Layout.fillWidth: true
+                    visible: root.current === null
+                    text: root.loading ? "Fetching weather…" : "Weather unavailable — click to retry"
+                    font.pixelSize: 12
+                    color: Theme.text
+                    horizontalAlignment: Text.AlignHCenter
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 1
+                    color: Theme.groupBg
+                    visible: root.hourly.length > 0
+                }
+
+                // ---- hourly forecast ----
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: root.hourly.length > 0
+                    spacing: 4
+
+                    Repeater {
+                        // Gated on popup.visible (not just root.hourly) so the
+                        // delegate items are destroyed while the popup is
+                        // closed, mirroring Clock.qml's calendar-grid pattern,
+                        // rather than staying resident for as long as
+                        // WeatherService has data (i.e. always).
+                        model: popup.visible ? root.hourly : []
+                        delegate: ColumnLayout {
+                            // maximumWidth must be overridden or fillWidth
+                            // does nothing: QtQuick.Layouts auto-clamps a
+                            // nested Layout's maximumWidth to its own
+                            // implicitWidth by default.
                             Layout.fillWidth: true
-                        }
-                        Text {
-                            renderType: Text.NativeRendering
-                            text: root.displayTemp(modelData.minC)
-                            font.pixelSize: 12
-                            color: Theme.text
-                        }
-                        Text {
-                            renderType: Text.NativeRendering
-                            text: root.displayTemp(modelData.maxC)
-                            font.pixelSize: 12
-                            font.bold: true
-                            color: Theme.textBright
+                            Layout.maximumWidth: Number.POSITIVE_INFINITY
+                            spacing: 3
+                            Text {
+                                renderType: Text.NativeRendering
+                                Layout.alignment: Qt.AlignHCenter
+                                text: Qt.formatTime(new Date(modelData.time), "HH:mm")
+                                font.pixelSize: 10
+                                color: Theme.text
+                            }
+                            Text {
+                                renderType: Text.NativeRendering
+                                Layout.alignment: Qt.AlignHCenter
+                                text: WeatherIcons.iconFor(modelData.code, modelData.isDay)
+                                font.family: Theme.fontFamily
+                                font.pixelSize: 16
+                                color: root.tempColor(modelData.tempC)
+                            }
+                            Text {
+                                renderType: Text.NativeRendering
+                                Layout.alignment: Qt.AlignHCenter
+                                text: root.displayTemp(modelData.tempC)
+                                font.pixelSize: 11
+                                color: Theme.textBright
+                            }
                         }
                     }
                 }
-            }
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 1
-                color: Theme.groupBg
-                visible: root.daily.length > 0
-            }
-
-            // ---- footer ----
-            RowLayout {
-                Layout.fillWidth: true
-                visible: root.daily.length > 0
-                spacing: 10
-
-                Text {
-                    renderType: Text.NativeRendering
-                    text: root.locationName || "Current location"
-                    font.pixelSize: 10
-                    color: Theme.text
-                    opacity: 0.7
+                Rectangle {
                     Layout.fillWidth: true
-                    elide: Text.ElideRight
-                }
-                Text {
-                    renderType: Text.NativeRendering
+                    Layout.preferredHeight: 1
+                    color: Theme.groupBg
                     visible: root.daily.length > 0
-                    text: WeatherIcons.glyph("sunrise") + " " + (root.daily.length ? Qt.formatTime(new Date(root.daily[0].sunrise), "HH:mm") : "")
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 10
-                    color: Theme.text
-                    opacity: 0.7
                 }
-                Text {
-                    renderType: Text.NativeRendering
+
+                // ---- daily forecast ----
+                ColumnLayout {
+                    Layout.fillWidth: true
                     visible: root.daily.length > 0
-                    text: WeatherIcons.glyph("sunset") + " " + (root.daily.length ? Qt.formatTime(new Date(root.daily[0].sunset), "HH:mm") : "")
-                    font.family: Theme.fontFamily
-                    font.pixelSize: 10
-                    color: Theme.text
-                    opacity: 0.7
+                    spacing: 6
+
+                    Repeater {
+                        model: popup.visible ? root.daily : []
+                        delegate: RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+
+                            Text {
+                                renderType: Text.NativeRendering
+                                Layout.preferredWidth: 56
+                                text: root.dayLabel(modelData.date, index)
+                                font.pixelSize: 12
+                                color: Theme.text
+                            }
+                            Text {
+                                renderType: Text.NativeRendering
+                                Layout.preferredWidth: 22
+                                text: WeatherIcons.iconFor(modelData.code, true)
+                                font.family: Theme.fontFamily
+                                font.pixelSize: 15
+                                color: root.tempColor((modelData.maxC + modelData.minC) / 2)
+                            }
+                            Text {
+                                renderType: Text.NativeRendering
+                                Layout.preferredWidth: 36
+                                text: modelData.pop + "%"
+                                font.pixelSize: 11
+                                color: Theme.text
+                                opacity: 0.8
+                            }
+                            Item {
+                                Layout.fillWidth: true
+                            }
+                            Text {
+                                renderType: Text.NativeRendering
+                                text: root.displayTemp(modelData.minC)
+                                font.pixelSize: 12
+                                color: Theme.text
+                            }
+                            Text {
+                                renderType: Text.NativeRendering
+                                text: root.displayTemp(modelData.maxC)
+                                font.pixelSize: 12
+                                font.bold: true
+                                color: Theme.textBright
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 1
+                    color: Theme.groupBg
+                    visible: root.daily.length > 0
+                }
+
+                // ---- footer ----
+                RowLayout {
+                    Layout.fillWidth: true
+                    visible: root.daily.length > 0
+                    spacing: 10
+
+                    Text {
+                        renderType: Text.NativeRendering
+                        text: root.locationName || "Current location"
+                        font.pixelSize: 10
+                        color: Theme.text
+                        opacity: 0.7
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                    }
+                    Text {
+                        renderType: Text.NativeRendering
+                        visible: root.daily.length > 0
+                        text: WeatherIcons.glyph("sunrise") + " " + (root.daily.length ? Qt.formatTime(new Date(root.daily[0].sunrise), "HH:mm") : "")
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 10
+                        color: Theme.text
+                        opacity: 0.7
+                    }
+                    Text {
+                        renderType: Text.NativeRendering
+                        visible: root.daily.length > 0
+                        text: WeatherIcons.glyph("sunset") + " " + (root.daily.length ? Qt.formatTime(new Date(root.daily[0].sunset), "HH:mm") : "")
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 10
+                        color: Theme.text
+                        opacity: 0.7
+                    }
                 }
             }
         }
