@@ -1,8 +1,11 @@
 import QtQuick
-import Quickshell.Io
+import "../services"
 
 // Mirrors waybar's "mpd" module (talks to mpd via mpc since quickshell has
 // no built-in mpd client; mpd is not exposed over mpris on this machine).
+// The actual `mpc` polling lives in services/MpdService.qml (a singleton) so
+// there's exactly one poll cycle for the whole qs process, not one per
+// monitor/Bar — this is just a thin view over that shared state.
 Item {
     id: root
 
@@ -11,9 +14,9 @@ Item {
     // Named playbackState (not "state") because Item already has a built-in
     // "state" property for QtQuick's declarative state-machine feature —
     // shadowing it silently breaks bindings that read it.
-    property string playbackState: "disconnected" // disconnected | stopped | playing | paused
-    property string artist: ""
-    property string title: ""
+    readonly property string playbackState: MpdService.playbackState
+    readonly property string artist: MpdService.artist
+    readonly property string title: MpdService.title
 
     readonly property int artistLen: 30
     readonly property int titleLen: 40
@@ -94,80 +97,6 @@ Item {
             font.pixelSize: root.theme.fontSize
             color: root.theme.groupText
             text: root.hasTrack ? root.truncate(root.artist, root.artistLen) + " - " + root.truncate(root.title, root.titleLen) : ""
-        }
-    }
-
-    Process {
-        id: statusProc
-        command: ["mpc", "status"]
-        stdout: StdioCollector {
-            id: statusCollector
-            onStreamFinished: root.applyStatus(statusCollector.text)
-        }
-        onExited: (code, status) => {
-            if (code !== 0)
-                root.playbackState = "disconnected";
-        }
-    }
-
-    function applyStatus(text) {
-        if (!text) {
-            root.playbackState = "disconnected";
-            return;
-        }
-        // mpc status prints [state] on the last line before "volume:" only
-        // when a song is loaded (line 0 is then the song title, not
-        // "volume:..."), so find the state line by content rather than a
-        // fixed index.
-        var lines = text.split("\n");
-        var hasVolumeLine = false;
-        var stateLine = null;
-        for (var i = 0; i < lines.length; i++) {
-            if (lines[i].indexOf("volume:") === 0)
-                hasVolumeLine = true;
-            if (lines[i].indexOf("[") === 0)
-                stateLine = lines[i];
-        }
-        if (!hasVolumeLine) {
-            root.playbackState = "disconnected";
-            return;
-        }
-        if (stateLine && stateLine.indexOf("[playing]") === 0) {
-            root.playbackState = "playing";
-        } else if (stateLine && stateLine.indexOf("[paused]") === 0) {
-            root.playbackState = "paused";
-        } else {
-            root.playbackState = "stopped";
-            root.artist = "";
-            root.title = "";
-            return;
-        }
-
-        currentProc.running = false;
-        currentProc.running = true;
-    }
-
-    Process {
-        id: currentProc
-        command: ["mpc", "current", "-f", "%artist%\t%title%"]
-        stdout: StdioCollector {
-            id: currentCollector
-            onStreamFinished: {
-                var parts = currentCollector.text.replace(/\n$/, "").split("\t");
-                root.artist = parts[0] || "";
-                root.title = parts[1] || "";
-            }
-        }
-    }
-
-    Timer {
-        interval: 2000
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: {
-            statusProc.running = false;
-            statusProc.running = true;
         }
     }
 }

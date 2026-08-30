@@ -1,16 +1,18 @@
 import QtQuick
 import Quickshell
-import Quickshell.Io
+import "../services"
 
-// Mirrors waybar's "custom/swaync" module: subscribes to
-// `swaync-client -swb` for live notification-center state.
+// Mirrors waybar's "custom/swaync" module. The actual `swaync-client -swb`
+// subscription lives in services/SwayNCService.qml (a singleton) so there's
+// exactly one subscription for the whole qs process, not one per
+// monitor/Bar — this is just a thin view over that shared state.
 Item {
     id: root
 
     required property var theme
 
-    property string count: "0"
-    property string alt: "none"
+    readonly property string count: SwayNCService.count
+    readonly property string alt: SwayNCService.alt
 
     readonly property var icons: ({
         "notification": "󰂞",
@@ -67,32 +69,5 @@ Item {
             else
                 Quickshell.execDetached(["swaync-client", "-d", "-sw"]);
         }
-    }
-
-    Process {
-        id: subscribe
-        command: ["swaync-client", "-swb"]
-        running: true
-        stdout: SplitParser {
-            splitMarker: "\n"
-            onRead: (line) => {
-                if (!line)
-                    return;
-                try {
-                    var obj = JSON.parse(line);
-                    root.count = obj.text;
-                    root.alt = obj.alt;
-                } catch (e) {
-                    // ignore malformed lines
-                }
-            }
-        }
-        onExited: restartTimer.start()
-    }
-
-    Timer {
-        id: restartTimer
-        interval: 5000
-        onTriggered: subscribe.running = true
     }
 }

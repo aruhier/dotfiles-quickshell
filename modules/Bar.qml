@@ -122,10 +122,27 @@ PanelWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 10
 
-                Tray {
-                    theme: barWindow.theme
-                    visible: barWindow.isDp1
-                    Layout.preferredWidth: visible ? implicitWidth : 0
+                // Tray/Privacy/Weather are DP-1-only (see isDp1 above) and
+                // each carry real per-instance cost beyond a bare Item — Tray
+                // decodes/uploads a texture per systray icon, Privacy and
+                // Weather each mount their own hover popup — so they're
+                // wrapped in a Loader gated on isDp1 instead of just being
+                // built and hidden via `visible`. A plain `visible: false`
+                // instance still fully exists (still runs, still costs
+                // memory/CPU) on the two non-DP1 bars; Loader with
+                // `active: false` never instantiates the component at all.
+                // isDp1 is fixed for a given bar's lifetime (derived from
+                // modelData.name, which doesn't change), so `active` here
+                // never toggles after creation — unlike Privacy's own
+                // internal `visible: micActive`, which still needs to keep
+                // animating the smooth width-collapse once loaded (see
+                // Layout.preferredWidth below).
+                Loader {
+                    active: barWindow.isDp1
+                    Layout.preferredWidth: item ? item.implicitWidth : 0
+                    sourceComponent: Tray {
+                        theme: barWindow.theme
+                    }
                 }
                 Backlight {
                     theme: barWindow.theme
@@ -133,22 +150,25 @@ PanelWindow {
                 Volume {
                     theme: barWindow.theme
                 }
-                Privacy {
-                    theme: barWindow.theme
-                    // Not just "barWindow.isDp1": Privacy's own visibility
-                    // already depends on micActive, so overriding it with
-                    // only the per-output condition would show the mic icon
-                    // unconditionally on DP-1 regardless of mic state.
-                    visible: barWindow.isDp1 && micActive
-                    Layout.preferredWidth: visible ? implicitWidth : 0
+                Loader {
+                    active: barWindow.isDp1
+                    // Privacy's own `visible: micActive` (inside Privacy.qml)
+                    // still needs to be tracked dynamically here, unlike
+                    // Tray/Weather's static isDp1-only condition above.
+                    Layout.preferredWidth: item && item.visible ? item.implicitWidth : 0
+                    sourceComponent: Privacy {
+                        theme: barWindow.theme
+                    }
                 }
                 SwayNC {
                     theme: barWindow.theme
                 }
-                Weather {
-                    theme: barWindow.theme
-                    visible: barWindow.isDp1
-                    Layout.preferredWidth: visible ? implicitWidth : 0
+                Loader {
+                    active: barWindow.isDp1
+                    Layout.preferredWidth: item ? item.implicitWidth : 0
+                    sourceComponent: Weather {
+                        theme: barWindow.theme
+                    }
                 }
                 Clock {
                     theme: barWindow.theme

@@ -21,9 +21,19 @@ against it, not just against old screenshots.
 ## Layout
 
 ```
-shell.qml            Variants{ model: Quickshell.screens } → one Bar per output
+shell.qml             Variants{ model: Quickshell.screens } → one Bar per output
 modules/Bar.qml       PanelWindow per output; left/center/right groups
 modules/*.qml         one file per Waybar module (Clock, Mpd, Workspaces, ...)
+                      — thin views; no owned subprocesses/network/timers for
+                      state that's shared across monitors, see services/ below
+services/*.qml        pragma-Singleton QML types holding state + the actual
+                      subprocess/network I/O for anything that's logically
+                      system-wide, not per-monitor (MpdService, SwayNCService,
+                      WeatherService) — one poll/subscription/fetch cycle for
+                      the whole qs process regardless of monitor count,
+                      instead of each Bar's module owning its own. Imported
+                      via plain `import "../services"` (no qmldir needed —
+                      `pragma Singleton` works under a bare directory import).
 shared/Theme.qml      the palette + metrics, mirrored from style.css — single
                       source of truth for colors *and* magic-number layout
                       constants (padding, cap widths, ...) so modules never
