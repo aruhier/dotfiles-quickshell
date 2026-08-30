@@ -139,6 +139,14 @@ PanelWindow {
                 // Layout.preferredWidth below).
                 Loader {
                     active: barWindow.isDp1
+                    // `active: false` alone leaves this Loader a visible
+                    // zero-width RowLayout item — QtQuick.Layouts still
+                    // reserves `spacing` on both sides of a *visible*
+                    // zero-width item, only a genuinely invisible item is
+                    // excluded from the row (and its spacing) entirely. That
+                    // leftover spacing was a real gap on the two non-DP1
+                    // bars where this module never renders anything.
+                    visible: active
                     Layout.preferredWidth: item ? item.implicitWidth : 0
                     sourceComponent: Tray {
                         theme: barWindow.theme
@@ -152,9 +160,13 @@ PanelWindow {
                 }
                 Loader {
                     active: barWindow.isDp1
-                    // Privacy's own `visible: micActive` (inside Privacy.qml)
-                    // still needs to be tracked dynamically here, unlike
-                    // Tray/Weather's static isDp1-only condition above.
+                    // Same spacing-exclusion need as Tray/Weather's `visible:
+                    // active` below, but this Loader also has to track
+                    // Privacy's own internal `visible: micActive` (inside
+                    // Privacy.qml) once loaded, not just isDp1 — otherwise a
+                    // muted mic on DP-1 would reintroduce the exact same
+                    // stray-spacing gap this fix is for.
+                    visible: item ? item.visible : false
                     Layout.preferredWidth: item && item.visible ? item.implicitWidth : 0
                     sourceComponent: Privacy {
                         theme: barWindow.theme
@@ -165,6 +177,9 @@ PanelWindow {
                 }
                 Loader {
                     active: barWindow.isDp1
+                    // See Tray's Loader above for why `visible` is needed
+                    // alongside `active`.
+                    visible: active
                     Layout.preferredWidth: item ? item.implicitWidth : 0
                     sourceComponent: Weather {
                         theme: barWindow.theme

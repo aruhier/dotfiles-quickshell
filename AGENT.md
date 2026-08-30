@@ -300,6 +300,34 @@ conditions in `Bar.qml` to match.
   no errors and no warnings" means a binding is doing what it looks like
   it does.
 
+- **A `Loader` with `active: false` still reserves `RowLayout` `spacing` on
+  both sides of it, unless it's also explicitly `visible: false`.** Hit this
+  in `Bar.qml`'s `rightRow`: `Tray`/`Privacy`/`Weather` are wrapped in
+  `Loader { active: barWindow.isDp1 }` so they're never instantiated on the
+  two non-`DP-1` bars (see the "Intentional enhancements"/comments at that
+  site for why a Loader instead of a plain `visible: false` instance —
+  memory/CPU cost). Each Loader's `Layout.preferredWidth` was already
+  correctly bound to `item ? item.implicitWidth : 0`, so it collapsed to
+  zero *width* when inactive — but the `Loader` item itself defaults to
+  `visible: true`, and `RowLayout` only excludes a child from *spacing*
+  (not just width) when it's actually invisible; a visible zero-width item
+  still gets `spacing` on both sides. Result: a real, measurable ~10px dead
+  gap per inactive Loader on `DP-2`/`HDMI-A-1` (confirmed via the aggregate
+  group-edge measurement method below: `rightGroup`'s left edge sat exactly
+  30px = 3 Loaders × 10px spacing further left than after the fix, on both
+  non-`DP-1` outputs). Contrast with `Backlight.qml`, which sets
+  `visible: available` directly on the module's own root `Item` (no
+  `Loader`) — that pattern was never buggy, since the item itself, not a
+  wrapper, is what goes invisible. **Fixed by adding `visible: active`** to
+  the Tray/Weather Loaders, and `visible: item ? item.visible : false` to
+  Privacy's (which also needs to keep tracking its own internal
+  `visible: micActive` once loaded, not just `isDp1`, or a muted mic on
+  `DP-1` would reintroduce the same gap). **Lesson:** when a `Loader`'s
+  `active` is used to conditionally include something in a `RowLayout` (or
+  any Layout), `active: false` alone is not enough to make it disappear from
+  the layout's spacing — pair it with `visible` mirroring the same
+  condition (or the loaded item's own visibility, if that's also dynamic).
+
 ## Intentional enhancements beyond Waybar parity
 
 Waybar itself doesn't animate any of this — these were requested explicitly
