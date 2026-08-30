@@ -26,7 +26,7 @@ Item {
 
     readonly property bool hasContent: current !== null || errored
 
-    implicitWidth: hasContent ? label.implicitWidth + 12 : 0
+    implicitWidth: hasContent ? content.implicitWidth + 12 : 0
     implicitHeight: theme.barHeight
 
     function displayTemp(c) {
@@ -169,19 +169,30 @@ Item {
         onTriggered: root.fetchForecast()
     }
 
-    Text {
-        renderType: Text.NativeRendering
-        id: label
+    Row {
+        id: content
         anchors.centerIn: parent
-        font.family: root.theme.fontFamily
-        font.pixelSize: root.theme.fontSize
-        color: root.theme.groupText
-        text: {
-            if (root.current)
-                return WeatherIcons.iconFor(root.current.code, root.current.isDay) + " " + root.displayTemp(root.current.tempC);
-            if (root.errored)
-                return "?";
-            return "";
+        spacing: 6
+
+        Text {
+            renderType: Text.NativeRendering
+            // Box-centered against the Row, not baseline — see Mpd.qml.
+            anchors.verticalCenter: parent.verticalCenter
+            font.family: root.theme.fontFamily
+            font.pixelSize: root.theme.iconFontSize
+            color: root.theme.groupText
+            text: root.current ? WeatherIcons.iconFor(root.current.code, root.current.isDay) : root.errored ? "?" : ""
+        }
+
+        Text {
+            id: label
+            renderType: Text.NativeRendering
+            anchors.verticalCenter: parent.verticalCenter
+            visible: root.current !== null
+            font.family: root.theme.fontFamily
+            font.pixelSize: root.theme.fontSize
+            color: root.theme.groupText
+            text: root.current ? root.displayTemp(root.current.tempC) : ""
         }
     }
 

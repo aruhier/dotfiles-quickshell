@@ -33,7 +33,7 @@ Item {
         id: label
         anchors.centerIn: parent
         font.family: root.theme.fontFamily
-        font.pixelSize: root.theme.fontSize + 1
+        font.pixelSize: root.theme.iconFontSize
         color: root.iconColors[root.alt] || root.theme.groupText
         text: root.icons[root.alt] || root.icons["none"]
     }

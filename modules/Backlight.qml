@@ -13,20 +13,36 @@ Item {
     property bool available: false
 
     visible: available
-    // Unconditional (not "available ? label.implicitWidth + 12 : 0"): see
+    // Unconditional (not "available ? content.implicitWidth + 12 : 0"): see
     // Mpd.qml for why gating this on `visible`/`available` while reading a
     // child's implicitWidth breaks visibility.
-    implicitWidth: label.implicitWidth + 12
+    implicitWidth: content.implicitWidth + 12
     implicitHeight: theme.barHeight
 
-    Text {
-        renderType: Text.NativeRendering
-        id: label
+    Row {
+        id: content
         anchors.centerIn: parent
-        font.family: root.theme.fontFamily
-        font.pixelSize: root.theme.fontSize
-        color: root.theme.groupText
-        text: Math.round(root.percent) + "% " + (root.percent < 50 ? "󰃞" : "󰃠")
+        spacing: 6
+
+        Text {
+            id: label
+            renderType: Text.NativeRendering
+            anchors.verticalCenter: parent.verticalCenter
+            font.family: root.theme.fontFamily
+            font.pixelSize: root.theme.fontSize
+            color: root.theme.groupText
+            text: Math.round(root.percent) + "%"
+        }
+
+        Text {
+            renderType: Text.NativeRendering
+            // Box-centered against the Row, not baseline — see Mpd.qml.
+            anchors.verticalCenter: parent.verticalCenter
+            font.family: root.theme.fontFamily
+            font.pixelSize: root.theme.iconFontSize
+            color: root.theme.groupText
+            text: root.percent < 50 ? "󰃞" : "󰃠"
+        }
     }
 
     MouseArea {

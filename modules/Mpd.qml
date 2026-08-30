@@ -19,31 +19,52 @@ Item {
     readonly property int titleLen: 40
 
     visible: playbackState !== "disconnected"
-    // Unconditional (not "visible ? label.implicitWidth + 12 : 0"): RowLayout
+    // Unconditional (not "visible ? content.implicitWidth + 12 : 0"): RowLayout
     // already excludes invisible children from layout, and gating this
     // binding on `visible` while it reads a child's implicitWidth triggers a
     // binding-evaluation bug that leaves `visible` stuck.
-    implicitWidth: label.implicitWidth + 12
+    implicitWidth: content.implicitWidth + 12
     implicitHeight: theme.barHeight
 
     function truncate(s, len) {
         return s.length > len ? s.substring(0, len - 1) + "…" : s;
     }
 
-    Text {
-        renderType: Text.NativeRendering
-        id: label
+    readonly property bool hasTrack: playbackState === "playing" || playbackState === "paused"
+
+    Row {
+        id: content
         anchors.centerIn: parent
-        font.family: root.theme.fontFamily
-        font.pixelSize: root.theme.fontSize
-        color: root.theme.groupText
-        text: {
-            var icon = root.playbackState === "playing" ? "󰐊"
+        spacing: 6
+
+        Text {
+            renderType: Text.NativeRendering
+            // Box-centered against the same Row as label, not baseline: with
+            // two different pixelSizes, baseline anchoring pins both glyphs'
+            // baseline to the same Y, but a much taller glyph's own visual
+            // center then sits well above that shared line (ascent grows
+            // with size, descent barely does), so the bigger icon ends up
+            // looking like it floats above the label instead of centered
+            // against it. Plain box-centering keeps both items' geometric
+            // centers coincident regardless of size difference.
+            anchors.verticalCenter: parent.verticalCenter
+            font.family: root.theme.fontFamily
+            font.pixelSize: root.theme.iconFontSize
+            color: root.theme.groupText
+            text: root.playbackState === "playing" ? "󰐊"
                 : root.playbackState === "paused" ? "󰏤"
-                : "󰓛";
-            if (root.playbackState === "playing" || root.playbackState === "paused")
-                return icon + "  " + root.truncate(root.artist, root.artistLen) + " - " + root.truncate(root.title, root.titleLen);
-            return icon;
+                : "󰓛"
+        }
+
+        Text {
+            id: label
+            renderType: Text.NativeRendering
+            anchors.verticalCenter: parent.verticalCenter
+            visible: root.hasTrack
+            font.family: root.theme.fontFamily
+            font.pixelSize: root.theme.fontSize
+            color: root.theme.groupText
+            text: root.hasTrack ? root.truncate(root.artist, root.artistLen) + " - " + root.truncate(root.title, root.titleLen) : ""
         }
     }
 

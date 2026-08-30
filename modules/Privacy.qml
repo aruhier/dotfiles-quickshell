@@ -41,7 +41,7 @@ Item {
         id: label
         anchors.centerIn: parent
         font.family: root.theme.fontFamily
-        font.pixelSize: root.theme.fontSize
+        font.pixelSize: root.theme.iconFontSize
         color: "#D14005"
         text: "󰍬"
     }

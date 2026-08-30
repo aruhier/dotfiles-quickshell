@@ -7,7 +7,7 @@ Item {
 
     required property var theme
 
-    implicitWidth: label.implicitWidth + 12
+    implicitWidth: content.implicitWidth + 12
     implicitHeight: theme.barHeight
 
     property date now: new Date()
@@ -19,14 +19,30 @@ Item {
         onTriggered: root.now = new Date()
     }
 
-    Text {
-        renderType: Text.NativeRendering
-        id: label
+    Row {
+        id: content
         anchors.centerIn: parent
-        font.family: root.theme.fontFamily
-        font.pixelSize: root.theme.fontSize
-        color: root.theme.groupText
-        text: "󰃭  " + Qt.formatDateTime(root.now, "ddd dd MMM  hh:mm")
+        spacing: 6
+
+        Text {
+            renderType: Text.NativeRendering
+            // Box-centered against the Row, not baseline — see Mpd.qml.
+            anchors.verticalCenter: parent.verticalCenter
+            font.family: root.theme.fontFamily
+            font.pixelSize: root.theme.iconFontSize
+            color: root.theme.groupText
+            text: "󰃭"
+        }
+
+        Text {
+            id: label
+            renderType: Text.NativeRendering
+            anchors.verticalCenter: parent.verticalCenter
+            font.family: root.theme.fontFamily
+            font.pixelSize: root.theme.fontSize
+            color: root.theme.groupText
+            text: Qt.formatDateTime(root.now, "ddd dd MMM  hh:mm")
+        }
     }
 
     MouseArea {

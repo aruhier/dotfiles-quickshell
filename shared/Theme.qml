@@ -42,6 +42,14 @@ QtObject {
     // explicit list.
     readonly property string fontFamily: "Inter Variable"
     readonly property int fontSize: 12
+    // Nerd Font glyphs rendered via Qt's automatic per-glyph fallback (see
+    // fontFamily's note above) come out visually smaller than Latin text at
+    // the same pixelSize — Pango's cascade in real waybar doesn't have this
+    // gap even though its CSS is a flat 12px everywhere. Every module that
+    // pairs an icon glyph with a text label sizes the glyph off this instead
+    // of fontSize to compensate. Empirical value, not derived from waybar's
+    // CSS (which has no separate icon size) — re-tune by eye if it drifts.
+    readonly property int iconFontSize: 15
     readonly property int barHeight: 22
     // #waybar > box's border-bottom: 3px solid — genuine extra height below
     // the 22px content area, not an overlay on top of it.

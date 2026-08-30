@@ -16,24 +16,37 @@ Item {
         objects: root.sink ? [root.sink] : []
     }
 
-    implicitWidth: label.implicitWidth + 12
+    implicitWidth: content.implicitWidth + 12
     implicitHeight: theme.barHeight
 
-    Text {
-        renderType: Text.NativeRendering
-        id: label
+    readonly property int pct: Math.round(volume * 100)
+
+    Row {
+        id: content
         anchors.centerIn: parent
-        font.family: root.theme.fontFamily
-        font.pixelSize: root.theme.fontSize
-        color: root.theme.groupText
-        text: {
+        spacing: 6
+
+        Text {
+            renderType: Text.NativeRendering
+            // Box-centered against the Row, not baseline — see Mpd.qml.
+            anchors.verticalCenter: parent.verticalCenter
+            font.family: root.theme.fontFamily
+            font.pixelSize: root.theme.iconFontSize
+            color: root.theme.groupText
             // waybar's "format-muted" is a standalone format (icon only,
             // no volume%) that replaces "format" entirely while muted.
-            if (root.muted)
-                return "󰝟";
-            var pct = Math.round(root.volume * 100);
-            var icon = pct < 33 ? "󰕿" : pct < 66 ? "󰖀" : "󰕾";
-            return icon + "  " + pct + "%";
+            text: root.muted ? "󰝟" : root.pct < 33 ? "󰕿" : root.pct < 66 ? "󰖀" : "󰕾"
+        }
+
+        Text {
+            id: label
+            renderType: Text.NativeRendering
+            anchors.verticalCenter: parent.verticalCenter
+            visible: !root.muted
+            font.family: root.theme.fontFamily
+            font.pixelSize: root.theme.fontSize
+            color: root.theme.groupText
+            text: root.pct + "%"
         }
     }
 
