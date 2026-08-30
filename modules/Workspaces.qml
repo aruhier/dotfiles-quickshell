@@ -48,8 +48,11 @@ Rectangle {
                 required property var modelData
 
                 readonly property bool isSpecial: modelData.name.startsWith("special")
-                readonly property int windows: modelData.lastIpcObject && modelData.lastIpcObject.windows !== undefined
-                    ? modelData.lastIpcObject.windows : 0
+                // lastIpcObject.windows is a point-in-time snapshot that isn't
+                // kept in sync as windows open/close — opening/closing a
+                // window doesn't refresh it, so it can go stale indefinitely.
+                // Count live windows via toplevels instead.
+                readonly property int windows: modelData.toplevels ? modelData.toplevels.values.length : 0
                 // True only for the pill on this bar's own monitor —
                 // modelData.active is true once per monitor at a time.
                 readonly property bool activeOnThisScreen: modelData.active
