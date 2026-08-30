@@ -36,10 +36,16 @@ Item {
     implicitWidth: label.implicitWidth + 8
     implicitHeight: theme.barHeight
 
+    // Nudges the icon down from its box-center — see Mpd.qml's
+    // iconVerticalOffset for why. Tuned per module.
+    readonly property int iconVerticalOffset: 1
+
     Text {
         renderType: Text.NativeRendering
         id: label
-        anchors.centerIn: parent
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.verticalCenterOffset: root.iconVerticalOffset
         font.family: root.theme.fontFamily
         font.pixelSize: root.theme.iconFontSize
         color: "#D14005"

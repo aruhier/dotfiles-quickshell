@@ -12,6 +12,10 @@ Item {
 
     property date now: new Date()
 
+    // Nudges the icon down from its box-center — see Mpd.qml's
+    // iconVerticalOffset for why. Tuned per module.
+    readonly property int iconVerticalOffset: 1
+
     Timer {
         interval: 1000
         running: true
@@ -28,6 +32,7 @@ Item {
             renderType: Text.NativeRendering
             // Box-centered against the Row, not baseline — see Mpd.qml.
             anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenterOffset: root.iconVerticalOffset
             font.family: root.theme.fontFamily
             font.pixelSize: root.theme.iconFontSize
             color: root.theme.groupText

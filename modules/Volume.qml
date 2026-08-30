@@ -21,6 +21,10 @@ Item {
 
     readonly property int pct: Math.round(volume * 100)
 
+    // Nudges the icon down from its box-center — see Mpd.qml's
+    // iconVerticalOffset for why. Tuned per module.
+    readonly property int iconVerticalOffset: 1
+
     Row {
         id: content
         anchors.centerIn: parent
@@ -30,6 +34,7 @@ Item {
             renderType: Text.NativeRendering
             // Box-centered against the Row, not baseline — see Mpd.qml.
             anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenterOffset: root.iconVerticalOffset
             font.family: root.theme.fontFamily
             font.pixelSize: root.theme.iconFontSize
             color: root.theme.groupText

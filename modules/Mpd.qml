@@ -32,6 +32,16 @@ Item {
 
     readonly property bool hasTrack: playbackState === "playing" || playbackState === "paused"
 
+    // Even box-centered against the label (equal geometric box-centers), the
+    // icon glyph still reads as sitting above center: its ink is
+    // concentrated in its upper portion (no descender use) while the label
+    // has real visual mass down near the baseline, so the eye judges
+    // "center" by ink-weighted mass, not box geometry. Nudges down to
+    // compensate — tuned per module since different glyphs (and, here, a
+    // variable-length label) sit differently within their own box; re-tune
+    // by eye if it drifts.
+    readonly property int iconVerticalOffset: 1
+
     Row {
         id: content
         anchors.centerIn: parent
@@ -46,8 +56,10 @@ Item {
             // with size, descent barely does), so the bigger icon ends up
             // looking like it floats above the label instead of centered
             // against it. Plain box-centering keeps both items' geometric
-            // centers coincident regardless of size difference.
+            // centers coincident regardless of size difference. Still nudged
+            // down by iconVerticalOffset on top of that — see Theme.qml.
             anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenterOffset: root.iconVerticalOffset
             font.family: root.theme.fontFamily
             font.pixelSize: root.theme.iconFontSize
             color: root.theme.groupText
