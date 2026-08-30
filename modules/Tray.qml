@@ -71,7 +71,17 @@ Item {
                     anchorItem: trayIcon
                     theme: root.theme
                     show: hover.containsMouse
-                    text: trayIcon.modelData.tooltipTitle || trayIcon.modelData.title || trayIcon.modelData.id
+                    // `title` first, not `tooltipTitle`: some apps (e.g.
+                    // CopyQ) report garbage in their SNI ToolTip text (seen
+                    // in practice: a leaked FreeType/Qt debug string, not
+                    // anything app-related) while `title` is reliably the
+                    // clean app name for every app tested. Waybar's own
+                    // src/modules/sni/item.cpp prefers tooltip.text first
+                    // and would show the same garbage for a broken app like
+                    // this; deviating here on purpose since showing a
+                    // command-looking string instead of an app name is a
+                    // real, visible bug worth avoiding.
+                    text: trayIcon.modelData.title || trayIcon.modelData.tooltipTitle || trayIcon.modelData.id
                 }
             }
         }
