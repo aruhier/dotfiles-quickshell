@@ -1,8 +1,11 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
+import Quickshell.Widgets
 import Quickshell.Services.Pipewire
 import "../shared"
 import "../shared/animations"
+import "../shared/popup"
 
 // Shows an icon per active privacy-sensitive capture: mic (any open
 // audio-capture stream — ideally this would also require the stream to be
@@ -53,6 +56,46 @@ Item {
     // `contentVisible` for why (Loader/visible deadlock).
     readonly property bool contentVisible: micActive || screenShareActive
     visible: contentVisible
+
+    readonly property string micGlyph: "󰍬"
+    readonly property string screenGlyph: "󱒃"
+
+    // One row per distinct app currently capturing, merging its mic and
+    // screen-share nodes together (a video-call app doing both shows one
+    // row with both glyphs, not two). Relies on screenShareTracker above
+    // already tracking every node process-wide — an untracked node's
+    // `properties` never populates regardless of media class (see AGENT.md),
+    // so this reads the same tracked nodes rather than needing a tracker of
+    // its own.
+    readonly property var capturingApps: {
+        var nodes = Pipewire.nodes.values;
+        var apps = [];
+        var indexByName = {};
+        for (var i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            var isMic = (node.type & PwNodeType.AudioInStream) === PwNodeType.AudioInStream;
+            var props = node.properties || {};
+            var isScreen = props["media.class"] === "Stream/Input/Video";
+            if (!isMic && !isScreen)
+                continue;
+            var name = props["application.name"] || node.name || "Unknown";
+            if (!(name in indexByName)) {
+                indexByName[name] = apps.length;
+                apps.push({
+                    name: name,
+                    icon: props["application.icon-name"] || name,
+                    mic: false,
+                    screen: false
+                });
+            }
+            var app = apps[indexByName[name]];
+            if (isMic)
+                app.mic = true;
+            if (isScreen)
+                app.screen = true;
+        }
+        return apps;
+    }
     // Unconditional — see Mpd.qml for why gating width on the same property
     // as `visible` breaks visibility.
     implicitWidth: row.implicitWidth
@@ -94,12 +137,106 @@ Item {
 
         PrivacyIcon {
             active: root.micActive
-            glyph: "󰍬"
+            glyph: root.micGlyph
         }
 
         PrivacyIcon {
             active: root.screenShareActive
-            glyph: "󱒃"
+            glyph: root.screenGlyph
+        }
+    }
+
+    HoverPopupArea {
+        loader: popupLoader
+    }
+
+    // LazyLoader, not Loader: see Clock.qml's popupLoader for why (same
+    // pattern — real GPU-backed window, destroyed once the close grace
+    // period elapses instead of kept alive for the process lifetime).
+    LazyLoader {
+        id: popupLoader
+        active: false
+
+        HoverPopup {
+            id: popup
+            anchorItem: root
+
+            visible: _open && root.contentVisible
+            onVisibleChanged: {
+                if (!visible)
+                    popupLoader.active = false;
+            }
+            implicitWidth: 260
+            implicitHeight: body.implicitHeight + 2 * padding
+
+            ColumnLayout {
+                id: body
+                anchors.fill: parent
+                spacing: 8
+
+                Text {
+                    renderType: Text.NativeRendering
+                    Layout.fillWidth: true
+                    text: "Currently capturing"
+                    font.pixelSize: 12
+                    font.bold: true
+                    color: Theme.textBright
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 1
+                    color: Theme.groupBg
+                }
+
+                Repeater {
+                    // Gated on popup.visible, not just root.capturingApps —
+                    // see Weather.qml's hourly Repeater for why (delegates
+                    // destroyed while the popup is closed rather than
+                    // staying resident for the process lifetime).
+                    model: popup.visible ? root.capturingApps : []
+                    delegate: RowLayout {
+                        id: appRow
+                        required property var modelData
+
+                        Layout.fillWidth: true
+                        spacing: 10
+
+                        IconImage {
+                            Layout.preferredWidth: 20
+                            Layout.preferredHeight: 20
+                            source: Quickshell.iconPath(appRow.modelData.icon, "application-x-executable")
+                        }
+
+                        Text {
+                            renderType: Text.NativeRendering
+                            Layout.fillWidth: true
+                            text: appRow.modelData.name
+                            font.pixelSize: 12
+                            color: Theme.textBright
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            renderType: Text.NativeRendering
+                            visible: appRow.modelData.mic
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.iconSize()
+                            color: Theme.privacyActive
+                            text: root.micGlyph
+                        }
+
+                        Text {
+                            renderType: Text.NativeRendering
+                            visible: appRow.modelData.screen
+                            font.family: Theme.fontFamily
+                            font.pixelSize: Theme.iconSize()
+                            color: Theme.privacyActive
+                            text: root.screenGlyph
+                        }
+                    }
+                }
+            }
         }
     }
 }
