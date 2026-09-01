@@ -21,6 +21,11 @@ Item {
     readonly property string locationName: WeatherService.locationName
 
     readonly property bool hasContent: WeatherService.hasContent
+    // Not read back through `visible` (root has no `visible` binding of its
+    // own) — see Mpd.qml's `contentVisible` for why that pattern is unsafe
+    // in general (Loader/visible deadlock); this just names the same signal
+    // Bar.qml's Loaders look for.
+    readonly property bool contentVisible: hasContent
 
     implicitWidth: hasContent ? content.implicitWidth + 12 : 0
     implicitHeight: Theme.barHeight

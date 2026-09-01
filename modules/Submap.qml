@@ -9,7 +9,10 @@ Rectangle {
 
     property string submap: ""
 
-    visible: submap.length > 0
+    // Plain bool, not read back through `visible` — see Mpd.qml's
+    // `contentVisible` for why (Loader/visible deadlock).
+    readonly property bool contentVisible: submap.length > 0
+    visible: contentVisible
     color: Theme.accent
     radius: height / 2
     // Unconditional — see Mpd.qml for why gating width on the same

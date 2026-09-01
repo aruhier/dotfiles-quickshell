@@ -21,8 +21,13 @@ not against old screenshots.
 ## Layout
 
 ```
-shell.qml             Variants{ model: Quickshell.screens } → one Bar per output
-modules/Bar.qml       PanelWindow per output; left/center/right groups
+shell.qml             Variants{ model: Quickshell.screens } → one Bar per
+                      output; also owns the per-screen layout config (which
+                      modules, which screens get which set)
+modules/Bar.qml       PanelWindow per output; left/center/right groups,
+                      rendered generically from the {left,center,right}
+                      `layout` shell.qml hands it — no per-module or
+                      per-screen special-casing lives here
 modules/*.qml         one file per Waybar module — thin views, no owned
                       subprocesses/network/timers for cross-monitor state
 services/*.qml        pragma-Singleton types holding state + the actual
@@ -34,13 +39,45 @@ shared/Theme.qml      pragma-Singleton palette + metrics, mirrored from
                       style.css — shared process-wide, not one instance
                       per output
 shared/Tooltip.qml    reusable hover popup
+shared/ModuleGroup.qml the left/right pill-shaped module group (flush
+                      against a screen edge, rounded only on the
+                      center-facing side); used twice from Bar.qml with
+                      edge: Qt.LeftEdge/Qt.RightEdge
+shared/ModuleLoader.qml Repeater delegate for one named module: resolves a
+                      module name to a Component and applies the
+                      `contentVisible` Loader-visibility workaround
 shared/WeatherIcons.js glyph/description lookup table for weather codes
 ```
 
-`Bar.qml` mirrors `~/.config/waybar/config`: every output gets `mpd`,
-`hyprland/submap`, `hyprland/workspaces`, `backlight`, `pulseaudio`,
-`custom/swaync`, `clock`; only `DP-1` additionally gets `tray`, `privacy`,
-`custom/weather` (`barWindow.isDp1` gates those).
+## Per-screen module layout
+
+Which modules appear where is configured in `shell.qml`, not hardcoded in
+`Bar.qml`: `mainScreens` lists monitor names (check with `hyprctl monitors
+-j`) that get `mainLayout`; every other screen gets `defaultLayout`. Each
+layout is a plain `{left, center, right}` object of module-name strings.
+`shell.qml` calls `layoutFor(modelData.name)` per screen and passes the
+result into `Bar { layout: ... }`.
+
+`Bar.qml` only knows how to render whatever list it's handed: a
+`moduleComponents` string -> `Component` map (add a new module there to
+make it placeable) plus a `Repeater`/`Loader` per group that instantiates
+whatever's named in `layout.left`/`.center`/`.right`. A module only gets
+instantiated at all if some screen's layout actually names it — this is
+what keeps the expensive modules (Tray/Privacy/Weather: icon textures,
+hover popups, network) from paying their cost on screens that don't list
+them, the same way the old `isDp1`-gated `Loader`s did.
+
+Currently mirrors the original `~/.config/waybar/config` split: every
+output gets `mpd`, `submap`, `workspaces`, `backlight`, `volume`, `swaync`,
+`clock`; only `DP-1` (in `mainScreens`) additionally gets `tray`, `privacy`,
+`weather`.
+
+**Left/right group edge-spacing tuning is order-sensitive.** `leftGroup`'s
+comment about the first module's glyph bearing covering
+`moduleOuterMargin`, and `rightGroup`'s comment about needing it explicitly,
+both assume the *default* left order (`mpd`, `submap`) and right order
+(`clock` last). Reordering a screen's layout so a different module lands at
+the flush screen edge may need re-tuning those margins for that edge.
 
 ## Style-mapping notes
 
@@ -139,8 +176,49 @@ shared/WeatherIcons.js glyph/description lookup table for weather codes
   both sides unless it's also `visible: false`.** The Loader item itself
   defaults `visible: true` even when inactive/zero-width; `RowLayout` only
   excludes spacing for genuinely invisible children. Fixed in `Bar.qml` by
-  adding `visible: active` (or mirroring the loaded item's own `visible`,
-  for Privacy) to each DP-1-only Loader.
+  adding `visible: active` to each DP-1-only Loader.
+
+- **Never bind a `Loader`'s own `visible` to its loaded item's `visible`
+  (`visible: item.visible`) — it's a permanent deadlock, not just a
+  startup-order glitch.** Sequence: `item` starts `null`, so the binding
+  evaluates `visible: false` on the Loader itself *before* anything loads.
+  Once `sourceComponent` creates the item and parents it under the
+  (already-`visible: false`) Loader, Qt Quick cascades the ancestor's false
+  `visible` down into the child — the child's own `visible` *getter* now
+  permanently returns `false` regardless of its local condition, because an
+  invisible ancestor overrides it. That false reading feeds straight back
+  into the Loader's binding, which stays false forever; the item's local
+  condition flipping true later never fires a change (the cascaded getter
+  never stops returning false), so it never recovers. No warning is ever
+  printed — `implicitWidth`/`width` keep computing correctly throughout,
+  which is what makes it easy to mistake for "should just be a timing
+  issue" instead of a real deadlock. This exact pattern shipped in the
+  original `Privacy.qml` Loader (`visible: item ? item.visible : false`) —
+  meaning the mic indicator most likely never actually appeared, silently,
+  since nobody had reason to stare at an idle mic icon. Diagnosed by
+  hardcoding the Loader's `visible: true` and confirming `item.visible` then
+  read correctly (proving the cascade, not something else, was the cause).
+  **Fix:** give the module a plain, non-`visible` bool (e.g.
+  `contentVisible`) mirroring the same condition, and have the Loader read
+  *that* instead — see `Mpd.qml`'s `contentVisible` and `Bar.qml`'s
+  `moduleVisible(item)`.
+
+- **A Repeater delegate type that declares *any* `required property` stops
+  receiving the legacy ambient `modelData`/`index` context properties
+  entirely** — Qt switches that delegate to required-property-only
+  binding, so an unqualified `modelData` reference inside it (or in the
+  expression assigning one of its other properties) silently falls through
+  to an unrelated ancestor's `modelData` instead (in this repo: the bar's
+  own screen, from shell.qml's `Variants`), rather than the Repeater's own
+  item. No warning — just wrong data, and `console.warn`-style guards see
+  the wrong value passed in. Hit in `shared/ModuleLoader.qml` (needs
+  `required property var resolveComponent` for the injected callback):
+  fixed by also declaring the model value itself as `required property
+  string modelData` (Qt's documented mechanism for exposing a plain-array
+  Repeater model to a required-property delegate), instead of relying on
+  the bare identifier or a differently-named prop. Diagnosed by
+  `console.warn`-ing the resolved name and seeing a screen object instead
+  of a module-name string.
 
 ## Intentional enhancements beyond Waybar parity
 

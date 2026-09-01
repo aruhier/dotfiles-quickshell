@@ -13,7 +13,10 @@ Item {
     readonly property real percent: BacklightService.percent
     readonly property bool available: BacklightService.available
 
-    visible: available
+    // Plain bool, not read back through `visible` — see Mpd.qml's
+    // `contentVisible` for why (Loader/visible deadlock).
+    readonly property bool contentVisible: available
+    visible: contentVisible
     // Unconditional, not gated on `available`: see Mpd.qml for why gating
     // width on the same property as `visible` breaks visibility.
     implicitWidth: content.implicitWidth + 12

@@ -18,7 +18,16 @@ Item {
     readonly property int artistLen: 30
     readonly property int titleLen: 40
 
-    visible: playbackState !== "disconnected"
+    // Plain bool, not read back through `visible` — see Bar.qml's
+    // `moduleComponents` Loader `visible` bindings for why: a Loader whose
+    // own `visible` mirrors its loaded item's `visible` deadlocks (Qt Quick
+    // cascades a false ancestor `visible` down into the child's own
+    // `visible` getter, corrupting the very read the Loader's binding
+    // depends on — permanently, since it can never observe a return to
+    // true again). `contentVisible` sidesteps that by never itself being
+    // the target of an ancestor cascade.
+    readonly property bool contentVisible: playbackState !== "disconnected"
+    visible: contentVisible
     // Unconditional, not gated on `visible`: reading a child's
     // implicitWidth in a binding also gated on `visible` leaves `visible`
     // stuck due to a QML binding-evaluation quirk.

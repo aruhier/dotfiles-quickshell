@@ -4,15 +4,55 @@ import Quickshell
 import Quickshell.Wayland
 import "../shared"
 
-// One bar instance per output. Layout mirrors ~/.config/waybar/config:
-// DP-1 gets tray/privacy/weather in addition to the shared modules.
+// One bar instance per output. Which modules appear where is decided by
+// shell.qml (`layout`, passed in) — this file only knows how to render
+// whatever {left, center, right} list of module names it's handed.
 PanelWindow {
     id: barWindow
 
     required property var modelData
+    required property var layout
     screen: modelData
 
-    readonly property bool isDp1: modelData.name === "DP-1"
+    // String -> Component lookup for everything shell.qml's layouts can
+    // place. Workspaces needs this bar's own screen name, so its Component
+    // is bound here rather than being a bare module reference.
+    readonly property var moduleComponents: ({
+        mpd: mpdComponent,
+        submap: submapComponent,
+        workspaces: workspacesComponent,
+        backlight: backlightComponent,
+        volume: volumeComponent,
+        swaync: swayncComponent,
+        clock: clockComponent,
+        tray: trayComponent,
+        privacy: privacyComponent,
+        weather: weatherComponent
+    })
+
+    // Layout arrays are plain strings (see shell.qml), so a typo'd module
+    // name would otherwise just silently render nothing via the Loader.
+    function componentFor(name) {
+        const component = barWindow.moduleComponents[name];
+        if (!component)
+            console.warn("Bar: unknown module \"" + name + "\" in layout — check moduleComponents");
+        return component;
+    }
+
+    Component { id: mpdComponent; Mpd {} }
+    Component { id: submapComponent; Submap {} }
+    Component { id: workspacesComponent; Workspaces { screenName: barWindow.modelData.name } }
+    Component { id: backlightComponent; Backlight {} }
+    Component { id: volumeComponent; Volume {} }
+    Component { id: swayncComponent; SwayNC {} }
+    Component { id: clockComponent; Clock {} }
+    // Tray/Privacy/Weather are the more expensive modules (icon textures,
+    // hover popups, network) — they only get instantiated at all when a
+    // screen's layout actually lists them, e.g. via shell.qml's
+    // `mainScreens`.
+    Component { id: trayComponent; Tray {} }
+    Component { id: privacyComponent; Privacy {} }
+    Component { id: weatherComponent; Weather {} }
 
     anchors {
         top: true
@@ -49,91 +89,37 @@ PanelWindow {
 
         // ---- left ----
         // Flush against the screen edge, rounded only on the inner side —
-        // mirrors .modules-left's one-sided pill.
-        Rectangle {
-            id: leftGroup
-            color: Theme.groupBg
-            topRightRadius: height / 2
-            bottomRightRadius: height / 2
-            anchors.left: parent.left
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            // Only the inner edge gets groupEdgePadding; no outer margin
-            // here since Mpd's own glyph bearing already lands its ink at
-            // the right spot (unlike rightGroup, see below).
-            implicitWidth: leftRow.implicitWidth + Theme.groupEdgePadding
-            visible: leftRow.implicitWidth > 0
-
-            RowLayout {
-                id: leftRow
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 10
-
-                Mpd {}
-                Submap {}
-            }
+        // mirrors .modules-left's one-sided pill. No outer margin here
+        // since the first module's own glyph bearing already lands its ink
+        // at the right spot (unlike the right group, see below) — true for
+        // the default left order (mpd, submap); reorder with care.
+        ModuleGroup {
+            edge: Qt.LeftEdge
+            model: barWindow.layout.left
+            resolveComponent: barWindow.componentFor
         }
 
         // ---- center ----
-        Workspaces {
+        RowLayout {
             anchors.centerIn: parent
-            screenName: barWindow.modelData.name
+            spacing: 10
+
+            Repeater {
+                model: barWindow.layout.center
+                delegate: ModuleLoader { resolveComponent: barWindow.componentFor }
+            }
         }
 
         // ---- right ----
-        Rectangle {
-            id: rightGroup
-            color: Theme.groupBg
-            topLeftRadius: height / 2
-            bottomLeftRadius: height / 2
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-            // Mirror of leftGroup, but the outer edge here needs
-            // moduleOuterMargin too: Clock ends in a digit with near-zero
-            // right bearing, so it needs the explicit margin to match
-            // waybar's spacing.
-            implicitWidth: rightRow.implicitWidth + Theme.groupEdgePadding + Theme.moduleOuterMargin
-
-            RowLayout {
-                id: rightRow
-                anchors.right: parent.right
-                anchors.rightMargin: Theme.moduleOuterMargin
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 10
-
-                // Tray/Privacy/Weather are DP-1-only and each cost more than
-                // a bare Item (icon textures, hover popups), so they're
-                // Loader-gated instead of just hidden via `visible`.
-                Loader {
-                    active: barWindow.isDp1
-                    // `active: false` alone leaves a visible zero-width item,
-                    // which still reserves RowLayout spacing on both sides;
-                    // `visible: active` excludes it properly.
-                    visible: active
-                    Layout.preferredWidth: item ? item.implicitWidth : 0
-                    sourceComponent: Tray {}
-                }
-                Backlight {}
-                Volume {}
-                Loader {
-                    active: barWindow.isDp1
-                    // Also tracks Privacy's own visible: micActive once
-                    // loaded, not just isDp1.
-                    visible: item ? item.visible : false
-                    Layout.preferredWidth: item && item.visible ? item.implicitWidth : 0
-                    sourceComponent: Privacy {}
-                }
-                SwayNC {}
-                Loader {
-                    active: barWindow.isDp1
-                    visible: active
-                    Layout.preferredWidth: item ? item.implicitWidth : 0
-                    sourceComponent: Weather {}
-                }
-                Clock {}
-            }
+        // Mirror of the left group, but the outer edge needs
+        // moduleOuterMargin too: a module ending in a digit/flush glyph
+        // (e.g. Clock) has near-zero right bearing, so it needs the
+        // explicit margin to match waybar's spacing.
+        ModuleGroup {
+            edge: Qt.RightEdge
+            model: barWindow.layout.right
+            resolveComponent: barWindow.componentFor
+            outerMargin: Theme.moduleOuterMargin
         }
     }
 }

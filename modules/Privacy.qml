@@ -25,7 +25,10 @@ Item {
         return false;
     }
 
-    visible: micActive
+    // Plain bool, not read back through `visible` — see Mpd.qml's
+    // `contentVisible` for why (Loader/visible deadlock).
+    readonly property bool contentVisible: micActive
+    visible: contentVisible
     // Unconditional — see Mpd.qml for why gating width on the same property
     // as `visible` breaks visibility.
     implicitWidth: label.implicitWidth + 8
