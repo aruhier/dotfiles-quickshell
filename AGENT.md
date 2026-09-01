@@ -371,3 +371,24 @@ actually mattered (tracked vs. untracked) because the untracked case was
 never isolated as its own test. When retiring a workaround based on an old
 finding, re-run the original repro's failure case alongside the fix, not
 just the fix in isolation — that's what surfaced the real variable here.
+
+## Inspiration for later: click-triggered popups (2026-09-02)
+
+`shared/popup/PopupCoordinator.qml` only knows one dismissal model: a
+single hover-triggered `activeOwner` that gets closed when another hover
+popup activates. That's correct for what exists today (Clock's calendar,
+Weather's forecast — both cursor-hover popups, and there's only one
+cursor, hence a plain global singleton with no per-screen tracking).
+
+DankMaterialShell's equivalent (`Common/PopoutManager.qml`, compared
+against ours on request) additionally distinguishes hover-opens from
+click-opens: a click sets `hoverDismissEnabled = false` to *pin* the
+popout open (it survives the cursor leaving), while a hover keeps it
+auto-dismissing, and clicking the same trigger again toggles it closed.
+
+**If this bar ever grows a click-triggered popup** (e.g. a settings/context
+menu, as opposed to a hover-preview), `PopupCoordinator`'s single
+`activate`/`deactivate` pair won't be enough — it has no concept of
+"pinned open regardless of cursor position." Worth revisiting this pinning
+scheme then. Not implemented now — no click-triggered popup exists yet,
+and AGENT.md's mandate is not to grow scope pre-emptively.
