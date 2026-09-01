@@ -239,8 +239,8 @@ the flush screen edge may need re-tuning those margins for that edge.
 
 ## Known limitations
 
-- **`Privacy.qml`** only replicates the mic indicator; screen-share
-  detection isn't implemented (no simple Pipewire signal for it).
+- **`Privacy.qml`** shows a mic icon and a screen-share icon, both computed
+  inline (no dedicated service — see the correction below).
 - **`Mpd.qml`** polls `mpc` on a timer since mpd isn't exposed over MPRIS
   here and Quickshell has no built-in mpd client.
 - **`Weather.qml`** natively implements the bar icon+temperature and a
@@ -300,3 +300,56 @@ individual icons at zoom. For gap measurement within a crop, a
 brightness-threshold column scan (cluster non-background columns into
 per-glyph segments) beats raw pixel diffing, since antialiasing produces
 false positives pixel-by-pixel.
+
+## Correction: screen-share detection doesn't need `pw-dump` polling (2026-09-02)
+
+Previous claim (now removed from Known limitations above) was that
+Quickshell's `Pipewire` service could never see a screen-share stream:
+`PwNode.type` really doesn't classify `Stream/Input/Video` (that part's
+still true — `type` stays `Untracked`/`0` for it), but the conclusion drawn
+from that — that `properties`/`ready` therefore *never* populate for such a
+node — was wrong. The original test only tried a synthetic node with no
+`PwObjectTracker` anywhere in the process; **an untracked Pipewire node
+never gets its properties bound, full stop, regardless of media class** —
+that's the actual rule, and it was misdiagnosed as being about video
+streams specifically.
+
+Reconfirmed empirically against a real capture (Firefox sharing a browser
+tab via the portal, not a synthetic `gst-launch-1.0` node): a standalone
+probe script (`qs -p`) with `PwObjectTracker { objects: Pipewire.nodes.values }`
+showed the node's `properties["media.class"]` and `ready` populate and
+update live. The same probe with no tracker at all reproduced the original
+`ready: false, properties: {}` stuck state on the same live node — so the
+fix genuinely is just "track the node", not "impossible via Quickshell".
+
+Found by reading DankMaterialShell's `PrivacyService.qml`
+(`AvengeMedia/DankMaterialShell`), which does exactly this — reads
+`node.properties["media.class"]` off `Pipewire.nodes.values` directly, no
+subprocess. Its `PwObjectTracker` filters to `objects.filter(node =>
+!node.isStream)`, which looks like it should exclude a video *stream*
+node — but `isStream` turned out to be false for this class of node too
+(Quickshell only sets it for media classes it classifies into a real
+`PwNodeType`, same root cause as `type` staying `Untracked`), so DMS's
+filter includes it anyway. Not obviously robust reasoning to copy blindly,
+so this repo just tracks every node instead of relying on that
+coincidence.
+
+**Fix:** `services/ScreenShareService.qml` (the `pw-dump`-polling
+singleton) is deleted. Screen-share detection now lives inline in
+`Privacy.qml` as `screenShareActive`, same shape as the pre-existing
+`micActive` — a `PwObjectTracker` over `Pipewire.nodes.values` plus a scan
+for `media.class === "Stream/Input/Video"`. No dedicated service: this
+isn't owned subprocess/network I/O (the thing `services/*.qml` exists for
+per the Layout section above), just a reactive read of a singleton
+Quickshell already keeps process-wide. It also means the tracker only runs
+on screens whose layout actually lists `privacy` (DP-1 only, currently) —
+same cost-avoidance property every other DP-1-only module gets, which the
+old always-on singleton didn't have.
+
+**Lesson:** an empirical "confirmed" finding can still encode the wrong
+mechanism. The synthetic repro *did* fail, but the write-up attributed the
+failure to the wrong variable (media class) instead of the one that
+actually mattered (tracked vs. untracked) because the untracked case was
+never isolated as its own test. When retiring a workaround based on an old
+finding, re-run the original repro's failure case alongside the fix, not
+just the fix in isolation — that's what surfaced the real variable here.
