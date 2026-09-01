@@ -229,6 +229,24 @@ the flush screen edge may need re-tuning those margins for that edge.
   `console.warn`-ing the resolved name and seeing a screen object instead
   of a module-name string.
 
+- **`PopupAnchor.edges`/`.gravity` center on an axis when that axis's
+  `Left`/`Right` flag is simply omitted** — not a separate "Center" flag,
+  which doesn't exist (`Edges` is only `None|Top|Left|Right|Bottom`).
+  Confirmed by reading Quickshell 0.3.0's `popupanchor.cpp`
+  (`PopupPositioner::reposition`): with neither flag set, `anchorX` falls
+  through to `anchorRectGeometry.center().x()` and the gravity side falls
+  through to `anchorX - windowGeometry.width() / 2`. That width read is
+  live — `windowGeometry` is the popup's *actual current* size at
+  reposition time, and `ProxyPopupWindow` connects the popup window's own
+  `widthChanged` straight to `reposition()` — so centering computed this
+  way tracks the popup resizing after it's shown (e.g. `Tooltip.qml`'s text
+  changing) for free. A hand-rolled `anchor.rect.x = center - popup.width /
+  2` inside `onAnchoring` would look identical at first paint but go stale
+  on any later resize, since `onAnchoring` only re-fires on rect/edge/
+  gravity/window changes, not on the popup's own width. Used in
+  `AnchoredPopupWindow.qml` to horizontally center `Tooltip.qml`/
+  `HoverPopup.qml` under their anchor module instead of left-aligning.
+
 ## Visual polish beyond the base design
 
 - Every module eases `implicitWidth` (`Theme.qml`'s `resizeDuration`) on
