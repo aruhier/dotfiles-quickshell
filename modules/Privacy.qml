@@ -3,12 +3,12 @@ import QtQuick.Layouts
 import Quickshell.Services.Pipewire
 import "../shared"
 
-// Approximates waybar's "privacy" module: shows a mic icon while any app has
-// an open audio-capture stream (waybar also checks RUNNING state; quickshell's
-// PwNode doesn't expose that, so this is the closest match).
+// Shows a mic icon while any app has an open audio-capture stream (ideally
+// this would also require the stream to be RUNNING, not just open, but
+// Quickshell's PwNode doesn't expose that state).
 //
-// Screen-share detection (waybar's "screenshare" item) isn't implemented —
-// would need an xdg-desktop-portal ScreenCast/DBus watcher.
+// Screen-share detection isn't implemented — would need an
+// xdg-desktop-portal ScreenCast/DBus watcher.
 //
 // Not built on PwNodeLinkTracker(node: defaultAudioSource): a hardware
 // capture device can carry idle/internal link groups with no app actually

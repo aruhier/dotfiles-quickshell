@@ -5,11 +5,12 @@ import Quickshell.Widgets
 import Quickshell.Services.SystemTray
 import "../shared"
 
-// Mirrors waybar's "tray" module.
+// System tray.
 Item {
     id: root
 
-    // Matches waybar's shared `padding: 0 6px` module rule.
+    // 6px padding on each side, matching every other module's horizontal
+    // padding.
     implicitWidth: row.implicitWidth + 12
     implicitHeight: Theme.barHeight
     clip: true
@@ -32,7 +33,6 @@ Item {
     RowLayout {
         id: row
         anchors.centerIn: parent
-        // Matches waybar's config.d/common.json "tray": { "spacing": 20 }.
         spacing: 20
 
         Repeater {
@@ -42,7 +42,6 @@ Item {
                 id: trayIcon
                 required property var modelData
 
-                // Matches waybar's "tray": { "icon-size": 14 }.
                 Layout.preferredWidth: 14
                 Layout.preferredHeight: 14
 

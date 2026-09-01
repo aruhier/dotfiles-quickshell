@@ -6,10 +6,9 @@ import "../shared"
 import "../shared/WeatherIcons.js" as WeatherIcons
 
 // Native weather widget: bar icon+temperature plus its own popup (current +
-// hourly/daily forecast), instead of waybar's monospace pango tooltip. The
-// Open-Meteo fetch/geolocation/refresh-timer lives in
-// services/WeatherService.qml (singleton, one fetch cycle for the whole
-// process); this is just a view over that shared state.
+// hourly/daily forecast). The Open-Meteo fetch/geolocation/refresh-timer
+// lives in services/WeatherService.qml (singleton, one fetch cycle for the
+// whole process); this is just a view over that shared state.
 Item {
     id: root
 

@@ -2,11 +2,11 @@ import QtQuick
 import "../services"
 import "../shared"
 
-// Mirrors waybar's "backlight" module. Actual /sys/class/backlight polling
-// lives in services/BacklightService.qml (singleton, one poll cycle for the
-// whole process regardless of monitor count); this is just a thin view over
-// that shared state. Hides itself when there's no backlight device (e.g.
-// external monitors).
+// Screen-brightness indicator. Actual /sys/class/backlight polling lives in
+// services/BacklightService.qml (singleton, one poll cycle for the whole
+// process regardless of monitor count); this is just a thin view over that
+// shared state. Hides itself when there's no backlight device (e.g. external
+// monitors).
 Item {
     id: root
 

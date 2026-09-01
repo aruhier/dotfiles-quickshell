@@ -3,7 +3,7 @@ import Quickshell
 import Quickshell.Services.Pipewire
 import "../shared"
 
-// Mirrors waybar's "pulseaudio" module (backed by pipewire-pulse here).
+// Volume indicator (backed by pipewire-pulse).
 Item {
     id: root
 
@@ -45,7 +45,7 @@ Item {
             font.family: Theme.fontFamily
             font.pixelSize: Theme.iconSize(root.iconSizeRatio)
             color: Theme.groupText
-            // waybar's "format-muted" replaces the whole format while muted.
+            // Muted state replaces the whole format (icon only, no percent).
             text: root.muted ? "󰝟" : root.pct < 33 ? "󰕿" : root.pct < 66 ? "󰖀" : "󰕾"
         }
 

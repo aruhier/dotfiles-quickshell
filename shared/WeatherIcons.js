@@ -1,9 +1,7 @@
 .pragma library
 
 // WMO weather-code -> glyph/description table. Glyphs are from "Symbols
-// Nerd Font Mono", verified against
-// ~/.config/waybar/scripts/weather/weather_icons.json. Kept as codepoints
-// since several sit outside the BMP.
+// Nerd Font Mono". Kept as codepoints since several sit outside the BMP.
 var CODES = {
     0: { day: 0xf0599, night: 0xf0594, desc: "Clear sky" },
     1: { day: 0xf0599, night: 0xf0594, desc: "Mainly clear" },
@@ -35,8 +33,7 @@ var CODES = {
     99: { day: 0xe365, night: 0xe367, desc: "Thunderstorm with heavy hail" }
 };
 
-// Extra popup glyphs (verified against
-// ~/.config/waybar/scripts/weather/ui_icons.json).
+// Extra popup glyphs.
 var GLYPHS = {
     sunrise: 0xe343,
     sunset: 0xf059a,

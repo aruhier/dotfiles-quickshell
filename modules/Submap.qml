@@ -2,8 +2,8 @@ import QtQuick
 import Quickshell.Hyprland
 import "../shared"
 
-// Mirrors waybar's "hyprland/submap" module: hidden on the default submap,
-// shows an italic pill with the submap name otherwise.
+// Hyprland submap indicator: hidden on the default submap, shows an italic
+// pill with the submap name otherwise.
 Rectangle {
     id: root
 
@@ -40,7 +40,7 @@ Rectangle {
         font.pixelSize: Theme.fontSize
         color: Theme.accentText
 
-        // waybar's max-length: 30
+        // Submap names are truncated to 30 chars, see onRawEvent below.
         readonly property int maxLength: 30
     }
 

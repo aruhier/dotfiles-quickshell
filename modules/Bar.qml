@@ -114,7 +114,7 @@ PanelWindow {
         // Mirror of the left group, but the outer edge needs
         // moduleOuterMargin too: a module ending in a digit/flush glyph
         // (e.g. Clock) has near-zero right bearing, so it needs the
-        // explicit margin to match waybar's spacing.
+        // explicit margin to keep spacing even.
         ModuleGroup {
             edge: Qt.RightEdge
             model: barWindow.layout.right

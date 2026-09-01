@@ -1,22 +1,19 @@
 # AGENT.md
 
-Notes for whoever works on this repo next. This is a Quickshell bar meant
-as a drop-in replacement for an existing Waybar setup — same look, same
-modules, same per-monitor layout. Not meant to grow new features beyond
-what Waybar already does unless asked.
+Notes for whoever works on this repo next. This is a Quickshell status bar
+with a fixed visual identity (dark bar, teal accent, pill-shaped module
+groups) and a fixed per-monitor module layout. Not meant to grow new
+features beyond what's already here unless asked.
 
 ## Source of truth
 
-Waybar is the design spec — match these files, don't invent a new look:
+The visual spec lives in the code itself:
 
-- `~/.config/waybar/config` — per-output bar definitions.
-- `~/.config/waybar/config.d/common.json` — per-module config (formats, icons, intervals).
-- `~/.config/waybar/style.css` — the visual spec: colors, padding, radii, borders. Wins on any doubt.
-- `~/.config/waybar/scripts/weather/` — external weather script (`Weather.qml` reimplements it natively).
-- `/tmp/Waybar` — Waybar's C++ source, useful when CSS/config alone doesn't explain a module's behavior.
-
-If Waybar's config/style changes, re-diff this repo's modules against it,
-not against old screenshots.
+- `shared/Theme.qml` — the palette + metrics singleton: colors, padding,
+  radii, border widths, font sizes, animation springs. Wins on any doubt
+  about a visual value.
+- This file — behavioral notes, gotchas, and the reasoning behind
+  non-obvious choices that aren't self-evident from the code.
 
 ## Layout
 
@@ -28,16 +25,15 @@ modules/Bar.qml       PanelWindow per output; left/center/right groups,
                       rendered generically from the {left,center,right}
                       `layout` shell.qml hands it — no per-module or
                       per-screen special-casing lives here
-modules/*.qml         one file per Waybar module — thin views, no owned
+modules/*.qml         one file per bar module — thin views, no owned
                       subprocesses/network/timers for cross-monitor state
 services/*.qml        pragma-Singleton types holding state + the actual
                       subprocess/network I/O for anything system-wide
                       (BacklightService, MpdService, SwayNCService,
                       WeatherService) — one poll/subscription/fetch cycle
                       for the whole process regardless of monitor count
-shared/Theme.qml      pragma-Singleton palette + metrics, mirrored from
-                      style.css — shared process-wide, not one instance
-                      per output
+shared/Theme.qml      pragma-Singleton palette + metrics — shared
+                      process-wide, not one instance per output
 shared/Tooltip.qml    reusable hover popup
 shared/ModuleGroup.qml the left/right pill-shaped module group (flush
                       against a screen edge, rounded only on the
@@ -65,12 +61,11 @@ whatever's named in `layout.left`/`.center`/`.right`. A module only gets
 instantiated at all if some screen's layout actually names it — this is
 what keeps the expensive modules (Tray/Privacy/Weather: icon textures,
 hover popups, network) from paying their cost on screens that don't list
-them, the same way the old `isDp1`-gated `Loader`s did.
+them.
 
-Currently mirrors the original `~/.config/waybar/config` split: every
-output gets `mpd`, `submap`, `workspaces`, `backlight`, `volume`, `swaync`,
-`clock`; only `DP-1` (in `mainScreens`) additionally gets `tray`, `privacy`,
-`weather`.
+Current layout: every output gets `mpd`, `submap`, `workspaces`,
+`backlight`, `volume`, `swaync`, `clock`; only `DP-1` (in `mainScreens`)
+additionally gets `tray`, `privacy`, `weather`.
 
 **Left/right group edge-spacing tuning is order-sensitive.** `leftGroup`'s
 comment about the first module's glyph bearing covering
@@ -79,10 +74,10 @@ both assume the *default* left order (`mpd`, `submap`) and right order
 (`clock` last). Reordering a screen's layout so a different module lands at
 the flush screen edge may need re-tuning those margins for that edge.
 
-## Style-mapping notes
+## Style notes
 
-- **Bar has real extra height below the content, not an overlay.** Waybar's
-  border-bottom is genuine added height, not painted over the content — see
+- **Bar has real extra height below the content, not an overlay.** The
+  bottom border is genuine added height, not painted over the content — see
   `implicitHeight: theme.barHeight + theme.barBorderHeight` in `Bar.qml`.
 
 - **`.modules-left`/`.modules-right` are flush half-stadium shapes**, not
@@ -90,28 +85,24 @@ the flush screen edge may need re-tuning those margins for that edge.
   6.7+'s per-corner `Rectangle` radius properties, not a single `radius`.
 
 - **Workspace color has three states.** Default = teal (`workspaceBg`),
-  `.urgent` = pink, `.active`/`.focused` = accent, `.empty` = cream. A
-  populated non-focused workspace must stay teal, not default to cream.
+  urgent = pink, active/focused = accent, empty = cream. A populated
+  non-focused workspace must stay teal, not default to cream.
 
-- **Quickshell's Hyprland `active` ≠ Waybar's "active" class.** Quickshell
-  `active` = focused per-monitor (can be true on N monitors at once);
-  `focused` = the one true system-wide focused workspace, matching Waybar's
-  `isActive()`. Use `modelData.focused` for the single accent highlight.
+- **Quickshell's Hyprland `active` ≠ the single system-wide focus.**
+  Quickshell `active` = focused per-monitor (can be true on N monitors at
+  once); `focused` = the one true system-wide focused workspace. Use
+  `modelData.focused` for the single accent highlight.
 
 - **`HyprlandWorkspace` has no `windows`/`empty` property.** Read
   `modelData.lastIpcObject.windows` instead.
-
-- **The `button.visible.current_output` box-shadow rule is dead code here**
-  — only fires for `sway/workspaces`, never `hyprland/workspaces`. Don't
-  replicate it.
 
 - **`.modules-center`'s pill caps are cream, fixed 15px on the container**,
   not a margin around the buttons — see `Workspaces.qml`'s `capWidth`.
 
 - **Every `Text {}` needs `renderType: Text.NativeRendering`.** The default
   SDF renderer shows visible chromatic fringing on this machine; native
-  rendering matches Waybar's crisp Pango/cairo text. No global setting
-  exists for this — every `Text` needs it explicitly.
+  rendering gives crisp text. No global setting exists for this — every
+  `Text` needs it explicitly.
 
 - **`font.family` can't take a CSS-style comma fallback string.** QML only
   accepts one family; Qt fuzzy-resolves a joined string down to just the
@@ -121,26 +112,24 @@ the flush screen edge may need re-tuning those margins for that edge.
   (`font.families`, the correct fix, isn't registered on this Qt build's
   Text type — retry if that ever changes).
 
-- **`Workspaces.qml`'s button width needs a GTK-chrome allowance beyond
-  style.css.** CSS gives 18px padding, but real buttons measure ~34px —
-  GTK's own default chrome, not derivable from the stylesheet. Formula:
-  `Math.round(Math.max(label.implicitWidth + 18, 34))`, empirical.
+- **`Workspaces.qml`'s button width needs a GTK-chrome allowance.**
+  Formula: `Math.round(Math.max(label.implicitWidth + 18, 34))`, tuned
+  empirically for a comfortable button size.
 
 - **`.modules-left`/`.modules-right`'s 12px border is one-sided**, only on
   the inner/center-facing edge. Anchor the inner RowLayout to the flush
   edge, not `centerIn`, or the flush edge gets a spurious extra 12px too.
 
-- **Screen edges aren't symmetric by construction.** Every module's shared
-  CSS rule (`padding: 0 6px; margin: 0 4px;`) needs both halves modeled —
-  modules only accounted for the 6px padding, missing the 4px margin. This
-  only shows up on the two modules flush against the true screen edge
-  (`Mpd` left, `Clock` right) — elsewhere `RowLayout` spacing hides it.
+- **Screen edges aren't symmetric by construction.** Every module has both
+  6px padding and 4px margin on each side — easy to model only the padding
+  half. This only shows up on the two modules flush against the true screen
+  edge (`Mpd` left, `Clock` right) — elsewhere `RowLayout` spacing hides it.
   Fixed via `theme.moduleOuterMargin` (4px), added only where a flush
   module actually needs it (`rightGroup` in `Bar.qml`; not `leftGroup`,
   since Mpd's own icon glyph bearing already covers it — adding it there
-  would overshoot). **Lesson:** a CSS rule can have multiple additive parts;
-  modeling only one can still look right almost everywhere by luck, and
-  only fail at edge modules with no neighbor to hide behind.
+  would overshoot). **Lesson:** a spacing rule can have multiple additive
+  parts; modeling only one can still look right almost everywhere by luck,
+  and only fail at edge modules with no neighbor to hide behind.
 
 - **A hover popup that should stay open when the cursor moves onto it
   needs a grace-period timer**, not a plain `anchorHover.containsMouse ||
@@ -192,8 +181,8 @@ the flush screen edge may need re-tuning those margins for that edge.
   never stops returning false), so it never recovers. No warning is ever
   printed — `implicitWidth`/`width` keep computing correctly throughout,
   which is what makes it easy to mistake for "should just be a timing
-  issue" instead of a real deadlock. This exact pattern shipped in the
-  original `Privacy.qml` Loader (`visible: item ? item.visible : false`) —
+  issue" instead of a real deadlock. This exact pattern shipped in an
+  earlier `Privacy.qml` Loader (`visible: item ? item.visible : false`) —
   meaning the mic indicator most likely never actually appeared, silently,
   since nobody had reason to stare at an idle mic icon. Diagnosed by
   hardcoding the Loader's `visible: true` and confirming `item.visible` then
@@ -220,9 +209,7 @@ the flush screen edge may need re-tuning those margins for that edge.
   `console.warn`-ing the resolved name and seeing a screen object instead
   of a module-name string.
 
-## Intentional enhancements beyond Waybar parity
-
-Requested explicitly as visual polish, not bugs to "fix" back to instant:
+## Visual polish beyond the base design
 
 - Every module eases `implicitWidth` (`Theme.qml`'s `resizeDuration`) on
   content-size changes, which reflows the whole bar smoothly for free.
@@ -230,27 +217,19 @@ Requested explicitly as visual polish, not bugs to "fix" back to instant:
   Rectangle that slides/resizes between delegates, with labels kept as a
   separate static top layer so only the square moves.
 
-## Known, deliberate deviations from Waybar
+## Known limitations
 
 - **`Privacy.qml`** only replicates the mic indicator; screen-share
   detection isn't implemented (no simple Pipewire signal for it).
 - **`Mpd.qml`** polls `mpc` on a timer since mpd isn't exposed over MPRIS
   here and Quickshell has no built-in mpd client.
-- **`Weather.qml`** natively reimplements the bar icon+temperature and a
-  broadly similar popup, rather than shelling out to Waybar's script —
-  visual parity, not byte-identical format.
-- **`Tray.qml`'s icon order won't reliably match Waybar's** — neither app
-  sorts tray icons without an explicit `order` config, so it's just
-  registration order and varies per restart. Not a bug to chase.
+- **`Weather.qml`** natively implements the bar icon+temperature and a
+  popup with current/hourly/daily forecast.
+- **`Tray.qml`'s icon order isn't stable** — nothing sorts tray icons
+  without an explicit `order` config, so it's just registration order and
+  varies per restart. Not a bug to chase.
 
-## How to visually compare against Waybar
-
-Both can't run at once (same layer/output), so:
-
-```sh
-pkill waybar
-qs -p shell.qml &
-```
+## How to take a screenshot for visual verification
 
 Screenshot a specific output with `grim` (get geometry first, since `-o`
 and `-g` are mutually exclusive):
@@ -259,8 +238,6 @@ and `-g` are mutually exclusive):
 hyprctl monitors -j
 grim -g "2560,0 3840x28" out.png
 ```
-
-Restore Waybar when done (`pkill -f "qs -p shell.qml"; waybar &`).
 
 If cropping a full-output screenshot in stages with ImageMagick, add
 `+repage` after each `-crop` — otherwise the canvas offset carries over and
@@ -276,20 +253,17 @@ volume-mute, clock text) all matched, but nobody measured the *aggregate*
 width of `modules-right`. Caught only by a user follow-up.
 
 **Second pass** found it: `Tray.qml` hardcoded `spacing: 8` and 16px icons,
-but Waybar's actual config (`config.d/common.json`) uses 14px icons with
-20px spacing — more than double. Fixed both values to match.
+against an intended 14px icons with 20px spacing — more than double. Fixed
+both values.
 
 **Lesson:** per-glyph diffing isn't sufficient — it can't catch a spacing
 deficit spread evenly across many small gaps. Check the *aggregate* group
 width first (sample where a column's color transitions between bar/group
-background), before zooming into individual icons. Also check Waybar's
-JSON config, not just style.css — some values (tray spacing/icon-size)
-only live there.
+background), before zooming into individual icons.
 
-**Follow-up fix (2026-08-30):** `Tray.qml` was still missing style.css's
-shared `padding: 0 6px` rule (a comma-list selector covering `#tray` too,
-easy to miss by grepping `#tray` alone). Fixed by widening `implicitWidth`
-to `row.implicitWidth + 12`.
+**Follow-up fix (2026-08-30):** `Tray.qml` was still missing the shared
+6px-each-side padding rule that every module gets. Fixed by widening
+`implicitWidth` to `row.implicitWidth + 12`.
 
 **Scaling note:** `DP-1` runs at Hyprland `scale: 1.25` — `grim -g`
 geometry is logical px, but the output PNG is physical px, so raw
@@ -300,9 +274,9 @@ bar height — an exact-height crop can appear to be missing a bottom border
 that's actually just outside the capture (the window is 1px taller than
 `barHeight + barBorderHeight` due to `margins.bottom: 1`).
 
-**Working method:** capture the same geometry from both apps, diff the
-aggregate group-edge position first, then crop matching sub-regions to
-compare individual icons at zoom. For gap measurement within a crop, a
+**Working method:** capture the same geometry, diff the aggregate
+group-edge position first, then crop matching sub-regions to compare
+individual icons at zoom. For gap measurement within a crop, a
 brightness-threshold column scan (cluster non-background columns into
 per-glyph segments) beats raw pixel diffing, since antialiasing produces
 false positives pixel-by-pixel.

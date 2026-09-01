@@ -3,7 +3,7 @@ import Quickshell
 import "../services"
 import "../shared"
 
-// Mirrors waybar's "custom/swaync" module. The actual `swaync-client -swb`
+// Notification-center indicator. The actual `swaync-client -swb`
 // subscription lives in services/SwayNCService.qml (singleton, one
 // subscription for the whole process); this is just a thin view.
 Item {

@@ -1,10 +1,10 @@
 import QtQuick
 import QtQuick.Layouts
 
-// Flush pill-shaped module group for the bar's left/right ends — mirrors
-// waybar's .modules-left/.modules-right: rounded only on the side facing
-// center, square on the side flush against the screen edge. Center doesn't
-// use this: it's a floating RowLayout, not a pill (see Bar.qml).
+// Flush pill-shaped module group for the bar's left/right ends: rounded only
+// on the side facing center, square on the side flush against the screen
+// edge. Center doesn't use this: it's a floating RowLayout, not a pill (see
+// Bar.qml).
 Rectangle {
     id: group
 

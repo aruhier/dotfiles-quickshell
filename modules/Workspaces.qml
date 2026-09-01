@@ -3,12 +3,10 @@ import QtQuick.Layouts
 import Quickshell.Hyprland
 import "../shared"
 
-// Mirrors waybar's "hyprland/workspaces" with all-outputs: true — every
-// workspace on every monitor shown on every bar. Colors match style.css:
-// default (has windows) = workspaceBg, .empty = workspaceEmptyBg,
-// .active (waybar's isActive(), i.e. quickshell's "focused") = accent,
-// .urgent = workspaceUrgent.
-// Beyond waybar: a workspace active on its own monitor (but not the
+// Workspace pill row: every workspace on every monitor shown on every bar.
+// Colors: default (has windows) = workspaceBg, empty = workspaceEmptyBg,
+// system-focused = accent (via the sliding `selection` indicator), urgent =
+// workspaceUrgent. A workspace active on its own monitor (but not the
 // system-focused one) also gets bolded + a blended background instead of
 // the sliding accent indicator — see wsDelegate.activeOnThisScreen/
 // activeNotFocused.
@@ -84,8 +82,8 @@ Rectangle {
 
                 visible: !isSpecial
                 Layout.preferredHeight: isSpecial ? 0 : Theme.barHeight
-                // 34px empirical minimum from a waybar screenshot (GTK's own
-                // button chrome isn't in style.css, only measurable).
+                // 34px empirical minimum for a comfortable button size —
+                // measured by eye, not derived from any spec.
                 Layout.preferredWidth: isSpecial ? 0 : Math.round(Math.max(wsMetrics.advanceWidth(modelData.name) + 18, 34))
                 Behavior on Layout.preferredWidth {
                     SpringAnimation {

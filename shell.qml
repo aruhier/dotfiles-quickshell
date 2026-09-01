@@ -2,8 +2,7 @@
 import Quickshell
 import "modules"
 
-// Quickshell replacement for ~/.config/waybar — one Bar per output,
-// following the same per-monitor layout as ~/.config/waybar/config.
+// One Bar per output, with per-monitor module layout configured below.
 ShellRoot {
     id: root
 

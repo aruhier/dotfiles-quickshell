@@ -2,8 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Widgets
 
-// Small reusable hover tooltip anchored below a bar module, similar to
-// waybar's built-in module tooltips.
+// Small reusable hover tooltip anchored below a bar module.
 PopupWindow {
     id: popup
 

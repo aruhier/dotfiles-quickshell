@@ -2,10 +2,10 @@ import QtQuick
 import "../services"
 import "../shared"
 
-// Mirrors waybar's "mpd" module (via mpc, since quickshell has no built-in
-// mpd client and mpd isn't exposed over mpris here). Actual polling lives
-// in services/MpdService.qml (singleton, one poll cycle for the whole
-// process); this is just a thin view over that shared state.
+// MPD now-playing indicator (via mpc, since mpd isn't exposed over MPRIS
+// here). Actual polling lives in services/MpdService.qml (singleton, one
+// poll cycle for the whole process); this is just a thin view over that
+// shared state.
 Item {
     id: root
 

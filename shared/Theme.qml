@@ -1,8 +1,8 @@
 pragma Singleton
 import QtQuick
 
-// Palette + metrics mirrored from ~/dotfiles/waybar/style.css. Singleton:
-// pure static data shared process-wide instead of one instance per output.
+// Shared palette + metrics for the whole bar. Singleton: pure static data
+// shared process-wide instead of one instance per output.
 QtObject {
     readonly property color barBg: "#2d2d2d"
     readonly property color barBorder: "#6AA099"
@@ -43,8 +43,8 @@ QtObject {
     }
 
     readonly property int barHeight: 22
-    // waybar's #waybar > box border-bottom: 3px — real extra height below
-    // the content area, not an overlay.
+    // Bottom border stripe: real extra height below the content area, not
+    // an overlay.
     readonly property int barBorderHeight: 3
 
     // One-sided inner pad for left/right groups (style.css's

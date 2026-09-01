@@ -3,9 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import "../shared"
 
-// Mirrors waybar's "clock" module (format + tooltip-format), but the
-// tooltip-format's {calendar} is reimplemented as a native month-grid popup
-// instead of a pango <tt> text block — same information, own visual style.
+// Clock with a hover popup showing a native month-grid calendar.
 Item {
     id: root
 
