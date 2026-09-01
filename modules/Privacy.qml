@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.Pipewire
 import "../shared"
+import "../shared/animations"
 
 // Shows a mic icon while any app has an open audio-capture stream (ideally
 // this would also require the stream to be RUNNING, not just open, but
@@ -36,11 +37,7 @@ Item {
     clip: true
 
     Behavior on implicitWidth {
-        SpringAnimation {
-            spring: Theme.springSpring
-            damping: Theme.springDamping
-            epsilon: Theme.springEpsilon
-        }
+        WidthSpring {}
     }
 
     // Icon vertical nudge / size bias — see Mpd.qml.

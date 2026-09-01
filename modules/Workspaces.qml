@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell.Hyprland
 import "../shared"
+import "../shared/animations"
 
 // Workspace pill row: every workspace on every monitor shown on every bar.
 // Colors: default (has windows) = workspaceBg, empty = workspaceEmptyBg,
@@ -26,11 +27,7 @@ Rectangle {
     clip: true
 
     Behavior on implicitWidth {
-        SpringAnimation {
-            spring: Theme.workspaceSpringSpring
-            damping: Theme.workspaceSpringDamping
-            epsilon: Theme.springEpsilon
-        }
+        WorkspaceSpring {}
     }
 
     // Shared text metrics for pill sizing, instead of an invisible Text per
@@ -86,11 +83,7 @@ Rectangle {
                 // measured by eye, not derived from any spec.
                 Layout.preferredWidth: isSpecial ? 0 : Math.round(Math.max(wsMetrics.advanceWidth(modelData.name) + 18, 34))
                 Behavior on Layout.preferredWidth {
-                    SpringAnimation {
-                        spring: Theme.workspaceSpringSpring
-                        damping: Theme.workspaceSpringDamping
-                        epsilon: Theme.springEpsilon
-                    }
+                    WorkspaceSpring {}
                 }
                 // Square, flush buttons; rounding avoids stray 1px seams.
                 antialiasing: false
@@ -151,11 +144,7 @@ Rectangle {
         // the real focus target resolves.
         property real focusedLocalX: root.focusedDelegate ? root.focusedDelegate.x : focusedLocalX
         Behavior on focusedLocalX {
-            SpringAnimation {
-                spring: Theme.workspaceSpringSpring
-                damping: Theme.workspaceSpringDamping
-                epsilon: Theme.springEpsilon
-            }
+            WorkspaceSpring {}
         }
 
         // row.x mirrored through its own spring rather than read live.
@@ -173,11 +162,7 @@ Rectangle {
         // whole delegate-width in a single frame.
         property real rowXOffset: row.x
         Behavior on rowXOffset {
-            SpringAnimation {
-                spring: Theme.workspaceSpringSpring
-                damping: Theme.workspaceSpringDamping
-                epsilon: Theme.springEpsilon
-            }
+            WorkspaceSpring {}
         }
 
         x: rowXOffset + focusedLocalX
@@ -186,11 +171,7 @@ Rectangle {
         height: root.focusedDelegate ? root.focusedDelegate.height : height
 
         Behavior on width {
-            SpringAnimation {
-                spring: Theme.workspaceSpringSpring
-                damping: Theme.workspaceSpringDamping
-                epsilon: Theme.springEpsilon
-            }
+            WorkspaceSpring {}
         }
     }
 

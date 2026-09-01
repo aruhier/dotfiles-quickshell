@@ -1,6 +1,7 @@
 import QtQuick
 import "../services"
 import "../shared"
+import "../shared/animations"
 
 // MPD now-playing indicator (via mpc, since mpd isn't exposed over MPRIS
 // here). Actual polling lives in services/MpdService.qml (singleton, one
@@ -36,11 +37,7 @@ Item {
     clip: true
 
     Behavior on implicitWidth {
-        SpringAnimation {
-            spring: Theme.springSpring
-            damping: Theme.springDamping
-            epsilon: Theme.springEpsilon
-        }
+        WidthSpring {}
     }
 
     function truncate(s, len) {

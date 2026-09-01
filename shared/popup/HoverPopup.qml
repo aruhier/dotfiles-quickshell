@@ -1,26 +1,26 @@
 import QtQuick
 import Quickshell
 import Quickshell.Widgets
+import ".."
 
-// Base type for a hover-triggered popup anchored below a bar module. Owns
-// the anchor-math boilerplate, the background chrome, the show/hide grace
-// timer, and PopupCoordinator registration, so every popup built on this
-// gets close() — and mutual exclusion with other popups — for free instead
-// of by copy-paste convention (see Clock.qml/Weather.qml history). A module
-// supplies its own content as default children and drives visibility by
-// calling show()/requestHide() from its own hover MouseArea; it still sets
-// implicitWidth/implicitHeight itself, since content sizing is genuinely
-// per-module.
+// Base type for a hover-triggered popup anchored below a bar module. Adds
+// the background chrome, the show/hide grace timer, and PopupCoordinator
+// registration on top of AnchoredPopupWindow's shared anchor math, so every
+// popup built on this gets close() — and mutual exclusion with other
+// popups — for free instead of by copy-paste convention (see
+// Clock.qml/Weather.qml history). A module supplies its own content as
+// default children and drives visibility by calling show()/requestHide()
+// from its own hover MouseArea; it still sets implicitWidth/implicitHeight
+// itself, since content sizing is genuinely per-module.
 //
-// Not used by shared/Tooltip.qml: that popup is driven by a declarative
-// `show` boolean from many call sites and closes with no grace period at
-// all (nothing to move the cursor onto) — a different enough contract that
-// forcing it onto this show()/requestHide()/coordinator API would be a
-// behavior change, not a refactor.
-PopupWindow {
+// shared/Tooltip.qml only shares the AnchoredPopupWindow base, not this
+// type: that popup is driven by a declarative `show` boolean from many call
+// sites and closes with no grace period at all (nothing to move the cursor
+// onto) — a different enough contract that forcing it onto this
+// show()/requestHide()/coordinator API would be a behavior change, not a
+// refactor.
+AnchoredPopupWindow {
     id: popup
-
-    required property Item anchorItem
 
     property int cornerRadius: 10
     property int padding: 14
@@ -63,20 +63,6 @@ PopupWindow {
         }
     }
 
-    anchor {
-        window: popup.anchorItem.QsWindow.window
-        adjustment: PopupAdjustment.Slide
-        gravity: Edges.Bottom | Edges.Right
-        edges: Edges.Bottom | Edges.Left
-
-        onAnchoring: {
-            const pos = popup.anchorItem.QsWindow.contentItem.mapFromItem(popup.anchorItem, 0, popup.anchorItem.height + 4);
-            anchor.rect.x = pos.x;
-            anchor.rect.y = pos.y;
-        }
-    }
-
-    color: "transparent"
     visible: _open
 
     Rectangle {

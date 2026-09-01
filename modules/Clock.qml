@@ -2,6 +2,8 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import "../shared"
+import "../shared/animations"
+import "../shared/popup"
 
 // Clock with a hover popup showing a native month-grid calendar.
 Item {
@@ -12,11 +14,7 @@ Item {
     clip: true
 
     Behavior on implicitWidth {
-        SpringAnimation {
-            spring: Theme.springSpring
-            damping: Theme.springDamping
-            epsilon: Theme.springEpsilon
-        }
+        WidthSpring {}
     }
 
     property date now: new Date()
@@ -58,19 +56,8 @@ Item {
         }
     }
 
-    MouseArea {
-        id: hover
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onContainsMouseChanged: {
-            if (containsMouse) {
-                popupLoader.active = true;
-                popupLoader.item.show();
-            } else if (popupLoader.item) {
-                popupLoader.item.requestHide();
-            }
-        }
+    HoverPopupArea {
+        loader: popupLoader
     }
 
     // LazyLoader (not just Loader: HoverPopup is a PopupWindow, not an

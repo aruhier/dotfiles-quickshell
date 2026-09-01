@@ -3,6 +3,8 @@ import QtQuick.Layouts
 import Quickshell
 import "../services"
 import "../shared"
+import "../shared/animations"
+import "../shared/popup"
 import "../shared/WeatherIcons.js" as WeatherIcons
 
 // Native weather widget: bar icon+temperature plus its own popup (current +
@@ -31,11 +33,7 @@ Item {
     clip: true
 
     Behavior on implicitWidth {
-        SpringAnimation {
-            spring: Theme.springSpring
-            damping: Theme.springDamping
-            epsilon: Theme.springEpsilon
-        }
+        WidthSpring {}
     }
 
     // Icon vertical nudge / size bias — see Mpd.qml. Only the bar glyph
@@ -95,20 +93,9 @@ Item {
         }
     }
 
-    MouseArea {
-        id: hover
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
+    HoverPopupArea {
+        loader: popupLoader
         onClicked: WeatherService.fetchForecast()
-        onContainsMouseChanged: {
-            if (containsMouse) {
-                popupLoader.active = true;
-                popupLoader.item.show();
-            } else if (popupLoader.item) {
-                popupLoader.item.requestHide();
-            }
-        }
     }
 
     // LazyLoader, not Loader: see Clock.qml's popupLoader for why (same

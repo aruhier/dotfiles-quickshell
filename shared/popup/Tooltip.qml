@@ -1,30 +1,16 @@
 import QtQuick
 import Quickshell
 import Quickshell.Widgets
+import ".."
 
 // Small reusable hover tooltip anchored below a bar module.
-PopupWindow {
+AnchoredPopupWindow {
     id: popup
 
-    required property Item anchorItem
     property string text: ""
     property bool show: false
     property int maxWidth: 480
 
-    anchor {
-        window: anchorItem.QsWindow.window
-        adjustment: PopupAdjustment.Slide
-        gravity: Edges.Bottom | Edges.Right
-        edges: Edges.Bottom | Edges.Left
-
-        onAnchoring: {
-            const pos = anchorItem.QsWindow.contentItem.mapFromItem(anchorItem, 0, anchorItem.height + 4);
-            anchor.rect.x = pos.x;
-            anchor.rect.y = pos.y;
-        }
-    }
-
-    color: "transparent"
     // No grace-period timer here (unlike Weather.qml's popup): plain text,
     // nothing to move the cursor onto, so it should close immediately.
     visible: show && text.length > 0

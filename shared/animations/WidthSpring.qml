@@ -1,0 +1,11 @@
+import QtQuick
+import ".."
+
+// Shared spring tuning for a module's implicitWidth easing (see Theme.qml's
+// springSpring/springDamping for the empirical reasoning). Use as
+// `Behavior on implicitWidth { WidthSpring {} }`.
+SpringAnimation {
+    spring: Theme.springSpring
+    damping: Theme.springDamping
+    epsilon: Theme.springEpsilon
+}

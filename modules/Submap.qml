@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell.Hyprland
 import "../shared"
+import "../shared/animations"
 
 // Hyprland submap indicator: hidden on the default submap, shows an italic
 // pill with the submap name otherwise.
@@ -22,11 +23,7 @@ Rectangle {
     clip: true
 
     Behavior on implicitWidth {
-        SpringAnimation {
-            spring: Theme.springSpring
-            damping: Theme.springDamping
-            epsilon: Theme.springEpsilon
-        }
+        WidthSpring {}
     }
 
     Text {

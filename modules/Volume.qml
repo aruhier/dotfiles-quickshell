@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Services.Pipewire
 import "../shared"
+import "../shared/animations"
 
 // Volume indicator (backed by pipewire-pulse).
 Item {
@@ -20,11 +21,7 @@ Item {
     clip: true
 
     Behavior on implicitWidth {
-        SpringAnimation {
-            spring: Theme.springSpring
-            damping: Theme.springDamping
-            epsilon: Theme.springEpsilon
-        }
+        WidthSpring {}
     }
 
     readonly property int pct: Math.round(volume * 100)

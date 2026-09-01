@@ -1,6 +1,7 @@
 import QtQuick
 import "../services"
 import "../shared"
+import "../shared/animations"
 
 // Screen-brightness indicator. Actual /sys/class/backlight polling lives in
 // services/BacklightService.qml (singleton, one poll cycle for the whole
@@ -24,11 +25,7 @@ Item {
     clip: true
 
     Behavior on implicitWidth {
-        SpringAnimation {
-            spring: Theme.springSpring
-            damping: Theme.springDamping
-            epsilon: Theme.springEpsilon
-        }
+        WidthSpring {}
     }
 
     // Icon vertical nudge / size bias — see Mpd.qml.

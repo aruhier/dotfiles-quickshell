@@ -34,7 +34,21 @@ services/*.qml        pragma-Singleton types holding state + the actual
                       for the whole process regardless of monitor count
 shared/Theme.qml      pragma-Singleton palette + metrics — shared
                       process-wide, not one instance per output
-shared/Tooltip.qml    reusable hover popup
+shared/popup/         everything to do with anchored hover popups:
+  HoverPopup.qml         base type for a hover-triggered popup (grace-period
+                         close, PopupCoordinator registration) — Clock's
+                         calendar and Weather's forecast are built on this
+  Tooltip.qml            reusable hover tooltip; declarative `show`, no
+                         grace period (see its header comment for why it's
+                         not built on HoverPopup.qml despite sharing
+                         AnchoredPopupWindow)
+  AnchoredPopupWindow.qml base PopupWindow type owning just the
+                         anchor-below-module positioning math, shared by
+                         HoverPopup.qml and Tooltip.qml
+  HoverPopupArea.qml     hover MouseArea that opens a LazyLoader-backed
+                         HoverPopup; shared by Clock.qml/Weather.qml
+  PopupCoordinator.qml   pragma-Singleton — only one hover popup open at a
+                         time process-wide
 shared/ModuleGroup.qml the left/right pill-shaped module group (flush
                       against a screen edge, rounded only on the
                       center-facing side); used twice from Bar.qml with
@@ -43,6 +57,12 @@ shared/ModuleLoader.qml Repeater delegate for one named module: resolves a
                       module name to a Component and applies the
                       `contentVisible` Loader-visibility workaround
 shared/WeatherIcons.js glyph/description lookup table for weather codes
+shared/animations/WidthSpring.qml   Theme.springSpring/springDamping as a
+                      one-line `Behavior on implicitWidth { WidthSpring {} }`
+                      — every module's width-change easing
+shared/animations/WorkspaceSpring.qml same, but Theme.workspaceSpring*
+                      — Workspaces.qml's own faster spring, kept separate
+                      so tuning it doesn't also speed up every other module
 ```
 
 ## Per-screen module layout

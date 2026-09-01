@@ -4,6 +4,8 @@ import Quickshell
 import Quickshell.Widgets
 import Quickshell.Services.SystemTray
 import "../shared"
+import "../shared/animations"
+import "../shared/popup"
 
 // System tray.
 Item {
@@ -23,11 +25,7 @@ Item {
     property Item hoveredIcon: null
 
     Behavior on implicitWidth {
-        SpringAnimation {
-            spring: Theme.springSpring
-            damping: Theme.springDamping
-            epsilon: Theme.springEpsilon
-        }
+        WidthSpring {}
     }
 
     RowLayout {

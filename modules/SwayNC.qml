@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import "../services"
 import "../shared"
+import "../shared/animations"
 
 // Notification-center indicator. The actual `swaync-client -swb`
 // subscription lives in services/SwayNCService.qml (singleton, one
@@ -30,11 +31,7 @@ Item {
     clip: true
 
     Behavior on implicitWidth {
-        SpringAnimation {
-            spring: Theme.springSpring
-            damping: Theme.springDamping
-            epsilon: Theme.springEpsilon
-        }
+        WidthSpring {}
     }
 
     // Icon vertical nudge / size bias — see Mpd.qml.
