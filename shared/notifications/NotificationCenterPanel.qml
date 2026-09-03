@@ -37,7 +37,51 @@ PanelWindow {
 
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
-    visible: NotificationService.centerOpen
+
+    // Kept mapped through the close slide-out, not just while centerOpen is
+    // true — unmapping the instant centerOpen flips false would cut the
+    // animation off after a single frame.
+    //
+    // `visible` deliberately does NOT reference NotificationService.centerOpen
+    // directly — only `open`/`closing` below, both written together inside
+    // one Connections handler. Binding `visible` straight to `centerOpen`
+    // (as an earlier version did, `visible: NotificationService.centerOpen ||
+    // closing`) raced: that binding and this Connections handler are both
+    // independent listeners on the same centerOpenChanged signal, with no
+    // guaranteed order between them. When `visible`'s binding happened to
+    // re-evaluate first, it read `closing` still false and `centerOpen`
+    // already false, so the window briefly unmapped for a frame before the
+    // handler ran and remapped it — a real, reproducible "panel disappears
+    // for a frame, then reappears and slides" glitch, confirmed via a
+    // temporary per-frame console.warn of `anchors.rightMargin` showing the
+    // margin itself never jumps (still exactly -2 the instant the close
+    // animation starts) — only the window's own mapped state was racing.
+    // Routing both `open` and `closing` through the same handler makes them
+    // change atomically in program order, so `visible` (downstream of only
+    // those two) can never observe an inconsistent combination.
+    property bool open: false
+    property bool closing: false
+    visible: open || closing
+
+    Connections {
+        target: NotificationService
+        function onCenterOpenChanged() {
+            // Order matters: each write below fires its change signal (and
+            // any dependent binding re-evaluation, incl. `visible` above)
+            // immediately and synchronously — there's no batching across
+            // the two statements. Setting `closing` true *before* `open`
+            // goes false keeps `open || closing` true at every intermediate
+            // point; the previous order (open first) had one JS-tick window
+            // where open was already false and closing was still false,
+            // which unmapped and remapped the window inside a single
+            // signal-handler call — confirmed via a temporary
+            // console.warn(visible, Date.now()) that logged both the false
+            // and the true transition at the identical millisecond.
+            if (!NotificationService.centerOpen)
+                panelWindow.closing = true;
+            panelWindow.open = NotificationService.centerOpen;
+        }
+    }
 
     // Generic MPRIS now-playing widget — matches swaync's own mpris widget,
     // which shows whatever's active over MPRIS rather than being tied to
@@ -77,8 +121,15 @@ PanelWindow {
         // right screen edge), same per-corner-radius technique
         // ModuleGroup.qml uses for the bar's own pill shapes.
         //
-        // rightMargin: -2 (not 0) is a deliberate 2px overscan past the
-        // window's true right edge, not a bug. On this machine's DP-1
+        // Slides in/out from the right screen edge by animating this same
+        // rightMargin between its resting position and fully off-screen
+        // (-width, i.e. the panel's own width past the edge) instead of
+        // toggling visible directly — visible itself just tracks
+        // panelWindow.closing so the window stays mapped for the full
+        // slide-out.
+        //
+        // The resting value -2 (not 0) is a deliberate 2px overscan past
+        // the window's true right edge, not a bug. On this machine's DP-1
         // (Hyprland scale: 1.25) a rightMargin of exactly 0 left the true
         // last physical column of the screen transparent — panelWindow's
         // own background is "transparent" (only this child Rectangle
@@ -90,15 +141,27 @@ PanelWindow {
         // AGENT.md) that -2 fully closes the gap at every row; the extra
         // 2px are square (no corner radius on this side) and land past
         // the true screen edge, so the compositor clips them — no visible
-        // difference vs. 0 other than the gap being gone.
+        // difference vs. 0 other than the gap being gone. The fully-closed
+        // value below is offset by the same -2 for consistency, though it
+        // barely matters off-screen.
         Rectangle {
             id: panel
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             anchors.margins: NotificationTheme.controlCenterMarginV
-            anchors.rightMargin: -2
+            anchors.rightMargin: NotificationService.centerOpen ? -2 : -panel.width - 2
             width: NotificationTheme.controlCenterWidth
+
+            Behavior on anchors.rightMargin {
+                SpringAnimation {
+                    spring: Theme.springSpring
+                    damping: Theme.springDamping
+                    epsilon: Theme.springEpsilon
+                    onRunningChanged: if (!running && !NotificationService.centerOpen)
+                        panelWindow.closing = false
+                }
+            }
 
             color: NotificationTheme.bgGlobal
             border.width: 1

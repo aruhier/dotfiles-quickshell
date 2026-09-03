@@ -610,3 +610,61 @@ ordinary action button. Correct form: `-A "default=Open"`. Separately,
 `-A` implies `--wait`, so a `notify-send` call using it blocks until the
 notification is closed — background it (`timeout N notify-send ... &`)
 during manual testing or the shell command hangs.
+
+## Control-center panel slide animation, and a same-tick visibility race (2026-09-03)
+
+Added a spring slide in/out on the right edge for
+`NotificationCenterPanel.qml`: `panel.anchors.rightMargin` animates between
+its resting `-2` and fully off-screen (`-panel.width - 2`) via `Behavior on
+anchors.rightMargin { SpringAnimation { spring: Theme.springSpring;
+damping: Theme.springDamping; ... } }`, the same shared spring every
+module's `implicitWidth` already eases through.
+
+**The window has to stay mapped for the whole close animation, not just
+while `NotificationService.centerOpen` is true** — unmapping the instant
+`centerOpen` flips false would cut the slide off after one frame (nothing
+left to animate once the layer surface is gone). Fix: `panelWindow.visible:
+open || closing`, where `open` mirrors `centerOpen` and `closing` is set
+true the moment it goes false, then cleared by the `SpringAnimation`'s own
+`onRunningChanged` once it actually finishes.
+
+**A same-tick QML property write does not batch — each write fires its
+change notification, and re-evaluates every dependent binding,
+immediately, before the next statement runs.** The first version of the
+above set `open` and `closing` in a single `Connections.onCenterOpenChanged`
+handler, in this order:
+```js
+panelWindow.open = NotificationService.centerOpen;  // -> false
+if (!NotificationService.centerOpen)
+    panelWindow.closing = true;
+```
+This looks atomic (one handler, no `await`/timer in between) but isn't:
+writing `open = false` immediately re-evaluates `visible: open || closing`
+using the *current* (still `false`) `closing`, so `visible` goes false —
+unmapping the window — for the single JS tick before the next line sets
+`closing = true` and remaps it. User-visible result: "the panel disappears
+for a frame, then reappears and slides." **Fix: order the writes so the
+disjunction is never false at any intermediate point** — set `closing =
+true` *before* `open = false`. A single `onRunningChanged`/`Date.now()`
+console.warn on each `visible` change confirmed the exact mechanism: two
+transitions logged at the identical millisecond (`false` then `true`)
+before the reorder, one clean transition per open/close after it.
+
+**Lesson, distinct from the ordering bug above: don't trust a live
+hot-reloaded instance to validate a same-tick timing fix.** Repeated
+edit-and-reload cycles against one long-running `qs -p ./` process can
+leave stale component instances alive alongside the new one; both react to
+the same singleton signal and both log, which reproduces what looks like
+the *exact same* race even after the real fix lands. Only a full process
+restart (kill + relaunch) gave a trustworthy before/after comparison here.
+
+**Lesson: don't screenshot-diagnose animations on this machine without
+checking what's behind the target window first.** A `grim` capture of the
+panel's screen region, taken when the panel happened to already be fully
+closed, captured whatever normally fills that space on DP-1 instead —
+which turned out to be the user's email client, not blank desktop.
+Stills can't show motion anyway (a user correction mid-session:
+"you can't see animation with screenshot") — for this class of bug
+(same-tick property races, animation curves), a per-frame `console.warn`
+of the specific property values, diffed against a known-good and
+known-bad ordering, is both safer and more diagnostic than screenshots.
