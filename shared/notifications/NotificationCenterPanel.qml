@@ -118,30 +118,47 @@ PanelWindow {
 
     readonly property var activePlayer: mprisPlayers.length > 0 ? mprisPlayers[Math.min(mprisIndex, mprisPlayers.length - 1)] : null
 
+    // Which way the now-playing card's content should slide — read by the
+    // slide spring below, set here (not inferred from the index delta)
+    // since wraparound at the ends of the list would otherwise make the
+    // direction ambiguous.
+    property int mprisSlideDirection: 1
+
+    // The player the widget was just showing, captured right before
+    // mprisIndex changes below — the now-playing card renders this as a
+    // second, non-interactive content layer sliding out while the new
+    // activePlayer's content slides in, so a player switch reads as an
+    // actual transition between two players' content instead of the single
+    // layer just jumping straight to the new data mid-slide.
+    property var previousMprisPlayer: null
+
+    // True for exactly the duration of the synchronous mprisIndex write
+    // below — Qt property notifies are direct/synchronous, so every
+    // dependent binding and change handler downstream of that write (incl.
+    // the now-playing card's track-change pop) reacts before the line after
+    // it runs. Lets the card tell "track changed because the player was
+    // switched" (slide only) apart from "track changed on the same player"
+    // (pop only) without a race on which handler happens to fire first.
+    property bool suppressMprisPop: false
+
     function prevMprisPlayer() {
         if (mprisPlayers.length === 0)
             return;
+        mprisSlideDirection = -1;
+        previousMprisPlayer = activePlayer;
+        suppressMprisPop = true;
         mprisIndex = (mprisIndex - 1 + mprisPlayers.length) % mprisPlayers.length;
+        suppressMprisPop = false;
     }
 
     function nextMprisPlayer() {
         if (mprisPlayers.length === 0)
             return;
+        mprisSlideDirection = 1;
+        previousMprisPlayer = activePlayer;
+        suppressMprisPop = true;
         mprisIndex = (mprisIndex + 1) % mprisPlayers.length;
-    }
-
-    // Cycles the active player's loop mode the same order swaync's own
-    // repeat button does: off -> playlist -> track -> off.
-    function cycleLoopState() {
-        const p = panelWindow.activePlayer;
-        if (!p)
-            return;
-        if (p.loopState === MprisLoopState.None)
-            p.loopState = MprisLoopState.Playlist;
-        else if (p.loopState === MprisLoopState.Playlist)
-            p.loopState = MprisLoopState.Track;
-        else
-            p.loopState = MprisLoopState.None;
+        suppressMprisPop = false;
     }
 
     WlrLayershell.layer: WlrLayer.Top
@@ -150,9 +167,11 @@ PanelWindow {
 
     onVisibleChanged: if (visible) {
         focusScope.forceActiveFocus();
-        // Start unselected each time the panel opens rather than carrying
-        // a stale index over from the last session.
-        focusScope.selectedIndex = -1;
+        // Pre-select the first row (notification or group) each time the
+        // panel opens, rather than carrying a stale index over from the
+        // last session or requiring an extra keypress before Up/Down does
+        // anything.
+        focusScope.selectedIndex = NotificationService.notificationGroups.length > 0 ? 0 : -1;
     }
 
     // Click-outside-to-close — matches swaync's controlCenter.vala
@@ -168,14 +187,18 @@ PanelWindow {
         focus: true
         Keys.onEscapePressed: NotificationService.closeCenter()
 
-        // Keyboard selection into NotificationService.notifications — -1
-        // means nothing selected. Up/Down move it, Return/Enter fire the
-        // selected card's default action (same as clicking its body),
-        // Delete/Backspace dismiss it (same as clicking its ✕).
+        // Keyboard selection into NotificationService.notificationGroups —
+        // -1 means nothing selected (only reachable once the list empties
+        // out from under a selection; the panel otherwise opens pre-selected
+        // at 0, see onVisibleChanged above). Up/Down move it, Return/Enter
+        // fire the selected row's action (a single notification's default
+        // action, or toggle expand/collapse for a group — see
+        // activateSelected below), Delete/Backspace dismiss it (the one
+        // notification, or every notification in the group).
         property int selectedIndex: -1
 
         function clampSelection() {
-            const len = NotificationService.notifications.length;
+            const len = NotificationService.notificationGroups.length;
             if (focusScope.selectedIndex >= len)
                 focusScope.selectedIndex = len - 1;
         }
@@ -192,14 +215,14 @@ PanelWindow {
         }
 
         Keys.onUpPressed: {
-            if (NotificationService.notifications.length === 0)
+            if (NotificationService.notificationGroups.length === 0)
                 return;
             focusScope.selectedIndex = focusScope.selectedIndex <= 0 ? 0 : focusScope.selectedIndex - 1;
             notificationListView.positionViewAtIndex(focusScope.selectedIndex, ListView.Contain);
         }
 
         Keys.onDownPressed: {
-            const len = NotificationService.notifications.length;
+            const len = NotificationService.notificationGroups.length;
             if (len === 0)
                 return;
             focusScope.selectedIndex = focusScope.selectedIndex < 0 ? 0 : Math.min(focusScope.selectedIndex + 1, len - 1);
@@ -209,13 +232,21 @@ PanelWindow {
         Keys.onReturnPressed: focusScope.activateSelected()
         Keys.onEnterPressed: focusScope.activateSelected()
 
+        // swaync's key_press_event_cb: Return on a single-notification row
+        // fires its default action (like clicking the body); on a MANY
+        // group it toggles expand/collapse instead.
         function activateSelected() {
-            const list = NotificationService.notifications;
-            if (focusScope.selectedIndex < 0 || focusScope.selectedIndex >= list.length)
+            const groups = NotificationService.notificationGroups;
+            if (focusScope.selectedIndex < 0 || focusScope.selectedIndex >= groups.length)
                 return;
-            const wrapper = list[focusScope.selectedIndex];
-            if (wrapper.defaultAction)
-                wrapper.defaultAction.invoke();
+            const group = groups[focusScope.selectedIndex];
+            if (group.items.length === 1) {
+                const wrapper = group.items[0];
+                if (wrapper.defaultAction)
+                    wrapper.defaultAction.invoke();
+            } else {
+                NotificationService.toggleGroupExpanded(group.key);
+            }
         }
 
         Keys.onDeletePressed: focusScope.dismissSelected()
@@ -230,10 +261,10 @@ PanelWindow {
         }
 
         function dismissSelected() {
-            const list = NotificationService.notifications;
-            if (focusScope.selectedIndex < 0 || focusScope.selectedIndex >= list.length)
+            const groups = NotificationService.notificationGroups;
+            if (focusScope.selectedIndex < 0 || focusScope.selectedIndex >= groups.length)
                 return;
-            NotificationService.dismiss(list[focusScope.selectedIndex]);
+            NotificationService.dismissGroup(groups[focusScope.selectedIndex]);
         }
 
         // The actual panel — left corners rounded only (flush against the
@@ -287,6 +318,17 @@ PanelWindow {
             // Connections handler above whenever centerOpen changes.
             FrameSpring {
                 id: rightMarginSpring
+                // Softer than Theme.frameSpring{Stiffness,Damping,Mass}
+                // (460/35/0.6, ~137ms settle) — those are shared with other
+                // modules' width-change springs, so overridden here rather
+                // than changed globally. Same zeta (~1.05, near-critical —
+                // still no wobble), just a lower natural frequency: ~185ms
+                // settle instead, a deliberately slower open/close slide for
+                // this panel specifically (a first pass at 140/19 settled in
+                // ~250ms — this splits the difference between that and the
+                // original 460/35).
+                stiffness: 160
+                damping: 18
                 Component.onCompleted: snapTo(panel.closedRightMargin)
                 onRunningChanged: if (!running && !NotificationService.centerOpen)
                     panelWindow.closing = false
@@ -380,32 +422,62 @@ PanelWindow {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
 
-                    Text {
-                        renderType: Text.NativeRendering
+                    // Matches swaync's control-center-list-placeholder: an
+                    // icon above the label, the whole group at half opacity
+                    // (style.css's `.control-center-list-placeholder {
+                    // opacity: 0.5 }`) rather than just dimming the text.
+                    ColumnLayout {
                         anchors.centerIn: parent
                         visible: NotificationService.notifications.length === 0
-                        text: "No notifications"
-                        color: NotificationTheme.textDisabled
-                        font.family: Theme.fontFamily
-                        font.pixelSize: NotificationTheme.fontSize
+                        opacity: 0.5
+                        spacing: 8
+
+                        IconImage {
+                            Layout.alignment: Qt.AlignHCenter
+                            Layout.preferredWidth: 64
+                            Layout.preferredHeight: 64
+                            implicitSize: 64
+                            source: Quickshell.iconPath("notification-disabled-symbolic", "dialog-information-symbolic")
+                        }
+
+                        Text {
+                            renderType: Text.NativeRendering
+                            Layout.alignment: Qt.AlignHCenter
+                            text: "No Notifications"
+                            color: NotificationTheme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: NotificationTheme.fontSize
+                        }
                     }
 
                     ListView {
                         id: notificationListView
                         anchors.fill: parent
                         clip: true
-                        spacing: 6
-                        leftMargin: 2
-                        rightMargin: 2
-                        model: NotificationService.notifications
+                        // swaync's style.css: `.notification { margin: 6px
+                        // 12px }` — matched here as spacing (vertical gap
+                        // between cards) + left/rightMargin (horizontal
+                        // gutter), rather than the bare 2px this had before,
+                        // which read as cramped against the panel edges.
+                        spacing: 10
+                        leftMargin: 12
+                        rightMargin: 12
+                        model: NotificationService.notificationGroups
 
-                        delegate: NotificationCard {
+                        delegate: NotificationGroupCard {
                             id: listCard
                             required property var modelData
                             required property int index
-                            width: ListView.view.width
-                            wrapper: modelData
-                            floating: false
+                            // Not `ListView.view.width` alone — that's the
+                            // full viewport, which ignores the view's own
+                            // left/rightMargin above and made every card
+                            // (and its selection border) overflow the
+                            // margin and get clipped by `clip: true`,
+                            // visible as a glitchy seam on the right edge of
+                            // the selected card once the margin grew beyond
+                            // a pixel or two.
+                            width: ListView.view.width - notificationListView.leftMargin - notificationListView.rightMargin
+                            group: modelData
                             selected: focusScope.selectedIndex === index
                         }
                     }
@@ -435,8 +507,15 @@ PanelWindow {
                             color: NotificationTheme.text
                             font.family: Theme.fontFamily
                             font.pixelSize: NotificationTheme.mprisControlIconSize - 4
+                            scale: prevPlayerPress.value
+
+                            PressSpring {
+                                id: prevPlayerPress
+                                pressed: prevPlayerArea.pressed
+                            }
 
                             MouseArea {
+                                id: prevPlayerArea
                                 anchors.fill: parent
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: panelWindow.prevMprisPlayer()
@@ -444,135 +523,120 @@ PanelWindow {
                         }
 
                         Rectangle {
+                            id: mprisCard
                             Layout.fillWidth: true
-                            Layout.preferredHeight: mprisContent.implicitHeight + 24
+                            Layout.preferredHeight: incomingContent.implicitHeight + 24
                             radius: 14
                             color: NotificationTheme.bgHover
+                            scale: mprisPopSpring.value
 
-                            RowLayout {
-                                id: mprisContent
+                            // Switching player (prev/next arrows, or the
+                            // list shrinking out from under mprisIndex): the
+                            // card itself stays put — only its content (the
+                            // clipped layer below, sized to mprisClip.width)
+                            // slides — panelWindow.mprisSlideDirection is
+                            // set by prevMprisPlayer/nextMprisPlayer right
+                            // before this index write, not inferred from the
+                            // delta, since wraparound at the ends of the
+                            // list makes the delta's sign ambiguous.
+                            readonly property int watchedIndex: panelWindow.mprisIndex
+                            onWatchedIndexChanged: {
+                                mprisSlideSpring.value = panelWindow.mprisSlideDirection * mprisClip.width;
+                                mprisSlideSpring.retarget(0);
+                            }
+
+                            // Same player, new track (e.g. the song simply
+                            // advanced): a small scale bounce instead, same
+                            // spring feedback a new notification popping in
+                            // gets. Suppressed for the one change that
+                            // happens as a side effect of switching players
+                            // above — that gets the slide instead, so the
+                            // two effects never stack on the same
+                            // transition.
+                            readonly property string trackKey: panelWindow.activePlayer ? panelWindow.activePlayer.trackTitle + "|" + panelWindow.activePlayer.trackArtist : ""
+                            onTrackKeyChanged: {
+                                if (panelWindow.suppressMprisPop)
+                                    return;
+                                mprisPopSpring.value = 0.94;
+                                mprisPopSpring.retarget(1);
+                            }
+
+                            FrameSpring {
+                                id: mprisPopSpring
+                                value: 1
+                                target: 1
+                                // See PressSpring.qml's comment — the
+                                // default epsilon is tuned for pixel-scale
+                                // springs, too coarse for this 0..1 scale
+                                // bump (1 -> 0.94).
+                                epsilon: 0.002
+                            }
+
+                            // Drives both content layers' x below — full
+                            // card-width travel now (a real page swap, not a
+                            // small nudge), so it needs to be slow enough to
+                            // actually read as motion across that distance.
+                            // A mass-spring-damper's settle time is
+                            // independent of the distance travelled, so the
+                            // same stiffness/damping works regardless of how
+                            // wide the card ends up. stiffness=110/damping=16
+                            // (mass=1) gives zeta ~0.76 — a bit lighter than
+                            // critical (1.0, the previous value), so there's
+                            // a small bit of give/overshoot at the end
+                            // rather than gliding to a dead stop, and a
+                            // ~0.50s settle instead of ~0.61s. Confirmed
+                            // still well clear of the too-wobbly zeta ~0.64
+                            // this had at one point.
+                            FrameSpring {
+                                id: mprisSlideSpring
+                                value: 0
+                                target: 0
+                                stiffness: 60
+                                damping: 13
+                                mass: 0.8
+                            }
+
+                            // Clips the two sliding content layers to the
+                            // card's own content area — without this,
+                            // whichever layer is mid-slide would spill out
+                            // past the card's rounded edges instead of
+                            // looking like a page swapping inside a fixed
+                            // frame.
+                            Item {
+                                id: mprisClip
                                 anchors.fill: parent
                                 anchors.margins: 12
-                                spacing: 14
+                                clip: true
 
-                                ClippingRectangle {
-                                    Layout.preferredWidth: NotificationTheme.mprisImageSize
-                                    Layout.preferredHeight: NotificationTheme.mprisImageSize
-                                    radius: NotificationTheme.mprisImageRadius
-                                    color: NotificationTheme.bg
-
-                                    Image {
-                                        anchors.fill: parent
-                                        visible: panelWindow.activePlayer && panelWindow.activePlayer.trackArtUrl !== ""
-                                        source: panelWindow.activePlayer ? panelWindow.activePlayer.trackArtUrl : ""
-                                        fillMode: Image.PreserveAspectCrop
-                                        asynchronous: true
-                                    }
+                                // Outgoing: the player this widget was just
+                                // showing, sliding out the opposite side
+                                // from the one the incoming layer slides in
+                                // from. Only actually on-screen for the
+                                // duration of the slide (mprisSlideSpring
+                                // running) — interactive: false the whole
+                                // time regardless, since it's on its way out
+                                // and shouldn't answer clicks meant for the
+                                // incoming layer.
+                                MprisNowPlayingContent {
+                                    width: mprisClip.width
+                                    height: mprisClip.height
+                                    visible: mprisSlideSpring.running && panelWindow.previousMprisPlayer !== null
+                                    player: panelWindow.previousMprisPlayer
+                                    interactive: false
+                                    x: mprisSlideSpring.value - panelWindow.mprisSlideDirection * mprisClip.width
                                 }
 
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 4
-
-                                    Text {
-                                        renderType: Text.NativeRendering
-                                        Layout.fillWidth: true
-                                        text: panelWindow.activePlayer ? panelWindow.activePlayer.trackTitle : ""
-                                        color: NotificationTheme.text
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: NotificationTheme.mprisTitleFontSize
-                                        font.bold: true
-                                        elide: Text.ElideRight
-                                    }
-
-                                    Text {
-                                        renderType: Text.NativeRendering
-                                        Layout.fillWidth: true
-                                        text: panelWindow.activePlayer ? panelWindow.activePlayer.trackArtist : ""
-                                        color: NotificationTheme.text
-                                        font.family: Theme.fontFamily
-                                        font.pixelSize: NotificationTheme.mprisArtistFontSize
-                                        elide: Text.ElideRight
-                                    }
-
-                                    RowLayout {
-                                        spacing: 12
-
-                                        Text {
-                                            renderType: Text.NativeRendering
-                                            text: "󰒝"
-                                            color: panelWindow.activePlayer && panelWindow.activePlayer.shuffleSupported ? (panelWindow.activePlayer.shuffle ? NotificationTheme.bgSelected : NotificationTheme.text) : NotificationTheme.textDisabled
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: NotificationTheme.mprisControlIconSize - 4
-
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                enabled: panelWindow.activePlayer && panelWindow.activePlayer.shuffleSupported
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: panelWindow.activePlayer.shuffle = !panelWindow.activePlayer.shuffle
-                                            }
-                                        }
-
-                                        Text {
-                                            renderType: Text.NativeRendering
-                                            text: "󰒮"
-                                            color: panelWindow.activePlayer && panelWindow.activePlayer.canGoPrevious ? NotificationTheme.text : NotificationTheme.textDisabled
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: NotificationTheme.mprisControlIconSize
-
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                enabled: panelWindow.activePlayer && panelWindow.activePlayer.canGoPrevious
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: panelWindow.activePlayer.previous()
-                                            }
-                                        }
-
-                                        Text {
-                                            renderType: Text.NativeRendering
-                                            text: panelWindow.activePlayer && panelWindow.activePlayer.isPlaying ? "󰏤" : "󰐊"
-                                            color: panelWindow.activePlayer && panelWindow.activePlayer.canTogglePlaying ? NotificationTheme.text : NotificationTheme.textDisabled
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: NotificationTheme.mprisControlIconSize
-
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                enabled: panelWindow.activePlayer && panelWindow.activePlayer.canTogglePlaying
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: panelWindow.activePlayer.togglePlaying()
-                                            }
-                                        }
-
-                                        Text {
-                                            renderType: Text.NativeRendering
-                                            text: "󰒭"
-                                            color: panelWindow.activePlayer && panelWindow.activePlayer.canGoNext ? NotificationTheme.text : NotificationTheme.textDisabled
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: NotificationTheme.mprisControlIconSize
-
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                enabled: panelWindow.activePlayer && panelWindow.activePlayer.canGoNext
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: panelWindow.activePlayer.next()
-                                            }
-                                        }
-
-                                        Text {
-                                            renderType: Text.NativeRendering
-                                            text: panelWindow.activePlayer && panelWindow.activePlayer.loopState === MprisLoopState.Track ? "󰑘" : "󰑖"
-                                            color: panelWindow.activePlayer && panelWindow.activePlayer.loopSupported ? (panelWindow.activePlayer.loopState !== MprisLoopState.None ? NotificationTheme.bgSelected : NotificationTheme.text) : NotificationTheme.textDisabled
-                                            font.family: Theme.fontFamily
-                                            font.pixelSize: NotificationTheme.mprisControlIconSize - 4
-
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                enabled: panelWindow.activePlayer && panelWindow.activePlayer.loopSupported
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: panelWindow.cycleLoopState()
-                                            }
-                                        }
-                                    }
+                                // Incoming: the current activePlayer, always
+                                // the interactive layer. Starts offset by a
+                                // full card-width in the direction it's
+                                // "coming from" and slides to x: 0 as
+                                // mprisSlideSpring settles.
+                                MprisNowPlayingContent {
+                                    id: incomingContent
+                                    width: mprisClip.width
+                                    height: mprisClip.height
+                                    player: panelWindow.activePlayer
+                                    x: mprisSlideSpring.value
                                 }
                             }
                         }
@@ -584,8 +648,15 @@ PanelWindow {
                             color: NotificationTheme.text
                             font.family: Theme.fontFamily
                             font.pixelSize: NotificationTheme.mprisControlIconSize - 4
+                            scale: nextPlayerPress.value
+
+                            PressSpring {
+                                id: nextPlayerPress
+                                pressed: nextPlayerArea.pressed
+                            }
 
                             MouseArea {
+                                id: nextPlayerArea
                                 anchors.fill: parent
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: panelWindow.nextMprisPlayer()

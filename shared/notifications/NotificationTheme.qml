@@ -4,15 +4,17 @@ import QtQuick
 // Palette + metrics for the notification popups/control-center, pulled 1:1
 // from the swaync setup this subsystem replaces
 // (~/dotfiles/swaync/{style.css,config.json}) so the visual identity carries
-// over. Deliberately separate from ../Theme.qml: the bar's teal identity and
-// swaync's dark/blue identity are two different visual languages by design —
-// Theme.qml "wins on any doubt" only applies to the bar itself.
+// over. Otherwise kept separate from ../Theme.qml — but bgSelected below is
+// a deliberate exception, pulled from Theme.qml's bar accent by request to
+// tie the two surfaces' selection color together.
 QtObject {
     readonly property color bg: "#2a2a2a"
     readonly property color bgFloating: Qt.rgba(0.165, 0.165, 0.165, 0.965)
     readonly property color bgGlobal: Qt.rgba(0.165, 0.165, 0.165, 0.95)
     readonly property color bgHover: "#4b4b4b"
-    readonly property color bgSelected: "#0080ff"
+    // Matches Theme.qml's bar accent — ties the notification panel's
+    // selection color to the bar's own identity instead of an unrelated blue.
+    readonly property color bgSelected: "#6AA099"
     readonly property color borderColor: "#070707"
     readonly property color borderNotification: Qt.rgba(80 / 255, 80 / 255, 80 / 255, 1)
     readonly property color text: "#f5edec"
@@ -22,8 +24,10 @@ QtObject {
     readonly property int controlCenterRadius: 12
 
     // Deliberately larger than Theme.fontSize (12) — this subsystem's own
-    // knob, not shared with the bar.
-    readonly property int fontSize: 14
+    // knob, not shared with the bar. Bumped from the original 1:1-with-swaync
+    // 14 by request — read as too small next to a live swaync screenshot at
+    // the same card width once compared side by side.
+    readonly property int fontSize: 16
 
     // config.json's notification-window-width.
     readonly property int notificationWidth: 500
@@ -33,13 +37,17 @@ QtObject {
     // config.json's control-center-margin-top/bottom.
     readonly property int controlCenterMarginV: 50
 
-    // config.json's mpris widget-config. Sized up well past the base
-    // fontSize/iconFontSize — the now-playing widget is meant to read as a
-    // hero element in the panel, not blend in with the notification list.
-    readonly property int mprisImageSize: 96
-    readonly property int mprisImageRadius: 16
-    readonly property int mprisTitleFontSize: fontSize + 4
-    readonly property int mprisArtistFontSize: fontSize + 1
+    // config.json's mpris widget-config is image-size: 64 / image-radius: 12
+    // (~/dotfiles/swaync/config.json) — bumped up from that by request, art
+    // read as too small at the literal config value once seen live.
+    readonly property int mprisImageSize: 80
+    readonly property int mprisImageRadius: 14
+    // Fixed, not `fontSize + N` — that used to track fontSize's bump above,
+    // but the mpris widget's sizing already reads right (per direct
+    // request, left untouched), so these are now their own frozen knob
+    // instead of drifting every time fontSize changes.
+    readonly property int mprisTitleFontSize: 18
+    readonly property int mprisArtistFontSize: 15
     readonly property int mprisControlIconSize: 26
 
     // config.json's timeout/timeout-low/timeout-critical (seconds -> ms).

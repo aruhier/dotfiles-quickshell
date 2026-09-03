@@ -5,9 +5,9 @@ import ".."
 import "../../services"
 
 // Floating notification-toast stack, top-right corner, sitting just under
-// the bar — same vertical gap (module height + 4px) that
-// ../popup/AnchoredPopupWindow.qml uses to drop its popups below a bar
-// module. Screen-corner-anchored and independent of any bar module though,
+// the bar and its border stripe (barHeight + barBorderHeight), plus the
+// same 10px gap used on the right edge. Screen-corner-anchored and
+// independent of any bar module though,
 // so a plain PanelWindow (same base Bar.qml itself uses) is the right fit
 // here, not the module-anchored PopupWindow machinery in ../popup/ (that's
 // built specifically to anchor below a *specific* bar module).
@@ -27,7 +27,7 @@ PanelWindow {
         top: true
         right: true
     }
-    margins.top: Theme.barHeight + 4
+    margins.top: Theme.barHeight + 10
     margins.right: 10
 
     exclusionMode: ExclusionMode.Ignore

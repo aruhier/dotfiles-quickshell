@@ -29,6 +29,66 @@ QtObject {
     // transient ones that never join history).
     property list<NotifWrapper> popups: []
 
+    // Control-center-only view of `notifications`, grouped by app the same
+    // way swaync does (notiModel.vala: name_id = desktop_entry ?? app_name)
+    // — see notificationGroup.vala/expandableGroup.vala vendored under
+    // ~/git/github/SwayNotificationCenter for the reference implementation
+    // NotificationGroupCard.qml mirrors. A group's position follows its
+    // newest member: `notifications` is already newest-first, and this does
+    // one stable pass over it, so a group is created at (and stays at) the
+    // position of the first — i.e. newest — notification seen for that key,
+    // with every older notification for the same app folding into it right
+    // there. That reproduces swaync's "group re-sorts to its latest
+    // notification's time" behavior without needing a separate sort step.
+    // Floating popups never group like this (notificationWindow.vala just
+    // appends each notification to a flat list) — NotificationPopupWindow.qml
+    // deliberately keeps reading `popups` directly.
+    readonly property var notificationGroups: {
+        const groups = [];
+        const byKey = {};
+        for (const w of root.notifications) {
+            const key = w.groupKey;
+            let g = byKey[key];
+            if (!g) {
+                g = {
+                    "key": key,
+                    "items": []
+                };
+                byKey[key] = g;
+                groups.push(g);
+            }
+            g.items.push(w);
+        }
+        return groups;
+    }
+
+    // Which grouped rows are expanded in the control center — keyed by
+    // group key, same shape/rationale as `dnd` (UI-only, not persisted).
+    // Lives here rather than as local state on NotificationGroupCard so
+    // NotificationCenterPanel.qml's keyboard handling (Return to
+    // expand/collapse the selected row) can drive it without reaching into
+    // a specific delegate instance.
+    property var expandedGroups: ({})
+
+    function isGroupExpanded(key) {
+        return !!root.expandedGroups[key];
+    }
+
+    function setGroupExpanded(key, state) {
+        if (root.isGroupExpanded(key) === state)
+            return;
+        const copy = Object.assign({}, root.expandedGroups);
+        if (state)
+            copy[key] = true;
+        else
+            delete copy[key];
+        root.expandedGroups = copy;
+    }
+
+    function toggleGroupExpanded(key) {
+        root.setGroupExpanded(key, !root.isGroupExpanded(key));
+    }
+
     property bool dnd: false
     property bool centerOpen: false
     // Which output the panel should appear on — the screen whose bar
@@ -106,6 +166,16 @@ QtObject {
             wrapper.notification.dismiss();
     }
 
+    // Group close-all — swaync's NotificationGroup.request_dismiss_all_notifications.
+    // Snapshot first for the same reason clearAll() does: dismiss() mutates
+    // `notifications` (and thus recomputes notificationGroups, including
+    // this same `group` object) as we go.
+    function dismissGroup(group) {
+        const toDismiss = group.items.slice();
+        for (const w of toDismiss)
+            root.dismiss(w);
+    }
+
     // config.json's notification-visibility overrides forcing these two
     // apps' notifications to be treated as transient (popup-only, never
     // kept in history).
@@ -124,6 +194,9 @@ QtObject {
         readonly property string body: notification ? notification.body : ""
         readonly property string appName: notification ? notification.appName : ""
         readonly property string appIcon: notification ? notification.appIcon : ""
+        // swaync's notiModel.vala: name_id = desktop_entry ?? app_name — the
+        // key notificationGroups (above) groups control-center rows by.
+        readonly property string groupKey: notification ? (notification.desktopEntry || notification.appName) : ""
         readonly property string image: notification ? notification.image : ""
         readonly property int urgency: notification ? notification.urgency : NotificationUrgency.Normal
         readonly property date time: new Date()
