@@ -6,6 +6,7 @@ import Quickshell.Widgets
 import Quickshell.Services.Mpris
 import ".."
 import "../../services"
+import "../animations"
 
 // swaync's control-center panel: click-triggered (toggled from the bar's
 // NotificationCenter indicator via NotificationService.centerOpen), pinned
@@ -80,6 +81,7 @@ PanelWindow {
             if (!NotificationService.centerOpen)
                 panelWindow.closing = true;
             panelWindow.open = NotificationService.centerOpen;
+            rightMarginSpring.retarget(NotificationService.centerOpen ? panel.restingRightMargin : panel.closedRightMargin);
         }
     }
 
@@ -150,17 +152,27 @@ PanelWindow {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             anchors.margins: NotificationTheme.controlCenterMarginV
-            anchors.rightMargin: NotificationService.centerOpen ? -2 : -panel.width - 2
+            anchors.rightMargin: rightMarginSpring.value
             width: NotificationTheme.controlCenterWidth
 
-            Behavior on anchors.rightMargin {
-                SpringAnimation {
-                    spring: Theme.springSpring
-                    damping: Theme.springDamping
-                    epsilon: Theme.springEpsilon
-                    onRunningChanged: if (!running && !NotificationService.centerOpen)
-                        panelWindow.closing = false
-                }
+            readonly property real restingRightMargin: -2
+            readonly property real closedRightMargin: -panel.width - 2
+
+            // FrameSpring, not Behavior/SpringAnimation — this panel lives
+            // on DP-1 (240Hz), and Behavior-based SpringAnimation visibly
+            // stutters there because it rides Qt Quick's shared
+            // QUnifiedTimer clock, fixed at ~60Hz regardless of the
+            // output's real refresh rate. FrameSpring ticks off
+            // FrameAnimation instead, which fires once per actual rendered
+            // frame — see its header comment and AGENT.md's "capped near
+            // 60Hz" section for the empirical diagnosis. Not declarative
+            // like Behavior: retarget() is called explicitly from the
+            // Connections handler above whenever centerOpen changes.
+            FrameSpring {
+                id: rightMarginSpring
+                Component.onCompleted: snapTo(panel.closedRightMargin)
+                onRunningChanged: if (!running && !NotificationService.centerOpen)
+                    panelWindow.closing = false
             }
 
             color: NotificationTheme.bgGlobal

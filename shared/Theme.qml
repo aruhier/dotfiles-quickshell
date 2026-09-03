@@ -79,4 +79,31 @@ QtObject {
     // is fixed and no longer around to make it read as jittery.
     readonly property real workspaceSpringSpring: 8.0
     readonly property real workspaceSpringDamping: 0.56
+
+    // For shared/animations/FrameSpring.qml (frame-driven springs, immune
+    // to Behavior/SpringAnimation's ~60Hz QUnifiedTimer cap — see its
+    // header comment and AGENT.md's "capped near 60Hz" section). Different
+    // units from springSpring/springDamping above: those tune Qt's
+    // SpringAnimation formula, this implements the mass-spring-damper ODE
+    // directly, so Hyprland's own physical constants are the right values
+    // to use here (the ones the comment above notes did NOT translate to
+    // SpringAnimation).
+    readonly property real frameSpringStiffness: 460
+    readonly property real frameSpringDamping: 35
+    readonly property real frameSpringMass: 0.6
+
+    // Faster FrameSpring variant for Workspaces.qml, mirroring the ~2x bump
+    // workspaceSpringSpring/workspaceSpringDamping give the SpringAnimation
+    // variant above: same damping ratio as frameSpringStiffness/
+    // frameSpringDamping/frameSpringMass (ζ = damping / (2*sqrt(stiffness*
+    // mass)) ≈ 1.05 for both), roughly 2x the natural frequency.
+    //
+    // Pushing this to ζ≈2 (damping 94) to fight reported wobble made it
+    // *worse*, not better — which rules out classic underdamped overshoot
+    // as the mechanism (more damping can only ever reduce real oscillation,
+    // never worsen it) and points at something else — see Workspaces.qml's
+    // pixel-rounding on its spring outputs instead. Reverted to this value.
+    readonly property real frameSpringWorkspaceStiffness: 920
+    readonly property real frameSpringWorkspaceDamping: 50
+    readonly property real frameSpringWorkspaceMass: 0.6
 }

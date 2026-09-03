@@ -32,13 +32,21 @@ Item {
     // Unconditional, not gated on `visible`: reading a child's
     // implicitWidth in a binding also gated on `visible` leaves `visible`
     // stuck due to a QML binding-evaluation quirk.
-    implicitWidth: content.implicitWidth + 12
+    readonly property real targetWidth: content.implicitWidth + 12
+    implicitWidth: widthSpring.value
     implicitHeight: Theme.barHeight
     clip: true
 
-    Behavior on implicitWidth {
-        WidthSpring {}
+    // FrameSpring, not Behavior/WidthSpring — see Submap.qml's FrameSpring
+    // for why (Behavior-based SpringAnimation is throttled to Qt Quick's
+    // shared ~60Hz GUI-thread clock regardless of the output's real refresh
+    // rate).
+    FrameSpring {
+        id: widthSpring
+        Component.onCompleted: snapTo(root.targetWidth)
     }
+
+    onTargetWidthChanged: widthSpring.retarget(targetWidth)
 
     function truncate(s, len) {
         return s.length > len ? s.substring(0, len - 1) + "…" : s;

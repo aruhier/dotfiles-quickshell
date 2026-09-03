@@ -22,12 +22,72 @@ Rectangle {
 
     color: Theme.workspaceEmptyBg
     radius: height / 2
-    implicitWidth: row.implicitWidth + capWidth * 2
+    readonly property real targetWidth: row.implicitWidth + capWidth * 2
+    // Math.round(), not the raw float: this Rectangle (like wsDelegate and
+    // selection below) has antialiasing off for crisp flush edges — a
+    // continuously-varying sub-pixel width feeding a non-antialiased edge
+    // rounds inconsistently frame-to-frame as it eases, which reads as a
+    // faint shimmer/buzz rather than smooth motion. Old Behavior/
+    // SpringAnimation had the exact same sub-pixel float issue, but at a
+    // ~60Hz-capped sample rate there were 4x fewer chances per second for
+    // consecutive frames to round to different pixels, muddying it into
+    // the motion; FrameSpring's real 240Hz on DP-1 samples finely enough
+    // to make it visible.
+    implicitWidth: Math.round(widthSpring.value)
     implicitHeight: row.implicitHeight
     clip: true
 
-    Behavior on implicitWidth {
-        WorkspaceSpring {}
+    // FrameSpring, not Behavior/WorkspaceSpring — see shared/animations/
+    // FrameSpring.qml's header comment and AGENT.md's "capped near 60Hz"
+    // section (Behavior-based SpringAnimation is throttled to Qt Quick's
+    // shared ~60Hz GUI-thread clock regardless of the output's real refresh
+    // rate). retarget() is called explicitly below since this isn't
+    // declarative like Behavior. `standalone: false` — driven by
+    // `sharedSpringDriver` below along with every other spring in this
+    // file, not its own independent FrameAnimation; see that driver's
+    // comment for why they all need one shared clock.
+    WorkspaceFrameSpring {
+        id: widthSpring
+        standalone: false
+        Component.onCompleted: snapTo(root.targetWidth)
+    }
+
+    onTargetWidthChanged: widthSpring.retarget(targetWidth)
+
+    // One shared clock for every spring in this file (the pill's own width
+    // above, each delegate's width below, and the selection indicator's
+    // three springs further down) instead of each owning an independent
+    // FrameAnimation. These all have to move by the *exact* same dt each
+    // tick to stay visually locked together — the selection square is
+    // cosmetically overlaid on its focused delegate and has to track its
+    // edges pixel-for-pixel. Independent FrameAnimation instances measure
+    // their own elapsed time separately; confirmed empirically (via a
+    // temporary per-frame console.warn) that two otherwise-identical
+    // standalone springs chasing the same target reported values differing
+    // in the 2nd decimal place at the "same" moment — small in absolute
+    // terms, but enough, compounded across several coupled springs and
+    // magnified by DP-1's 240Hz giving far more frames for the drift to
+    // accumulate over, to read as visible wobble between parts that are
+    // supposed to move as one. A single shared FrameAnimation restores the
+    // "everyone advances by the identical dt" guarantee Qt's old shared
+    // QUnifiedTimer gave every Behavior/SpringAnimation for free. Always
+    // running rather than tracking which springs are currently active:
+    // advance() on a settled spring is a cheap no-op (early `if (!running)
+    // return`), and this module always exists on every screen anyway.
+    FrameAnimation {
+        id: sharedSpringDriver
+        running: true
+        onTriggered: {
+            widthSpring.advance(frameTime);
+            for (let i = 0; i < repeater.count; i++) {
+                const delegate = repeater.itemAt(i);
+                if (delegate && delegate.preferredWidthSpring)
+                    delegate.preferredWidthSpring.advance(frameTime);
+            }
+            rowXOffsetSpring.advance(frameTime);
+            focusedLocalXSpring.advance(frameTime);
+            selectionWidthSpring.advance(frameTime);
+        }
     }
 
     // Shared text metrics for pill sizing, instead of an invisible Text per
@@ -81,10 +141,28 @@ Rectangle {
                 Layout.preferredHeight: isSpecial ? 0 : Theme.barHeight
                 // 34px empirical minimum for a comfortable button size —
                 // measured by eye, not derived from any spec.
-                Layout.preferredWidth: isSpecial ? 0 : Math.round(Math.max(wsMetrics.advanceWidth(modelData.name) + 18, 34))
-                Behavior on Layout.preferredWidth {
-                    WorkspaceSpring {}
+                readonly property real targetPreferredWidth: isSpecial ? 0 : Math.round(Math.max(wsMetrics.advanceWidth(modelData.name) + 18, 34))
+                // Math.round() — see root's own implicitWidth above for why
+                // (non-antialiased edge + continuously-varying sub-pixel
+                // spring value = visible rounding shimmer at 240Hz).
+                Layout.preferredWidth: Math.round(preferredWidthSpring.value)
+
+                // FrameSpring, not Behavior/WorkspaceSpring — see Theme.qml's
+                // "capped near 60Hz" note on the root pill's own FrameSpring
+                // above. `standalone: false` and exposed via alias (a
+                // Repeater delegate is its own Component, so its ids aren't
+                // reachable from the surrounding file by bare name) —
+                // advance() is called on it from root's shared FrameAnimation
+                // below, for the same "everyone needs the exact same dt"
+                // reason as the other springs in this file.
+                property alias preferredWidthSpring: preferredWidthSpringImpl
+                WorkspaceFrameSpring {
+                    id: preferredWidthSpringImpl
+                    standalone: false
+                    Component.onCompleted: snapTo(wsDelegate.targetPreferredWidth)
                 }
+
+                onTargetPreferredWidthChanged: preferredWidthSpring.retarget(targetPreferredWidth)
                 // Square, flush buttons; rounding avoids stray 1px seams.
                 antialiasing: false
 
@@ -134,25 +212,32 @@ Rectangle {
         // and felt right — kept as-is; see rowXOffset below for why row.x
         // also needs its own mirrored spring rather than being read live.
         //
-        // Sticky fallback (": focusedLocalX" not ": 0") — Hyprland's IPC
-        // appears to deliver "workspace destroyed" and "new workspace
+        // Sticky fallback (": focusedTargetLocalX" not ": 0") — Hyprland's
+        // IPC appears to deliver "workspace destroyed" and "new workspace
         // focused" as separate updates, not atomically, so focusedDelegate
         // can be transiently null for a frame while switching away from an
         // empty workspace. Falling back to 0 there would snap the target to
         // row's origin and back, flashing the indicator in the wrong place;
         // holding the last known value instead just leaves it parked until
         // the real focus target resolves.
-        property real focusedLocalX: root.focusedDelegate ? root.focusedDelegate.x : focusedLocalX
-        Behavior on focusedLocalX {
-            WorkspaceSpring {}
+        property real focusedTargetLocalX: root.focusedDelegate ? root.focusedDelegate.x : focusedTargetLocalX
+        // FrameSpring, not Behavior/WorkspaceSpring — see Theme.qml's
+        // "capped near 60Hz" note on the root pill's own FrameSpring above.
+        // `.value` (not the raw target above) is what `x:` below actually
+        // reads.
+        WorkspaceFrameSpring {
+            id: focusedLocalXSpring
+            standalone: false
+            Component.onCompleted: snapTo(selection.focusedTargetLocalX)
         }
+        onFocusedTargetLocalXChanged: focusedLocalXSpring.retarget(focusedTargetLocalX)
 
         // row.x mirrored through its own spring rather than read live.
         // row.x is a plain RowLayout-managed geometry property — it snaps
         // *instantly* the moment a delegate is destroyed (RowLayout
-        // recomputes synchronously), while focusedLocalX only reaches its
-        // new target on the next animation tick (springs, doesn't jump).
-        // Reading row.x live meant "already-new row.x" got added to
+        // recomputes synchronously), while focusedLocalXSpring only reaches
+        // its new target on the next animation tick (springs, doesn't
+        // jump). Reading row.x live meant "already-new row.x" got added to
         // "still-old focusedLocalX" for one frame — confirmed via debug
         // logging: row.x jumping 15->32 instantly while focusedLocalX was
         // still at the previous focus's value (306) produced a real,
@@ -160,19 +245,29 @@ Rectangle {
         // every time a focused workspace was destroyed. Springing this too
         // means both halves move smoothly together and can't mismatch by a
         // whole delegate-width in a single frame.
-        property real rowXOffset: row.x
-        Behavior on rowXOffset {
-            WorkspaceSpring {}
+        property real rowTargetXOffset: row.x
+        WorkspaceFrameSpring {
+            id: rowXOffsetSpring
+            standalone: false
+            Component.onCompleted: snapTo(selection.rowTargetXOffset)
         }
+        onRowTargetXOffsetChanged: rowXOffsetSpring.retarget(rowTargetXOffset)
 
-        x: rowXOffset + focusedLocalX
+        // Math.round() on both x and width — see root's own implicitWidth
+        // above for why (non-antialiased edge + continuously-varying
+        // sub-pixel spring value = visible rounding shimmer at 240Hz).
+        x: Math.round(rowXOffsetSpring.value + focusedLocalXSpring.value)
         y: root.focusedDelegate ? row.y + root.focusedDelegate.y : y
-        width: root.focusedDelegate ? root.focusedDelegate.width : width
+        property real targetSelectionWidth: root.focusedDelegate ? root.focusedDelegate.width : targetSelectionWidth
         height: root.focusedDelegate ? root.focusedDelegate.height : height
 
-        Behavior on width {
-            WorkspaceSpring {}
+        WorkspaceFrameSpring {
+            id: selectionWidthSpring
+            standalone: false
+            Component.onCompleted: snapTo(selection.targetSelectionWidth)
         }
+        onTargetSelectionWidthChanged: selectionWidthSpring.retarget(targetSelectionWidth)
+        width: Math.round(selectionWidthSpring.value)
     }
 
     // Static top layer of visible labels, positioned over their matching

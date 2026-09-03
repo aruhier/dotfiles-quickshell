@@ -72,10 +72,20 @@ shared/ModuleLoader.qml Repeater delegate for one named module: resolves a
 shared/WeatherIcons.js glyph/description lookup table for weather codes
 shared/animations/WidthSpring.qml   Theme.springSpring/springDamping as a
                       one-line `Behavior on implicitWidth { WidthSpring {} }`
-                      — every module's width-change easing
+                      — Behavior/SpringAnimation-based, unused after the
+                      FrameSpring rollout below but kept as a fallback
 shared/animations/WorkspaceSpring.qml same, but Theme.workspaceSpring*
-                      — Workspaces.qml's own faster spring, kept separate
-                      so tuning it doesn't also speed up every other module
+                      — the SpringAnimation-based Workspaces.qml variant,
+                      also unused now, also kept as a fallback
+shared/animations/FrameSpring.qml   FrameAnimation-driven spring (real
+                      per-frame timing, not Behavior/SpringAnimation's
+                      ~60Hz-capped QUnifiedTimer clock — see "capped near
+                      60Hz" below) — every module's width-change easing
+                      now uses this instead of WidthSpring.qml
+shared/animations/WorkspaceFrameSpring.qml same, but Theme.frameSpringWorkspace*
+                      — Workspaces.qml's own faster FrameSpring variant,
+                      kept separate for the same reason WorkspaceSpring.qml
+                      was
 ```
 
 ## Per-screen module layout
@@ -668,3 +678,187 @@ Stills can't show motion anyway (a user correction mid-session:
 (same-tick property races, animation curves), a per-frame `console.warn`
 of the specific property values, diffed against a known-good and
 known-bad ordering, is both safer and more diagnostic than screenshots.
+
+## Spring/Behavior animations are capped near 60Hz regardless of the output's real refresh rate (2026-09-03)
+
+User-reported: the control-center panel's slide-in spring looks stuttery.
+`DP-1` (where the panel opens by default) runs at a genuine `239.99Hz` mode
+per `hyprctl monitors -j` (not a VRR/fallback artifact — `vrr: false`,
+`refreshRate: 239.99001`, focused, confirmed active). `DP-2` is 144Hz,
+`HDMI-A-1` ~60Hz — three outputs, three different rates, all driven by one
+Quickshell process.
+
+**Root cause found empirically, not assumed:** relaunched `qs -p ./` with
+`QSG_RENDER_TIMING=1` and toggled the panel via `qs ipc -p ./ call
+notifications open/close` several times. The notification panel's
+`QQuickWindow` (identified as the highest-frame-count window in the log
+during the toggles) showed `polishAndSync`/`syncAndRender` firing at a
+rock-steady ~15-16ms cadence throughout the entire spring animation —
+i.e. ~60 updates/sec — never anywhere near the ~4ms a 240Hz output would
+allow. Actual render/swap times in the log were 0ms, so the GPU/compositor
+isn't the bottleneck; the animation driver simply never asks for more than
+~60 redraws/sec.
+
+Tested the obvious lever — `QSG_FIXED_ANIMATION_STEP=0` (found via `strings`
+on `libQt6Quick.so.6`; the Qt Quick knob for whether the animation system
+uses a fixed simulated timestep vs. real elapsed wall-clock time per tick)
+— **zero effect**: identical ~15-16ms distribution with and without it, so
+that env var controls the *delta* used per tick, not the *tick rate*
+itself. `QUnifiedTimer`'s underlying GUI-thread timer interval that
+actually paces those ticks is an internal Qt default (no env var, no QML
+property) — not something fixable from this shell's code or launch
+environment.
+
+**Conclusion:** this is an upstream Qt Quick limitation affecting every
+`Behavior`/`SpringAnimation`/`NumberAnimation` in this shell equally (not
+specific to the notification panel), not a bug introduced by this repo's
+code. It only becomes visually obvious on `DP-1` because 240Hz makes 60Hz
+motion look chunky by contrast — the same spring on the 60Hz `HDMI-A-1`
+output wouldn't show it. **No shell-side fix exists** (would require
+patching Qt or shipping a custom C++ `QAnimationDriver`, out of scope for
+a QML-only shell). The only lever actually available from QML is tuning
+spring feel (duration/overshoot) so fewer discrete 16ms steps are visible
+before it settles — not restoring true 240Hz motion.
+
+**Process note:** diagnosing this required killing and relaunching the
+live `qs -p ./` instance twice (once per env-var combination tested) —
+each time via `qs ipc -p ./ call notifications open/close` in a loop to
+generate animation frames, then reading `/tmp/qs-render-timing*.log` for
+the busiest window's `polishAndSync` deltas. Restored the plain
+(non-instrumented) instance afterward.
+
+**Shell gotcha hit while diagnosing this: `pkill -f 'qs -p'` can kill its
+own invoking shell.** `pkill -f` matches the full command line text of
+every process, including the shell currently running the `pkill` command
+itself — and that shell's own argv literally contains the substring
+`qs -p` (it's part of the very command being run). Several kill attempts
+during this session silently died with exit 144 and zero output because
+of exactly this self-match. Fixed by using an exact-name match instead
+(`pkill -x qs` / `pgrep -x qs`, matching just the process's `comm` name)
+rather than a substring `-f` pattern that can appear inside the invoking
+shell's own command line.
+
+## Correction: a real fix for the 60Hz cap exists — FrameSpring, via FrameAnimation (2026-09-03)
+
+The section above concluded "no shell-side fix exists" for
+Behavior/SpringAnimation's ~60Hz cap. That conclusion was wrong — it
+was true only for *that specific mechanism* (Behavior/SpringAnimation
+riding `QUnifiedTimer`), not for QML animation in general.
+
+Found by asking how DankMaterialShell (`/tmp/DankMaterialShell`, already
+used elsewhere in this file as an API-reference comparison) handles the
+same problem: it doesn't use `Behavior`/`SpringAnimation` for its spring
+motion at all. `Common/SpringMotion.qml` hand-rolls the mass-spring-damper
+ODE itself (`advance(dt)`, semi-implicit Euler, integrated in small
+`1/240`s sub-steps for numerical accuracy) and drives it with
+`QtQuick.FrameAnimation` (confirmed present in this machine's Qt build —
+`QQuickFrameAnimation`, `QtQuick/FrameAnimation 6.4`, in
+`/usr/lib64/qt6/qml/QtQuick/plugins.qmltypes`; this machine runs Qt
+6.11.1). `FrameAnimation.onTriggered` fires once per *actual rendered
+frame* of its window — tied to real vsync/frame-swap timing, reporting the
+true elapsed `frameTime` — rather than `QUnifiedTimer`'s fixed ~60Hz
+GUI-thread ticker. It isn't declarative like `Behavior`: there's no
+"animate whenever this expression changes" wiring, so the consumer binds
+to `.value` and calls `.retarget(newValue)` imperatively whenever the
+desired target changes.
+
+**Implemented as `shared/animations/FrameSpring.qml`**, a trimmed port of
+DankMaterialShell's `SpringMotion.qml` (dropped `reducedMotion`/`enabled`/
+`settleDurationMs`, not needed here). Stiffness/damping/mass default to
+Hyprland's own spring config (`Theme.frameSpringStiffness/Damping/Mass` =
+460/35/0.6) rather than `Theme.springSpring/springDamping` — those tune
+Qt's `SpringAnimation` formula specifically and (per this file's existing
+note on that section) do NOT share Hyprland's unit convention despite the
+same underlying ODE shape; FrameSpring implements that ODE directly, so
+Hyprland's actual physical constants are the correct values here, for the
+first time.
+
+**Rolled out everywhere `WidthSpring`/`WorkspaceSpring` (Behavior/
+SpringAnimation) previously eased a module's `implicitWidth`**: Submap,
+Backlight, Clock, Tray, Volume, NotificationCenter, Mpd, Weather,
+Privacy's `PrivacyIcon`, and Workspaces.qml's whole spring set (pill
+width, delegate width, selection indicator x/width) — plus the
+notification control-center panel's slide (the animation that started
+this whole investigation). The conversion pattern at each site: rename
+the old `implicitWidth: <expr>` binding to `readonly property real
+targetWidth: <expr>`, bind `implicitWidth: someSpring.value`, add a
+`FrameSpring { id: someSpring; Component.onCompleted:
+snapTo(root.targetWidth) }` child, and add `onTargetWidthChanged:
+someSpring.retarget(targetWidth)`. `WidthSpring.qml`/`WorkspaceSpring.qml`
+(the old Behavior/SpringAnimation-based types) are left in place, unused
+after this rollout — not deleted, since they're a legitimate fallback if
+FrameAnimation ever turns out to have its own problem on some other
+Quickshell/Qt combination.
+
+## Workspaces.qml's FrameSpring conversion needed two more fixes beyond the swap itself (2026-09-03)
+
+Converting Workspaces.qml's five coupled springs (pill width, each
+delegate's width, and the selection indicator's `x`/width) to FrameSpring
+using the same pattern as every other module's single, independent spring
+made the sliding selection indicator visibly **wobbly** — but, critically,
+**only on DP-1 (240Hz)**, not on DP-2 (144Hz) or HDMI-A-1 (60Hz). Two
+distinct bugs, found and fixed in sequence; the first fix alone wasn't
+enough, and a plausible-looking third "fix" (more damping) actively made
+things worse and had to be reverted.
+
+**Bug 1: independent per-spring `FrameAnimation` instances don't share a
+clock, and Workspaces.qml's springs are tightly coupled.** Each
+`FrameSpring` (as first written) owned its own private `FrameAnimation`,
+measuring its own elapsed time independently. Confirmed via a temporary
+per-frame `console.warn` of `value`/`target`/`velocity`: three separate
+Workspaces.qml instances (one bar per screen, all rendering the same
+global `Hyprland.workspaces` model) chasing the identical target reported
+values differing in the 2nd decimal place at the "same" moment — small in
+absolute terms, but real, measured timing skew between independently-clocked
+instances. Old Behavior/SpringAnimation never had this problem: every
+instance shared Qt's one `QUnifiedTimer`, so all of them always advanced
+by the *exact* same `dt` per tick, keeping the pill, each delegate, and
+the selection square (cosmetically overlaid pixel-for-pixel on its focused
+delegate) perfectly locked together. **Fix:** added a `standalone: false`
+switch to `FrameSpring.qml` — when false, it doesn't run its own
+`FrameAnimation`, and the caller must call `advance(dt)` on it externally.
+Workspaces.qml now has one shared `sharedSpringDriver: FrameAnimation`
+that calls `advance(frameTime)` on all of its springs (the pill's, every
+current delegate's — reached via `repeater.itemAt(i).preferredWidthSpring`,
+exposed through a `property alias` since a Repeater delegate is its own
+Component and its plain `id`s aren't reachable from the surrounding file —
+and the selection indicator's three) in one `onTriggered` block, so they
+all move by the identical real `frameTime` every tick. This measurably
+reduced but did not fully eliminate the wobble.
+
+**Bug 2: sub-pixel float values feeding non-antialiased edges.**
+`wsDelegate` and `selection` both have `antialiasing: false` (existing,
+deliberate — flush square buttons, avoids a 1px seam per this file's own
+earlier note on `Workspaces.qml`). Feeding a *continuously-varying,
+unrounded* spring float into `Layout.preferredWidth`/`width`/`x` on a
+non-antialiased edge means each real frame's width/position can round to
+a *different* device pixel than the previous frame, even though the
+underlying value is moving smoothly — a rounding shimmer, not true motion
+jitter. This bug already existed under the old Behavior/SpringAnimation
+system too (same unrounded float, same non-antialiased edges) — but at a
+~60Hz-capped sample rate there were only ever a quarter as many chances
+per second for consecutive frames to round to different pixels, blurring
+it into the motion; FrameSpring's genuine 240Hz sampling on DP-1 hits that
+rounding boundary far more often, making it visible. **Fix:** wrapped
+every consumption of a Workspaces.qml spring's `.value` in `Math.round()`
+— the pill's `implicitWidth`, each delegate's `Layout.preferredWidth`, and
+`selection`'s `x`/`width`. Confirmed by the user this fixed it.
+
+**Dead end, instructive:** before finding bug 2, tried pushing the
+Workspaces-variant FrameSpring damping ratio from ζ≈1.05 (barely
+overdamped) to ζ≈2 (firmly overdamped) on the theory that the wobble was
+classic underdamped overshoot. The user reported this made it *worse*.
+That result alone disproves the overshoot theory — more damping can only
+ever *reduce* real spring oscillation, never worsen it, so whatever was
+being observed wasn't that. (Separately reasoned through why: for this
+discrete/stepped integration, increasing damping past a certain point
+lengthens the slower of the system's two decay eigenvalues, i.e. makes the
+settle *tail* linger longer rather than cutting motion short — plausibly
+compounding whatever the real per-frame rounding artifact looked like,
+rather than damping it out.) Reverted the damping change once bug 2's fix
+resolved the actual complaint. **Lesson:** a fix that only makes sense if
+your diagnosis is right is itself a test of that diagnosis — when it makes
+the symptom worse, that's a real, informative result, not noise to
+retry-with-different-numbers past. Don't keep tuning the same knob after
+it's moved the symptom in the wrong direction; that's a sign the knob
+isn't the mechanism, not that it needs a bigger turn.

@@ -28,13 +28,21 @@ Item {
     // Bar.qml's Loaders look for.
     readonly property bool contentVisible: hasContent
 
-    implicitWidth: hasContent ? content.implicitWidth + 12 : 0
+    readonly property real targetWidth: hasContent ? content.implicitWidth + 12 : 0
+    implicitWidth: widthSpring.value
     implicitHeight: Theme.barHeight
     clip: true
 
-    Behavior on implicitWidth {
-        WidthSpring {}
+    // FrameSpring, not Behavior/WidthSpring — see Submap.qml's FrameSpring
+    // for why (Behavior-based SpringAnimation is throttled to Qt Quick's
+    // shared ~60Hz GUI-thread clock regardless of the output's real refresh
+    // rate).
+    FrameSpring {
+        id: widthSpring
+        Component.onCompleted: snapTo(root.targetWidth)
     }
+
+    onTargetWidthChanged: widthSpring.retarget(targetWidth)
 
     // Icon vertical nudge / size bias — see Mpd.qml. Only the bar glyph
     // uses this; popup forecast icons use their own hardcoded sizes.

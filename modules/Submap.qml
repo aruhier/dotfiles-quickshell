@@ -18,13 +18,23 @@ Rectangle {
     radius: height / 2
     // Unconditional — see Mpd.qml for why gating width on the same
     // property as `visible` breaks visibility.
-    implicitWidth: label.implicitWidth + 16
+    readonly property real targetWidth: label.implicitWidth + 16
+    implicitWidth: widthSpring.value
     implicitHeight: Theme.barHeight - 4
     clip: true
 
-    Behavior on implicitWidth {
-        WidthSpring {}
+    // FrameSpring, not Behavior/WidthSpring — see FrameSpring.qml's header
+    // comment and AGENT.md's "capped near 60Hz" section: Behavior-based
+    // SpringAnimation is throttled to Qt Quick's shared ~60Hz GUI-thread
+    // clock regardless of the output's real refresh rate (DP-1 runs 240Hz
+    // here). retarget() is called explicitly below since this isn't
+    // declarative like Behavior.
+    FrameSpring {
+        id: widthSpring
+        Component.onCompleted: snapTo(root.targetWidth)
     }
+
+    onTargetWidthChanged: widthSpring.retarget(targetWidth)
 
     Text {
         renderType: Text.NativeRendering

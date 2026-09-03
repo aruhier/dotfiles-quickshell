@@ -9,13 +9,21 @@ import "../shared/popup"
 Item {
     id: root
 
-    implicitWidth: content.implicitWidth + 12
+    readonly property real targetWidth: content.implicitWidth + 12
+    implicitWidth: widthSpring.value
     implicitHeight: Theme.barHeight
     clip: true
 
-    Behavior on implicitWidth {
-        WidthSpring {}
+    // FrameSpring, not Behavior/WidthSpring — see Submap.qml's FrameSpring
+    // for why (Behavior-based SpringAnimation is throttled to Qt Quick's
+    // shared ~60Hz GUI-thread clock regardless of the output's real refresh
+    // rate).
+    FrameSpring {
+        id: widthSpring
+        Component.onCompleted: snapTo(root.targetWidth)
     }
+
+    onTargetWidthChanged: widthSpring.retarget(targetWidth)
 
     property date now: new Date()
 

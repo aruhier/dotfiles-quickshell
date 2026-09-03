@@ -13,7 +13,8 @@ Item {
 
     // 6px padding on each side, matching every other module's horizontal
     // padding.
-    implicitWidth: row.implicitWidth + 12
+    readonly property real targetWidth: row.implicitWidth + 12
+    implicitWidth: widthSpring.value
     implicitHeight: Theme.barHeight
     clip: true
 
@@ -24,9 +25,16 @@ Item {
     // them just sat there idle for the process lifetime.
     property Item hoveredIcon: null
 
-    Behavior on implicitWidth {
-        WidthSpring {}
+    // FrameSpring, not Behavior/WidthSpring — see Submap.qml's FrameSpring
+    // for why (Behavior-based SpringAnimation is throttled to Qt Quick's
+    // shared ~60Hz GUI-thread clock regardless of the output's real refresh
+    // rate).
+    FrameSpring {
+        id: widthSpring
+        Component.onCompleted: snapTo(root.targetWidth)
     }
+
+    onTargetWidthChanged: widthSpring.retarget(targetWidth)
 
     RowLayout {
         id: row

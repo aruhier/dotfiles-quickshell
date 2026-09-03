@@ -109,13 +109,21 @@ Item {
         required property bool active
         required property string glyph
 
-        implicitWidth: active ? label.implicitWidth + 8 : 0
+        readonly property real targetWidth: active ? label.implicitWidth + 8 : 0
+        implicitWidth: widthSpring.value
         implicitHeight: Theme.barHeight
         clip: true
 
-        Behavior on implicitWidth {
-            WidthSpring {}
+        // FrameSpring, not Behavior/WidthSpring — see Submap.qml's
+        // FrameSpring for why (Behavior-based SpringAnimation is throttled
+        // to Qt Quick's shared ~60Hz GUI-thread clock regardless of the
+        // output's real refresh rate).
+        FrameSpring {
+            id: widthSpring
+            Component.onCompleted: snapTo(icon.targetWidth)
         }
+
+        onTargetWidthChanged: widthSpring.retarget(targetWidth)
 
         Text {
             renderType: Text.NativeRendering
