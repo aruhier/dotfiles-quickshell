@@ -79,13 +79,25 @@ Item {
     }
 
     // Body click invokes the default action, if the sender declared one —
-    // matches swaync's notification.vala click_default_action(). Covers
-    // just mainColumn's area, not the actions row below it.
+    // matches swaync's notification.vala click_default_action(). Floating
+    // popups also dismiss on any body click regardless of a default action
+    // (by request) — a toast is transient and "click to acknowledge/take it
+    // away" is the common desktop convention, whereas control-center rows
+    // are a persisted list the user is browsing and only dismiss via the
+    // close button or Delete key. Covers the whole card, not just
+    // mainColumn — actionsRow's buttons and the close button below are
+    // declared after this in the tree, so they still win the hit-test over
+    // their own areas.
     MouseArea {
-        anchors.fill: mainColumn
-        enabled: card.interactive && card.wrapper.defaultAction !== null
-        cursorShape: card.wrapper.defaultAction !== null ? Qt.PointingHandCursor : Qt.ArrowCursor
-        onClicked: card.wrapper.defaultAction.invoke()
+        anchors.fill: parent
+        enabled: card.interactive && (card.floating || card.wrapper.defaultAction !== null)
+        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+        onClicked: {
+            if (card.wrapper.defaultAction !== null)
+                card.wrapper.defaultAction.invoke();
+            if (card.floating)
+                NotificationService.dismiss(card.wrapper);
+        }
     }
 
     ColumnLayout {
@@ -150,50 +162,6 @@ Item {
                         color: NotificationTheme.text
                         font.family: Theme.fontFamily
                         font.pixelSize: NotificationTheme.fontSize - 1
-                    }
-
-                    Rectangle {
-                        Layout.preferredWidth: 18
-                        Layout.preferredHeight: 18
-                        radius: 9
-                        color: "black"
-                        opacity: card.hovered && card.interactive ? 1 : 0
-                        scale: closePress.value
-
-                        Behavior on opacity {
-                            NumberAnimation {
-                                duration: 150
-                            }
-                        }
-
-                        PressSpring {
-                            id: closePress
-                            pressed: closeArea.pressed
-                        }
-
-                        MouseArea {
-                            id: closeArea
-                            anchors.fill: parent
-                            enabled: card.interactive
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: NotificationService.dismiss(card.wrapper)
-                        }
-
-                        Rectangle {
-                            anchors.fill: parent
-                            radius: 9
-                            visible: closeArea.containsMouse
-                            color: "#1e1e1e"
-                        }
-
-                        Text {
-                            renderType: Text.NativeRendering
-                            anchors.centerIn: parent
-                            text: "✕"
-                            color: NotificationTheme.text
-                            font.pixelSize: 10
-                        }
                     }
                 }
 
@@ -260,6 +228,59 @@ Item {
                     onClicked: actionButton.modelData.invoke()
                 }
             }
+        }
+    }
+
+    // Close button, anchored to the card's top-right corner rather than
+    // inline in the header row (by request) — matches the usual toast
+    // convention of a corner-pinned close affordance instead of one that
+    // shares horizontal space with the summary/time text. Declared after
+    // mainColumn/actionsRow so it sits on top and wins the hit-test over
+    // the whole-card click-to-dismiss MouseArea above.
+    Rectangle {
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.margins: 6
+        width: 24
+        height: 24
+        radius: 12
+        color: "black"
+        opacity: card.hovered && card.interactive ? 1 : 0
+        scale: closePress.value
+
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 150
+            }
+        }
+
+        PressSpring {
+            id: closePress
+            pressed: closeArea.pressed
+        }
+
+        MouseArea {
+            id: closeArea
+            anchors.fill: parent
+            enabled: card.interactive
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: NotificationService.dismiss(card.wrapper)
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            radius: 12
+            visible: closeArea.containsMouse
+            color: "#1e1e1e"
+        }
+
+        Text {
+            renderType: Text.NativeRendering
+            anchors.centerIn: parent
+            text: "✕"
+            color: NotificationTheme.text
+            font.pixelSize: 12
         }
     }
 
