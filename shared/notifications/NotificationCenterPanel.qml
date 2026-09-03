@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Widgets
@@ -683,6 +684,21 @@ PanelWindow {
                     }
                 }
             }
+        }
+
+        // Matches swaync's `.control-center { box-shadow: 0px 1px 12px 1px
+        // rgba(0, 0, 0, 0.4) }` (~/dotfiles/swaync/style.css) — same
+        // MultiEffect-as-source pattern as NotificationCard.qml's
+        // background/shadow pair.
+        MultiEffect {
+            anchors.fill: panel
+            source: panel
+            shadowEnabled: true
+            shadowColor: "black"
+            shadowOpacity: 0.4
+            shadowHorizontalOffset: 0
+            shadowVerticalOffset: 1
+            shadowBlur: 0.4
         }
     }
 }

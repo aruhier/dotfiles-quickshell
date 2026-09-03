@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Widgets
 import ".."
@@ -10,7 +11,7 @@ import "../animations"
 // (NotificationPopupWindow.qml, floating: true) and the control-center list
 // (NotificationCenterPanel.qml, floating: false). Caller supplies `width`;
 // height follows content via implicitHeight.
-Rectangle {
+Item {
     id: card
 
     required property var wrapper
@@ -47,8 +48,35 @@ Rectangle {
 
     implicitHeight: padding * 2 + mainColumn.implicitHeight + (actionsRow.visible ? actionsRow.height + padding : 0)
 
-    radius: NotificationTheme.cardRadius
-    color: floating ? NotificationTheme.bgFloating : NotificationTheme.bg
+    // Kept as a property (rather than inlining NotificationTheme.cardRadius
+    // at each call site below) since actionButton's per-corner radii and the
+    // selection-border overlay both need to match the background's shape.
+    readonly property int radius: NotificationTheme.cardRadius
+
+    // The card's visual fill, pulled out from `card` itself (an Item, not a
+    // Rectangle) so it can be used as a MultiEffect source below — matching
+    // swaync's `.notification { box-shadow: 0px 1px 12px 1px rgba(0, 0, 0,
+    // 0.4) }` (~/dotfiles/swaync/style.css). An Item used as a MultiEffect
+    // `source` is automatically excluded from normal scene painting (see
+    // Qt's own QtQuick.Controls.FluentWinUI3 ToolTip.qml background, which
+    // uses the identical pattern), so this never double-renders.
+    Rectangle {
+        id: background
+        anchors.fill: parent
+        radius: card.radius
+        color: card.floating ? NotificationTheme.bgFloating : NotificationTheme.bg
+    }
+
+    MultiEffect {
+        anchors.fill: background
+        source: background
+        shadowEnabled: true
+        shadowColor: "black"
+        shadowOpacity: 0.4
+        shadowHorizontalOffset: 0
+        shadowVerticalOffset: 1
+        shadowBlur: 0.4
+    }
 
     // Body click invokes the default action, if the sender declared one —
     // matches swaync's notification.vala click_default_action(). Covers
