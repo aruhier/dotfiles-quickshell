@@ -1,0 +1,196 @@
+pragma Singleton
+pragma ComponentBehavior: Bound
+import QtQuick
+import Quickshell
+import Quickshell.Services.Notifications
+import "../shared/notifications"
+
+// Native notification daemon + state, replacing swaync. Owns the DBus
+// org.freedesktop.Notifications server and every list/timer driving the
+// popup stack (NotificationPopupWindow.qml) and control-center panel
+// (NotificationCenterPanel.qml) — both just read this singleton, per this
+// repo's usual services-own-I/O-and-state split.
+//
+// Deliberately simpler than swaync itself in a few places:
+// - flat history, newest first — no per-app grouping/dedup (swaync doesn't
+//   group by default either).
+// - `dnd` is in-memory only, not GSettings/dconf-backed like swaync's —
+//   depending on swaync's own schema surviving would be a fragile link for
+//   a system meant to replace it outright.
+QtObject {
+    id: root
+
+    // ---- state ----
+
+    // Flat history, newest first.
+    property list<NotifWrapper> notifications: []
+    // Currently-visible floating toasts (subset of notifications, plus
+    // transient ones that never join history).
+    property list<NotifWrapper> popups: []
+
+    property bool dnd: false
+    property bool centerOpen: false
+    // Which output the panel should appear on — the screen whose bar
+    // indicator was last clicked, not always the same output (see
+    // toggleCenter below). NotificationCenterPanel.qml (via shell.qml)
+    // reads this to pick its `screen`, falling back to the main screen
+    // while null (e.g. before the first-ever click). Holds an actual
+    // ShellScreen, not a name — same shape DankMaterialShell's
+    // PopoutManager uses for its per-output popouts (`triggerScreen`),
+    // compared for this fix.
+    property var centerScreen: null
+
+    readonly property int count: notifications.length
+    readonly property string iconState: dnd ? (count > 0 ? "dnd-notification" : "dnd-none") : (count > 0 ? "notification" : "none")
+
+    // screen: the output whose bar indicator was clicked (each per-output
+    // NotificationCenter.qml passes its own `Bar.screen`). Clicking the
+    // indicator on the screen the panel is already open on toggles it
+    // closed, same as before; clicking a *different* screen's indicator
+    // instead moves the (still-single, shared) panel there and keeps it
+    // open — mirrors how most multi-monitor panels behave rather than just
+    // closing a panel the user is actively pointing at.
+    function toggleCenter(screen) {
+        if (root.centerOpen && root.centerScreen === screen) {
+            root.centerOpen = false;
+        } else {
+            root.centerScreen = screen;
+            root.centerOpen = true;
+        }
+    }
+
+    function closeCenter() {
+        root.centerOpen = false;
+    }
+
+    function clearAll() {
+        // Snapshot first: dismiss() below mutates `notifications` via the
+        // Retainable onDropped handler as we go.
+        const toDismiss = root.notifications.slice();
+        for (const w of toDismiss) {
+            if (w.notification)
+                w.notification.dismiss();
+        }
+        // swaync's hide-on-clear: only the bulk clear-all path auto-closes
+        // the panel, not one-by-one dismissal.
+        root.centerOpen = false;
+    }
+
+    function dismiss(wrapper) {
+        if (wrapper && wrapper.notification)
+            wrapper.notification.dismiss();
+    }
+
+    // config.json's notification-visibility overrides forcing these two
+    // apps' notifications to be treated as transient (popup-only, never
+    // kept in history).
+    function isForcedTransient(appName) {
+        return appName === "blueman" || appName === "NetworkManager Applet";
+    }
+
+    // ---- notification wrapper ----
+
+    component NotifWrapper: QtObject {
+        id: wrapper
+
+        required property Notification notification
+
+        readonly property string summary: notification ? notification.summary : ""
+        readonly property string body: notification ? notification.body : ""
+        readonly property string appName: notification ? notification.appName : ""
+        readonly property string appIcon: notification ? notification.appIcon : ""
+        readonly property string image: notification ? notification.image : ""
+        readonly property int urgency: notification ? notification.urgency : NotificationUrgency.Normal
+        readonly property date time: new Date()
+        readonly property string timeStr: Qt.formatTime(time, "HH:mm")
+
+        readonly property list<NotificationAction> allActions: notification ? notification.actions : []
+        readonly property NotificationAction defaultAction: {
+            for (const a of allActions) {
+                if (a.identifier === "default")
+                    return a;
+            }
+            return null;
+        }
+        readonly property list<NotificationAction> otherActions: allActions.filter(a => a.identifier !== "default")
+
+        readonly property Timer timer: Timer {
+            interval: {
+                const appTimeout = wrapper.notification ? wrapper.notification.expireTimeout : -1;
+                if (appTimeout >= 0)
+                    return appTimeout;
+                switch (wrapper.urgency) {
+                case NotificationUrgency.Low:
+                    return NotificationTheme.timeoutLow;
+                case NotificationUrgency.Critical:
+                    return NotificationTheme.timeoutCritical;
+                default:
+                    return NotificationTheme.timeoutNormal;
+                }
+            }
+            running: false
+            repeat: false
+            onTriggered: {
+                root.popups = root.popups.filter(w => w !== wrapper);
+                // Transient notifications aren't kept in history — once
+                // their popup times out there's nothing left referencing
+                // them, so dismiss for real (drives cleanup via Retainable
+                // below). Non-transient ones just leave the popup stack and
+                // stay in history until the user dismisses/clears them.
+                if (root.notifications.indexOf(wrapper) === -1 && wrapper.notification)
+                    wrapper.notification.dismiss();
+            }
+        }
+
+        readonly property Connections conn: Connections {
+            target: wrapper.notification ? wrapper.notification.Retainable : null
+
+            function onDropped() {
+                root.notifications = root.notifications.filter(w => w !== wrapper);
+                root.popups = root.popups.filter(w => w !== wrapper);
+                wrapper.destroy();
+            }
+
+            function onAboutToDestroy() {
+                wrapper.destroy();
+            }
+        }
+    }
+
+    property Component notifComponent: Component {
+        NotifWrapper {}
+    }
+
+    property NotificationServer server: NotificationServer {
+        bodySupported: true
+        bodyMarkupSupported: false
+        bodyHyperlinksSupported: false
+        bodyImagesSupported: false
+        imageSupported: true
+        actionsSupported: true
+        actionIconsSupported: false
+        inlineReplySupported: false
+        persistenceSupported: true
+
+        onNotification: notif => {
+            notif.tracked = true;
+
+            const wrapper = root.notifComponent.createObject(root, {
+                "notification": notif
+            });
+            if (!wrapper)
+                return;
+
+            const transient = notif.transient || root.isForcedTransient(wrapper.appName);
+
+            if (!transient)
+                root.notifications = [wrapper, ...root.notifications];
+
+            if (!root.dnd) {
+                root.popups = [...root.popups, wrapper];
+                if (wrapper.timer.interval > 0)
+                    wrapper.timer.start();
+            }
+        }
+    }
+}

@@ -29,7 +29,7 @@ modules/*.qml         one file per bar module — thin views, no owned
                       subprocesses/network/timers for cross-monitor state
 services/*.qml        pragma-Singleton types holding state + the actual
                       subprocess/network I/O for anything system-wide
-                      (BacklightService, MpdService, SwayNCService,
+                      (BacklightService, MpdService, NotificationService,
                       WeatherService) — one poll/subscription/fetch cycle
                       for the whole process regardless of monitor count
 shared/Theme.qml      pragma-Singleton palette + metrics — shared
@@ -49,6 +49,19 @@ shared/popup/         everything to do with anchored hover popups:
                          HoverPopup; shared by Clock.qml/Weather.qml
   PopupCoordinator.qml   pragma-Singleton — only one hover popup open at a
                          time process-wide
+shared/notifications/ the notification daemon's UI — see the dated section
+                      below for why this is a separate subsystem from
+                      shared/popup/ rather than built on it
+  NotificationTheme.qml  pragma-Singleton palette/metrics matching the
+                         swaync setup this replaces — deliberately not
+                         shared/Theme.qml, see below
+  NotificationCard.qml   one notification's visual; reused by both the
+                         popup stack and the control-center list
+  NotificationPopupWindow.qml top-right floating toast stack (PanelWindow,
+                         not the module-anchored popup/ machinery)
+  NotificationCenterPanel.qml click-triggered control-center panel
+                         (PanelWindow), pinned open via
+                         NotificationService.centerOpen
 shared/ModuleGroup.qml the left/right pill-shaped module group (flush
                       against a screen edge, rounded only on the
                       center-facing side); used twice from Bar.qml with
@@ -84,7 +97,7 @@ hover popups, network) from paying their cost on screens that don't list
 them.
 
 Current layout: every output gets `mpd`, `submap`, `workspaces`,
-`backlight`, `volume`, `swaync`, `clock`; only `DP-1` (in `mainScreens`)
+`backlight`, `volume`, `notifications`, `clock`; only `DP-1` (in `mainScreens`)
 additionally gets `tray`, `privacy`, `weather`.
 
 **Left/right group edge-spacing tuning is order-sensitive.** `leftGroup`'s
@@ -372,7 +385,7 @@ never isolated as its own test. When retiring a workaround based on an old
 finding, re-run the original repro's failure case alongside the fix, not
 just the fix in isolation — that's what surfaced the real variable here.
 
-## Inspiration for later: click-triggered popups (2026-09-02)
+## Click-triggered popups: resolved differently than predicted (2026-09-02 → 2026-09-03)
 
 `shared/popup/PopupCoordinator.qml` only knows one dismissal model: a
 single hover-triggered `activeOwner` that gets closed when another hover
@@ -386,9 +399,182 @@ click-opens: a click sets `hoverDismissEnabled = false` to *pin* the
 popout open (it survives the cursor leaving), while a hover keeps it
 auto-dismissing, and clicking the same trigger again toggles it closed.
 
-**If this bar ever grows a click-triggered popup** (e.g. a settings/context
-menu, as opposed to a hover-preview), `PopupCoordinator`'s single
-`activate`/`deactivate` pair won't be enough — it has no concept of
-"pinned open regardless of cursor position." Worth revisiting this pinning
-scheme then. Not implemented now — no click-triggered popup exists yet,
-and AGENT.md's mandate is not to grow scope pre-emptively.
+The bar's first click-triggered popup arrived the next day: the
+notification control-center panel (see the dated section below). It did
+**not** end up extending `PopupCoordinator` — there's only one such panel
+(not an open-ended set of click-popups needing mutual exclusion like the
+hover ones), so `NotificationCenterPanel.qml` just gates its own
+`visible` off one singleton bool (`NotificationService.centerOpen`),
+toggled by the bar indicator's click handler. Click-outside-to-close is
+solved by anchoring that one `PanelWindow` to all 4 screen edges with an
+outer full-window `MouseArea` behind the actual (right-docked) panel
+content, rather than by teaching `PopupCoordinator` a "pinned" concept.
+**If a second, independent click-triggered popup shows up later**,
+*then* it's worth generalizing — right now there's nothing to
+generalize from except this one case.
+
+## Native notification daemon, replacing swaync (2026-09-03)
+
+The bar used to only have a thin swaync *indicator* (`swaync-client -swb`
+for the badge, `-t/-d -sw` to toggle swaync's own GTK panel) — the actual
+DBus `org.freedesktop.Notifications` daemon, popup toasts, and
+control-center panel were swaync's separate GTK process. All of that now
+lives natively in this shell: `services/NotificationService.qml` (the
+daemon + all state) plus `shared/notifications/` (the popup stack and
+control-center panel windows, and the shared `NotificationCard.qml` view
+both render notifications with). `modules/NotificationCenter.qml` (was
+`SwayNC.qml`) is still just the thin bar-indicator view, same shape as
+before, now reading the new singleton instead of shelling out.
+
+**Requires `Quickshell.Services.Notifications`, which is a compile-time
+option.** This machine's Quickshell (`gui-apps/quickshell` in the local
+guru overlay) was built with `USE=-notifications` — the module simply
+didn't exist at `/usr/lib64/qt6/qml/Quickshell/Services/Notifications/`
+until the package was rebuilt with `USE=notifications`. If notifications
+mysteriously stop working after a Quickshell upgrade, check the USE flag
+first before assuming a code regression.
+
+**swaync had to be actively stopped, not just left running** — only one
+process can own the DBus name. Two things had to happen, not one:
+1. Kill the running process (`pkill -f swaync`) — but it came back on its
+   own within minutes.
+2. The respawn was systemd D-Bus activation: `swaync.service` (a
+   *different* launch path than the `swaync&` line in
+   `~/dotfiles/hypr/scripts/start`, which is how it's normally started)
+   is D-Bus-activatable, so the moment anything touched the
+   `org.freedesktop.Notifications` name with no owner present, systemd
+   auto-spawned it via that unit — independent of whether the unit is
+   "enabled" for login-time startup. Fix: `systemctl --user mask
+   swaync.service` (reversible with `unmask`), *then* kill the process.
+   `pkill` alone is not sufficient against a D-Bus-activatable service.
+   The `~/dotfiles/hypr/scripts/start` autostart line itself was
+   deliberately left alone (not this shell's file to edit, and swaync may
+   still come back at next login until that's addressed separately).
+
+**Architecture mirrors this repo's usual split**: `NotificationService.qml`
+(pragma-Singleton) owns the `NotificationServer` and every list/timer;
+`shared/notifications/*` are thin views reading it. Deliberately simpler
+than swaync itself, and simpler than DankMaterialShell's much heavier
+notification service (read for API-usage reference only, per the existing
+lesson elsewhere in this file about not blindly copying DMS's reasoning):
+flat history with no grouping/dedup, and `dnd` kept in-memory rather than
+GSettings/dconf-backed like swaync's own — depending on swaync's schema
+surviving would be a fragile link for a system meant to replace it
+outright.
+
+**The mpris widget is genuinely generic MPRIS, not MPD-specific** — an
+earlier draft of this had `MpdService.qml` grow `mpc`-shelled
+play/pause/album-art methods for it, which was the wrong layer: swaync's
+own mpris widget is a generic MPRIS client (shows whatever's active over
+MPRIS), not tied to MPD. Reverted that `MpdService.qml` detour entirely
+and used `Quickshell.Services.Mpris` (`Mpris.players.values`, preferring
+a currently-`isPlaying` player and falling back to the first available
+one) instead — this machine already has `media-sound/mpd-mpris` installed
+to bridge MPD onto MPRIS (`systemctl --user start mpd-mpris.service`),
+so this widget picks it up like any other MPRIS player for free, with no
+MPD-specific code in the bar at all.
+
+**`NotificationCard.qml`'s height must include the actions row, not just
+the main content column.** First version computed
+`implicitHeight: mainColumn.implicitHeight + padding * 2` and anchored
+the action-buttons row to `parent.bottom` independently — on a
+notification with action buttons, the actions row silently overlapped
+and visually replaced the last line of body text instead of appending
+below it (card height never grew to make room). Fixed by anchoring the
+actions row to `mainColumn.bottom` instead of `parent.bottom`, and
+folding its height into `implicitHeight` when visible. Caught by
+screenshot-testing an actions-bearing notification, not by the QML engine
+— no warning is logged for an item that's merely undersized, only for
+missing properties/types.
+
+## Control-center panel now opens on the clicked screen, not always the main screen (2026-09-03)
+
+`NotificationCenterPanel.qml` is still one shared window process-wide (per
+the click-triggered-popups section above — there's only one such panel, so
+no per-screen instantiation), but it used to be hardcoded to `root.mainScreen`
+in `shell.qml`, so clicking the indicator on a non-`DP-1` output opened the
+panel on `DP-1` anyway.
+
+**Fix:** `NotificationCenter.qml` (the bar indicator) now takes a `required
+property var screen` — `Bar.qml` binds it to `barWindow.modelData`, same
+pattern `Workspaces.qml` already used for its `screenName` — and passes it
+to `NotificationService.toggleCenter(screen)`. The service stores it as
+`centerScreen` (a real `ShellScreen`, not a name) and `shell.qml` binds the
+panel's `screen: NotificationService.centerScreen || root.mainScreen`,
+falling back to the main screen only before the first-ever click.
+`toggleCenter` closes the panel if it's already open *on the screen that was
+clicked*, otherwise moves it to that screen and (re)opens it — clicking a
+different screen's indicator retargets the panel rather than just closing
+whatever screen it happened to be open on.
+
+Verified by comparing against DankMaterialShell's `PopoutManager`/
+`NotificationCenterPopout.qml`: it uses the exact same shape (single shared
+popout, `property var triggerScreen: null`, `screen: triggerScreen`, set
+from `barWindow.screen` at click time) — including a `present()` doc comment
+that calls out "re-open without toggling the flag (used when retargeting to
+another monitor)", confirming live `screen` reassignment on an
+already-shared window is the intended, supported pattern here, not a hack.
+
+Confirmed empirically since no synthetic-click tool was available on this
+machine (no ydotool/wlrctl): temporarily drove
+`NotificationService.toggleCenter()` from a startup `Timer` targeting a
+specific non-main screen, screenshotted, and checked `hyprctl layers -j` —
+the `quickshell-notification-center` layer surface appeared only on the
+targeted screen, never on `DP-1`.
+
+**A transparent `PanelWindow` whose visible edge comes from a child
+`Rectangle`, not the window's own `color`, can leave the true last physical
+column of a flush screen edge transparent at a fractional Hyprland `scale`
+(2026-09-03).** `NotificationCenterPanel.qml`'s panel is flush against
+DP-1's right edge (`scale: 1.25`); with `anchors.rightMargin: 0` the panel
+rectangle's own logical geometry was exact (`panel.x + panel.width ===
+screen.width`, confirmed via a temporary debug `Timer` logging those
+values), yet a `grim`-captured screenshot showed the single rightmost
+physical column still showing desktop background, not the panel. `Bar.qml`,
+anchored flush against the same edge on the same output, does **not** show
+this — its background is the `PanelWindow`'s own `color` (an opaque native
+window background), not a child scene-graph item. Disabling `antialiasing`
+on the Rectangle (the fix for the unrelated seam bug in `Workspaces.qml`,
+see above) made no difference, ruling out AA-shader coverage as the cause —
+this is the compositor's fractional-scale buffer upscaling not reliably
+covering its own edge texel when a child item's paint has to carry the
+window's only opaque content. **Fix:** `anchors.rightMargin: -2` — a
+deliberate 2px overscan past the window's true edge. Safe because that
+side has no corner radius (square) and sits past the actual screen edge,
+so the compositor clips it; verified across the full panel height that
+this fully closes the gap (pixel-sampled at 7 different rows) with no
+other visible change. Note this parallels `Bar.qml`'s existing
+`margins.bottom: 1` overscan-past-the-visible-edge pattern for a different
+reason (that one avoids a 1px-tall miscrop when screenshotting, not a
+render gap) — deliberate small overscans past a true edge are an
+established, safe pattern in this codebase specifically because content
+past the true output boundary is always compositor-clipped for free.
+
+**Why a fixed `-2` (not scale-derived) is the right call, not a magic
+number tuned to one machine's `1.25`:** the failure mode is a sub-1-physical-
+-pixel rounding gap, so the minimum overscan needed shrinks as scale grows
+(a 1-physical-px gap needs ~0.8 logical px of cover at `scale: 1.25`, ~0.5
+at `scale: 2`, etc.) — `2` logical px is comfortably above worst case at
+every scale `>= 1`, and Hyprland has no sub-1 scale. At integer scale the
+bug doesn't occur at all (no buffer resampling needed), so overscanning
+there is pure insurance, not a fix for anything real — and since the
+overscanned pixels are always past the true edge and always
+compositor-clipped, adding unnecessary insurance at integer scale costs
+nothing. Confirmed empirically, not just reasoned: opened the same panel
+(via a temporary debug `Timer` retargeting `NotificationService.centerScreen`)
+on `DP-2`/`HDMI-A-1` (`scale: 1`, this machine's other two outputs) with the
+`-2` fix already in place — right edge pixel-sampled at 5 rows, panel
+background reaches the true last column cleanly, no gap, no seam, no
+overscan artifact. So the fix is scale-independent by construction (any
+`scale >= 1`, gap always < 1 logical px, `-2` always exceeds it), not just
+untested outside the one value this bug happened to be caught on.
+
+**Testing gotcha: `notify-send -A` needs `NAME=Text`, not `NAME,Text`.**
+`-A "default,Open"` doesn't error — it silently becomes one action whose
+whole `identifier`/`text` is the literal string `"default,Open"`, which
+then fails the `identifier === "default"` default-action check and
+(correctly, given that input) falls through to being rendered as an
+ordinary action button. Correct form: `-A "default=Open"`. Separately,
+`-A` implies `--wait`, so a `notify-send` call using it blocks until the
+notification is closed — background it (`timeout N notify-send ... &`)
+during manual testing or the shell command hangs.

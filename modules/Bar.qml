@@ -15,15 +15,18 @@ PanelWindow {
     screen: modelData
 
     // String -> Component lookup for everything shell.qml's layouts can
-    // place. Workspaces needs this bar's own screen name, so its Component
-    // is bound here rather than being a bare module reference.
+    // place. Workspaces needs this bar's own screen name (workspace
+    // filtering) and NotificationCenter needs this bar's own screen object
+    // (routing the shared notification panel to the clicked screen), so
+    // their Components are bound here rather than being bare module
+    // references.
     readonly property var moduleComponents: ({
         mpd: mpdComponent,
         submap: submapComponent,
         workspaces: workspacesComponent,
         backlight: backlightComponent,
         volume: volumeComponent,
-        swaync: swayncComponent,
+        notifications: notificationsComponent,
         clock: clockComponent,
         tray: trayComponent,
         privacy: privacyComponent,
@@ -44,7 +47,7 @@ PanelWindow {
     Component { id: workspacesComponent; Workspaces { screenName: barWindow.modelData.name } }
     Component { id: backlightComponent; Backlight {} }
     Component { id: volumeComponent; Volume {} }
-    Component { id: swayncComponent; SwayNC {} }
+    Component { id: notificationsComponent; NotificationCenter { screen: barWindow.modelData } }
     Component { id: clockComponent; Clock {} }
     // Tray/Privacy/Weather are the more expensive modules (icon textures,
     // hover popups, network) — they only get instantiated at all when a

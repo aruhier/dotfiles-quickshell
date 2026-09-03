@@ -4,14 +4,25 @@ import "../services"
 import "../shared"
 import "../shared/animations"
 
-// Notification-center indicator. The actual `swaync-client -swb`
-// subscription lives in services/SwayNCService.qml (singleton, one
-// subscription for the whole process); this is just a thin view.
+// Notification-center indicator + toggle. The actual daemon, popup stack,
+// and control-center panel live in services/NotificationService.qml and
+// shared/notifications/ (singleton + two top-level windows shared
+// process-wide, instantiated once from shell.qml — the toast stack fixed to
+// the main screen, the control-center panel following whichever screen's
+// indicator was clicked, see `screen` below); this is just a thin
+// per-output view, same shape as the old swaync-client indicator it
+// replaces.
 Item {
     id: root
 
-    readonly property string count: SwayNCService.count
-    readonly property string alt: SwayNCService.alt
+    // Which output this bar instance (and thus this indicator) is on —
+    // passed to NotificationService.toggleCenter() so the shared panel
+    // opens on the screen actually clicked rather than always the main
+    // screen. See Bar.qml's notificationsComponent.
+    required property var screen
+
+    readonly property int count: NotificationService.count
+    readonly property string alt: NotificationService.iconState
 
     readonly property var icons: ({
         "notification": "󰂞",
@@ -56,9 +67,9 @@ Item {
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         onClicked: (mouse) => {
             if (mouse.button === Qt.LeftButton)
-                Quickshell.execDetached(["swaync-client", "-t", "-sw"]);
+                NotificationService.toggleCenter(root.screen);
             else
-                Quickshell.execDetached(["swaync-client", "-d", "-sw"]);
+                NotificationService.dnd = !NotificationService.dnd;
         }
     }
 }
