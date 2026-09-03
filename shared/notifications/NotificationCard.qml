@@ -14,6 +14,9 @@ Rectangle {
 
     required property var wrapper
     property bool floating: false
+    // Keyboard selection in NotificationCenterPanel's list — floating
+    // popups never set this, they have no keyboard focus to select with.
+    property bool selected: false
 
     property int padding: 8
     property int iconSize: 40
@@ -22,8 +25,8 @@ Rectangle {
 
     radius: NotificationTheme.cardRadius
     color: floating ? NotificationTheme.bgFloating : NotificationTheme.bg
-    border.width: 1
-    border.color: Qt.rgba(NotificationTheme.text.r, NotificationTheme.text.g, NotificationTheme.text.b, 0.1)
+    border.width: card.selected ? 2 : 1
+    border.color: card.selected ? NotificationTheme.bgSelected : Qt.rgba(NotificationTheme.text.r, NotificationTheme.text.g, NotificationTheme.text.b, 0.1)
 
     // Body click invokes the default action, if the sender declared one —
     // matches swaync's notification.vala click_default_action(). Covers
@@ -82,7 +85,7 @@ Rectangle {
                         color: NotificationTheme.text
                         font.family: Theme.fontFamily
                         font.bold: true
-                        font.pixelSize: Theme.fontSize
+                        font.pixelSize: NotificationTheme.fontSize
                         elide: Text.ElideRight
                     }
 
@@ -91,7 +94,7 @@ Rectangle {
                         text: card.wrapper.timeStr
                         color: NotificationTheme.text
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSize - 1
+                        font.pixelSize: NotificationTheme.fontSize - 1
                     }
 
                     Rectangle {
@@ -132,7 +135,7 @@ Rectangle {
                     text: card.wrapper.body
                     color: NotificationTheme.text
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSize
+                    font.pixelSize: NotificationTheme.fontSize
                     wrapMode: Text.WordWrap
                     maximumLineCount: 5
                     elide: Text.ElideRight
@@ -170,7 +173,7 @@ Rectangle {
                     text: actionButton.modelData.text
                     color: NotificationTheme.text
                     font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontSize
+                    font.pixelSize: NotificationTheme.fontSize
                 }
 
                 MouseArea {

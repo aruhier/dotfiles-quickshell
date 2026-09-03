@@ -2,6 +2,7 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Services.Notifications
 import "../shared/notifications"
 
@@ -39,6 +40,30 @@ QtObject {
     // PopoutManager uses for its per-output popouts (`triggerScreen`),
     // compared for this fix.
     property var centerScreen: null
+
+    // Which output the toast stack should appear on — captured fresh for
+    // each incoming notification (see onNotification below) from whichever
+    // monitor Hyprland currently has focused, same "capture at trigger
+    // time" shape as centerScreen above (there it's the clicked indicator's
+    // screen; here there's no click to anchor to, so focused-at-arrival is
+    // the nearest equivalent). NotificationPopupWindow.qml (via shell.qml)
+    // reads this, falling back to the main screen while null (before the
+    // first-ever notification, or if Hyprland reports an unknown monitor).
+    property var popupScreen: null
+
+    function screenByName(name) {
+        const screens = Quickshell.screens;
+        for (let i = 0; i < screens.length; i++) {
+            if (screens[i].name === name)
+                return screens[i];
+        }
+        return null;
+    }
+
+    function focusedScreen() {
+        const monitor = Hyprland.focusedMonitor;
+        return (monitor && root.screenByName(monitor.name)) || null;
+    }
 
     readonly property int count: notifications.length
     readonly property string iconState: dnd ? (count > 0 ? "dnd-notification" : "dnd-none") : (count > 0 ? "notification" : "none")
@@ -187,6 +212,7 @@ QtObject {
                 root.notifications = [wrapper, ...root.notifications];
 
             if (!root.dnd) {
+                root.popupScreen = root.focusedScreen();
                 root.popups = [...root.popups, wrapper];
                 if (wrapper.timer.interval > 0)
                     wrapper.timer.start();

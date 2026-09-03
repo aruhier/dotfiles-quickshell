@@ -41,11 +41,11 @@ ShellRoot {
         return null;
     }
 
-    // Resolved ShellScreen for mainScreens[0] — the notification popup
-    // stack is a single, shared UI surface (not one per output, unlike the
-    // bar itself), so it lives on the main screen only, same convention
-    // Tray/Privacy/Weather already follow for the one shared "expensive"
-    // surface of their subsystem.
+    // Resolved ShellScreen for mainScreens[0] — fallback for the shared,
+    // single-instance UI surfaces below (toast stack, control-center panel)
+    // before they have a real screen to target of their own, same
+    // convention Tray/Privacy/Weather already follow for the one shared
+    // "expensive" surface of their subsystem.
     readonly property var mainScreen: root.screenByName(root.mainScreens[0])
 
     // The control-center panel is likewise a single shared surface, but
@@ -100,7 +100,7 @@ ShellRoot {
     }
 
     NotificationPopupWindow {
-        screen: root.mainScreen
+        screen: NotificationService.popupScreen || root.mainScreen
     }
 
     NotificationCenterPanel {

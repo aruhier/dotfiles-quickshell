@@ -87,24 +87,73 @@ PanelWindow {
 
     // Generic MPRIS now-playing widget — matches swaync's own mpris widget,
     // which shows whatever's active over MPRIS rather than being tied to
-    // MPD specifically. Prefers a currently-playing player, falling back to
-    // the first available one (e.g. paused) so the widget doesn't blink
-    // away between tracks.
+    // MPD specifically, and lets you page between multiple players (swaync
+    // shows </> arrows plus pagination dots when more than one is present —
+    // confirmed via a live screenshot of the real thing).
     readonly property var mprisPlayers: Mpris.players.values
-    readonly property var activePlayer: {
-        for (const p of mprisPlayers) {
-            if (p.isPlaying)
-                return p;
+
+    // Which player the widget shows. Defaults to whichever's playing (or
+    // index 0 if none are) the first time a player list actually exists;
+    // after that it's just the user's own </> choice, clamped so it never
+    // points past the end of a list that shrank.
+    property int mprisIndex: 0
+    property bool mprisIndexInitialized: false
+
+    function defaultMprisIndex() {
+        for (let i = 0; i < panelWindow.mprisPlayers.length; i++) {
+            if (panelWindow.mprisPlayers[i].isPlaying)
+                return i;
         }
-        return mprisPlayers.length > 0 ? mprisPlayers[0] : null;
+        return 0;
+    }
+
+    onMprisPlayersChanged: {
+        if (!mprisIndexInitialized && mprisPlayers.length > 0) {
+            mprisIndex = defaultMprisIndex();
+            mprisIndexInitialized = true;
+        } else if (mprisIndex >= mprisPlayers.length) {
+            mprisIndex = Math.max(0, mprisPlayers.length - 1);
+        }
+    }
+
+    readonly property var activePlayer: mprisPlayers.length > 0 ? mprisPlayers[Math.min(mprisIndex, mprisPlayers.length - 1)] : null
+
+    function prevMprisPlayer() {
+        if (mprisPlayers.length === 0)
+            return;
+        mprisIndex = (mprisIndex - 1 + mprisPlayers.length) % mprisPlayers.length;
+    }
+
+    function nextMprisPlayer() {
+        if (mprisPlayers.length === 0)
+            return;
+        mprisIndex = (mprisIndex + 1) % mprisPlayers.length;
+    }
+
+    // Cycles the active player's loop mode the same order swaync's own
+    // repeat button does: off -> playlist -> track -> off.
+    function cycleLoopState() {
+        const p = panelWindow.activePlayer;
+        if (!p)
+            return;
+        if (p.loopState === MprisLoopState.None)
+            p.loopState = MprisLoopState.Playlist;
+        else if (p.loopState === MprisLoopState.Playlist)
+            p.loopState = MprisLoopState.Track;
+        else
+            p.loopState = MprisLoopState.None;
     }
 
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "quickshell-notification-center"
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
 
-    onVisibleChanged: if (visible)
-        focusScope.forceActiveFocus()
+    onVisibleChanged: if (visible) {
+        focusScope.forceActiveFocus();
+        // Start unselected each time the panel opens rather than carrying
+        // a stale index over from the last session.
+        focusScope.selectedIndex = -1;
+    }
 
     // Click-outside-to-close — matches swaync's controlCenter.vala
     // blank_window_gesture.
@@ -118,6 +167,74 @@ PanelWindow {
         anchors.fill: parent
         focus: true
         Keys.onEscapePressed: NotificationService.closeCenter()
+
+        // Keyboard selection into NotificationService.notifications — -1
+        // means nothing selected. Up/Down move it, Return/Enter fire the
+        // selected card's default action (same as clicking its body),
+        // Delete/Backspace dismiss it (same as clicking its ✕).
+        property int selectedIndex: -1
+
+        function clampSelection() {
+            const len = NotificationService.notifications.length;
+            if (focusScope.selectedIndex >= len)
+                focusScope.selectedIndex = len - 1;
+        }
+
+        // Covers dismissal from any source (keyboard, mouse click on a
+        // card's ✕, or Clear All), not just Keys.onDeletePressed below —
+        // the list can shrink out from under a keyboard selection whenever
+        // the mouse is used at the same time.
+        Connections {
+            target: NotificationService
+            function onNotificationsChanged() {
+                focusScope.clampSelection();
+            }
+        }
+
+        Keys.onUpPressed: {
+            if (NotificationService.notifications.length === 0)
+                return;
+            focusScope.selectedIndex = focusScope.selectedIndex <= 0 ? 0 : focusScope.selectedIndex - 1;
+            notificationListView.positionViewAtIndex(focusScope.selectedIndex, ListView.Contain);
+        }
+
+        Keys.onDownPressed: {
+            const len = NotificationService.notifications.length;
+            if (len === 0)
+                return;
+            focusScope.selectedIndex = focusScope.selectedIndex < 0 ? 0 : Math.min(focusScope.selectedIndex + 1, len - 1);
+            notificationListView.positionViewAtIndex(focusScope.selectedIndex, ListView.Contain);
+        }
+
+        Keys.onReturnPressed: focusScope.activateSelected()
+        Keys.onEnterPressed: focusScope.activateSelected()
+
+        function activateSelected() {
+            const list = NotificationService.notifications;
+            if (focusScope.selectedIndex < 0 || focusScope.selectedIndex >= list.length)
+                return;
+            const wrapper = list[focusScope.selectedIndex];
+            if (wrapper.defaultAction)
+                wrapper.defaultAction.invoke();
+        }
+
+        Keys.onDeletePressed: focusScope.dismissSelected()
+        // No dedicated Keys.onBackspacePressed signal exists (unlike
+        // Delete/Return/Enter) — Qt.Key_Back is the browser-style back key,
+        // not Backspace, so this has to go through the generic handler.
+        Keys.onPressed: event => {
+            if (event.key === Qt.Key_Backspace) {
+                focusScope.dismissSelected();
+                event.accepted = true;
+            }
+        }
+
+        function dismissSelected() {
+            const list = NotificationService.notifications;
+            if (focusScope.selectedIndex < 0 || focusScope.selectedIndex >= list.length)
+                return;
+            NotificationService.dismiss(list[focusScope.selectedIndex]);
+        }
 
         // The actual panel — left corners rounded only (flush against the
         // right screen edge), same per-corner-radius technique
@@ -198,48 +315,20 @@ PanelWindow {
                 spacing: 12
 
                 // ---- header ----
-                RowLayout {
-                    Layout.fillWidth: true
-
-                    Text {
-                        renderType: Text.NativeRendering
-                        text: "Notifications"
-                        color: NotificationTheme.text
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSize + 2
-                        font.bold: true
-                    }
-
-                    Item {
-                        Layout.fillWidth: true
-                    }
-
-                    Rectangle {
-                        Layout.preferredWidth: clearAllLabel.implicitWidth + 20
-                        Layout.preferredHeight: 26
-                        radius: 10
-                        color: clearAllArea.containsMouse ? NotificationTheme.bgHover : NotificationTheme.bg
-                        border.width: 1
-                        border.color: NotificationTheme.borderColor
-
-                        Text {
-                            id: clearAllLabel
-                            renderType: Text.NativeRendering
-                            anchors.centerIn: parent
-                            text: "Clear All"
-                            color: NotificationTheme.text
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSize
-                        }
-
-                        MouseArea {
-                            id: clearAllArea
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: NotificationService.clearAll()
-                        }
-                    }
+                // No Clear All button here — config.json's title widget has
+                // clear-all-button: false, and the separate "inhibitors"
+                // widget (which owns the other clear-all-button) isn't in
+                // the configured `widgets` list at all. Confirmed against a
+                // live swaync screenshot: no button anywhere in the panel.
+                // Clearing is still reachable via the `notifications clear`
+                // IPC call (see shell.qml), just not from this UI.
+                Text {
+                    renderType: Text.NativeRendering
+                    text: "Notifications"
+                    color: NotificationTheme.text
+                    font.family: Theme.fontFamily
+                    font.pixelSize: NotificationTheme.fontSize + 2
+                    font.bold: true
                 }
 
                 // ---- DND ----
@@ -252,7 +341,7 @@ PanelWindow {
                         text: "Do Not Disturb"
                         color: NotificationTheme.text
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSize
+                        font.pixelSize: NotificationTheme.fontSize
                     }
 
                     Rectangle {
@@ -298,10 +387,11 @@ PanelWindow {
                         text: "No notifications"
                         color: NotificationTheme.textDisabled
                         font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontSize
+                        font.pixelSize: NotificationTheme.fontSize
                     }
 
                     ListView {
+                        id: notificationListView
                         anchors.fill: parent
                         clip: true
                         spacing: 6
@@ -312,9 +402,11 @@ PanelWindow {
                         delegate: NotificationCard {
                             id: listCard
                             required property var modelData
+                            required property int index
                             width: ListView.view.width
                             wrapper: modelData
                             floating: false
+                            selected: focusScope.selectedIndex === index
                         }
                     }
                 }
@@ -322,98 +414,199 @@ PanelWindow {
                 // ---- now playing (mpris) ----
                 // Generic MPRIS widget, like swaync's own — whatever's
                 // active over MPRIS (see panelWindow.activePlayer above),
-                // not tied to any specific player.
-                RowLayout {
+                // not tied to any specific player. Sits on its own rounded
+                // card and gets </> paging + dots once a second player
+                // shows up, and shuffle/repeat controls alongside
+                // prev/play/next — all matching a live swaync screenshot of
+                // this same widget.
+                ColumnLayout {
                     Layout.fillWidth: true
                     visible: panelWindow.activePlayer !== null
-                    spacing: 10
+                    spacing: 8
 
-                    ClippingRectangle {
-                        Layout.preferredWidth: NotificationTheme.mprisImageSize
-                        Layout.preferredHeight: NotificationTheme.mprisImageSize
-                        radius: NotificationTheme.mprisImageRadius
-                        color: NotificationTheme.bg
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
 
-                        Image {
-                            anchors.fill: parent
-                            visible: panelWindow.activePlayer && panelWindow.activePlayer.trackArtUrl !== ""
-                            source: panelWindow.activePlayer ? panelWindow.activePlayer.trackArtUrl : ""
-                            fillMode: Image.PreserveAspectCrop
-                            asynchronous: true
+                        Text {
+                            renderType: Text.NativeRendering
+                            visible: panelWindow.mprisPlayers.length > 1
+                            text: "󰅁"
+                            color: NotificationTheme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: NotificationTheme.mprisControlIconSize - 4
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: panelWindow.prevMprisPlayer()
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: mprisContent.implicitHeight + 24
+                            radius: 14
+                            color: NotificationTheme.bgHover
+
+                            RowLayout {
+                                id: mprisContent
+                                anchors.fill: parent
+                                anchors.margins: 12
+                                spacing: 14
+
+                                ClippingRectangle {
+                                    Layout.preferredWidth: NotificationTheme.mprisImageSize
+                                    Layout.preferredHeight: NotificationTheme.mprisImageSize
+                                    radius: NotificationTheme.mprisImageRadius
+                                    color: NotificationTheme.bg
+
+                                    Image {
+                                        anchors.fill: parent
+                                        visible: panelWindow.activePlayer && panelWindow.activePlayer.trackArtUrl !== ""
+                                        source: panelWindow.activePlayer ? panelWindow.activePlayer.trackArtUrl : ""
+                                        fillMode: Image.PreserveAspectCrop
+                                        asynchronous: true
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 4
+
+                                    Text {
+                                        renderType: Text.NativeRendering
+                                        Layout.fillWidth: true
+                                        text: panelWindow.activePlayer ? panelWindow.activePlayer.trackTitle : ""
+                                        color: NotificationTheme.text
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: NotificationTheme.mprisTitleFontSize
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Text {
+                                        renderType: Text.NativeRendering
+                                        Layout.fillWidth: true
+                                        text: panelWindow.activePlayer ? panelWindow.activePlayer.trackArtist : ""
+                                        color: NotificationTheme.text
+                                        font.family: Theme.fontFamily
+                                        font.pixelSize: NotificationTheme.mprisArtistFontSize
+                                        elide: Text.ElideRight
+                                    }
+
+                                    RowLayout {
+                                        spacing: 12
+
+                                        Text {
+                                            renderType: Text.NativeRendering
+                                            text: "󰒝"
+                                            color: panelWindow.activePlayer && panelWindow.activePlayer.shuffleSupported ? (panelWindow.activePlayer.shuffle ? NotificationTheme.bgSelected : NotificationTheme.text) : NotificationTheme.textDisabled
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: NotificationTheme.mprisControlIconSize - 4
+
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                enabled: panelWindow.activePlayer && panelWindow.activePlayer.shuffleSupported
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: panelWindow.activePlayer.shuffle = !panelWindow.activePlayer.shuffle
+                                            }
+                                        }
+
+                                        Text {
+                                            renderType: Text.NativeRendering
+                                            text: "󰒮"
+                                            color: panelWindow.activePlayer && panelWindow.activePlayer.canGoPrevious ? NotificationTheme.text : NotificationTheme.textDisabled
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: NotificationTheme.mprisControlIconSize
+
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                enabled: panelWindow.activePlayer && panelWindow.activePlayer.canGoPrevious
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: panelWindow.activePlayer.previous()
+                                            }
+                                        }
+
+                                        Text {
+                                            renderType: Text.NativeRendering
+                                            text: panelWindow.activePlayer && panelWindow.activePlayer.isPlaying ? "󰏤" : "󰐊"
+                                            color: panelWindow.activePlayer && panelWindow.activePlayer.canTogglePlaying ? NotificationTheme.text : NotificationTheme.textDisabled
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: NotificationTheme.mprisControlIconSize
+
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                enabled: panelWindow.activePlayer && panelWindow.activePlayer.canTogglePlaying
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: panelWindow.activePlayer.togglePlaying()
+                                            }
+                                        }
+
+                                        Text {
+                                            renderType: Text.NativeRendering
+                                            text: "󰒭"
+                                            color: panelWindow.activePlayer && panelWindow.activePlayer.canGoNext ? NotificationTheme.text : NotificationTheme.textDisabled
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: NotificationTheme.mprisControlIconSize
+
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                enabled: panelWindow.activePlayer && panelWindow.activePlayer.canGoNext
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: panelWindow.activePlayer.next()
+                                            }
+                                        }
+
+                                        Text {
+                                            renderType: Text.NativeRendering
+                                            text: panelWindow.activePlayer && panelWindow.activePlayer.loopState === MprisLoopState.Track ? "󰑘" : "󰑖"
+                                            color: panelWindow.activePlayer && panelWindow.activePlayer.loopSupported ? (panelWindow.activePlayer.loopState !== MprisLoopState.None ? NotificationTheme.bgSelected : NotificationTheme.text) : NotificationTheme.textDisabled
+                                            font.family: Theme.fontFamily
+                                            font.pixelSize: NotificationTheme.mprisControlIconSize - 4
+
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                enabled: panelWindow.activePlayer && panelWindow.activePlayer.loopSupported
+                                                cursorShape: Qt.PointingHandCursor
+                                                onClicked: panelWindow.cycleLoopState()
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Text {
+                            renderType: Text.NativeRendering
+                            visible: panelWindow.mprisPlayers.length > 1
+                            text: "󰅂"
+                            color: NotificationTheme.text
+                            font.family: Theme.fontFamily
+                            font.pixelSize: NotificationTheme.mprisControlIconSize - 4
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: panelWindow.nextMprisPlayer()
+                            }
                         }
                     }
 
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 2
+                    RowLayout {
+                        Layout.alignment: Qt.AlignHCenter
+                        visible: panelWindow.mprisPlayers.length > 1
+                        spacing: 6
 
-                        Text {
-                            renderType: Text.NativeRendering
-                            Layout.fillWidth: true
-                            text: panelWindow.activePlayer ? panelWindow.activePlayer.trackTitle : ""
-                            color: NotificationTheme.text
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSize
-                            font.bold: true
-                            elide: Text.ElideRight
-                        }
+                        Repeater {
+                            model: panelWindow.mprisPlayers.length
 
-                        Text {
-                            renderType: Text.NativeRendering
-                            Layout.fillWidth: true
-                            text: panelWindow.activePlayer ? panelWindow.activePlayer.trackArtist : ""
-                            color: NotificationTheme.text
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.fontSize - 1
-                            elide: Text.ElideRight
-                        }
-
-                        RowLayout {
-                            spacing: 14
-
-                            Text {
-                                renderType: Text.NativeRendering
-                                text: "󰒮"
-                                color: panelWindow.activePlayer && panelWindow.activePlayer.canGoPrevious ? NotificationTheme.text : NotificationTheme.textDisabled
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.iconFontSize
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    enabled: panelWindow.activePlayer && panelWindow.activePlayer.canGoPrevious
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: panelWindow.activePlayer.previous()
-                                }
-                            }
-
-                            Text {
-                                renderType: Text.NativeRendering
-                                text: panelWindow.activePlayer && panelWindow.activePlayer.isPlaying ? "󰏤" : "󰐊"
-                                color: panelWindow.activePlayer && panelWindow.activePlayer.canTogglePlaying ? NotificationTheme.text : NotificationTheme.textDisabled
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.iconFontSize
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    enabled: panelWindow.activePlayer && panelWindow.activePlayer.canTogglePlaying
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: panelWindow.activePlayer.togglePlaying()
-                                }
-                            }
-
-                            Text {
-                                renderType: Text.NativeRendering
-                                text: "󰒭"
-                                color: panelWindow.activePlayer && panelWindow.activePlayer.canGoNext ? NotificationTheme.text : NotificationTheme.textDisabled
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.iconFontSize
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    enabled: panelWindow.activePlayer && panelWindow.activePlayer.canGoNext
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: panelWindow.activePlayer.next()
-                                }
+                            Rectangle {
+                                required property int index
+                                width: 6
+                                height: 6
+                                radius: 3
+                                color: index === panelWindow.mprisIndex ? NotificationTheme.text : NotificationTheme.textDisabled
                             }
                         }
                     }
