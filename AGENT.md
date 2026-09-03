@@ -569,6 +569,38 @@ overscan artifact. So the fix is scale-independent by construction (any
 `scale >= 1`, gap always < 1 logical px, `-2` always exceeds it), not just
 untested outside the one value this bug happened to be caught on.
 
+## IPC for the notification panel (2026-09-03)
+
+`shell.qml` now has a top-level `IpcHandler { target: "notifications" }`
+exposing `toggle()`/`open()`/`close()`/`clear()`, so a Hyprland keybind can
+drive the control-center panel the same way the bar indicator's click does:
+
+```
+bind = SUPER, N, exec, qs ipc call notifications toggle
+```
+
+(`qs ipc call` needs `-p <path>`/`-c <name>` if this config isn't the
+`default` one — see `quickshell ipc --help`.)
+
+`toggle()`/`open()` reuse `NotificationService.toggleCenter(screen)`, the
+same function `NotificationCenter.qml`'s click handler calls — just with
+Hyprland's *focused* monitor as the screen instead of the screen the
+clicked widget happens to live on, since an IPC call has no
+widget/screen of its own to report (added `root.focusedScreen()` in
+`shell.qml`, resolving `Hyprland.focusedMonitor.name` through the existing
+`screenByName()`, falling back to `mainScreen`). `open()` is idempotent
+(no-ops if already open, doesn't retarget it to the focused screen);
+`close()` calls `NotificationService.closeCenter()` directly, unconditional
+regardless of which screen it's open on. `clear()` calls the existing
+`NotificationService.clearAll()` — dismisses every notification in history
+and, per that function's own pre-existing bulk-clear behavior, closes the
+panel too. Verified live against the running instance: `quickshell ipc -p
+<path> show` lists all four functions; `close`/`open`/`open`-again
+(idempotent)/`toggle` round-tripped correctly (checked via `hyprctl layers
+-j | grep -c quickshell-notification-center`); `clear` tested by firing a
+real `notify-send`, opening the panel, then confirming both the toast and
+the panel-close happened.
+
 **Testing gotcha: `notify-send -A` needs `NAME=Text`, not `NAME,Text`.**
 `-A "default,Open"` doesn't error — it silently becomes one action whose
 whole `identifier`/`text` is the literal string `"default,Open"`, which

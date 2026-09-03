@@ -1,5 +1,7 @@
 //@ pragma UseQApplication
 import Quickshell
+import Quickshell.Io
+import Quickshell.Hyprland
 import "modules"
 import "services"
 import "shared/notifications"
@@ -54,6 +56,40 @@ ShellRoot {
     // name); fall back to the main screen before the first-ever click,
     // when it's still null.
     readonly property var centerScreen: NotificationService.centerScreen || root.mainScreen
+
+    // Resolved ShellScreen for whichever output Hyprland currently has
+    // focused — what the IPC handler below targets, since (unlike a bar
+    // indicator's click) an IPC call has no widget/screen of its own to
+    // report. Falls back to the main screen if Hyprland reports a monitor
+    // name this shell doesn't know about.
+    function focusedScreen() {
+        const monitor = Hyprland.focusedMonitor;
+        return (monitor && root.screenByName(monitor.name)) || root.mainScreen;
+    }
+
+    // Lets a Hyprland keybind drive the notification panel the same way the
+    // bar indicator's click does (NotificationCenter.qml), e.g.:
+    //   bind = SUPER, N, exec, qs ipc call notifications toggle
+    IpcHandler {
+        target: "notifications"
+
+        function toggle(): void {
+            NotificationService.toggleCenter(root.focusedScreen());
+        }
+
+        function open(): void {
+            if (!NotificationService.centerOpen)
+                NotificationService.toggleCenter(root.focusedScreen());
+        }
+
+        function close(): void {
+            NotificationService.closeCenter();
+        }
+
+        function clear(): void {
+            NotificationService.clearAll();
+        }
+    }
 
     Variants {
         model: Quickshell.screens
