@@ -164,7 +164,14 @@ PanelWindow {
 
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "quickshell-notification-center"
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    // Tied to centerOpen, not open/closing/visible — the window stays
+    // mapped through the whole close slide-out (see `visible` above), but
+    // keyboard focus should return to whatever's underneath the instant
+    // the user closes it, not 185ms later once the spring settles. Dropping
+    // keyboard-interactivity to None here is a live layer-shell surface
+    // update, not a remap, so it takes effect immediately while the panel
+    // is still visibly sliding away.
+    WlrLayershell.keyboardFocus: NotificationService.centerOpen ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 
     onVisibleChanged: if (visible) {
         focusScope.forceActiveFocus();
