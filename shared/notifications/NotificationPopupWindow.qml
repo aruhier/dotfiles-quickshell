@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Wayland
 import ".."
 import "../../services"
+import "../animations"
 
 // Floating notification-toast stack, top-right corner, sitting just under
 // the bar and its border stripe (barHeight + barBorderHeight), plus the
@@ -39,11 +40,72 @@ PanelWindow {
 
     // Fully unmapped (zero footprint, no stray input-eating surface) while
     // there's nothing to show — same "don't pay for what isn't shown"
-    // principle as Weather/Privacy/Tray's LazyLoaders.
-    visible: NotificationService.popups.length > 0
+    // principle as Weather/Privacy/Tray's LazyLoaders. Tracks displayPopups,
+    // not NotificationService.popups directly, so the window stays mapped
+    // through the last card's exit spring instead of cutting it off.
+    visible: displayPopups.length > 0
 
     implicitWidth: NotificationTheme.notificationWidth
     implicitHeight: column.implicitHeight
+
+    // One entry per popup currently on screen — a superset of
+    // NotificationService.popups that keeps a just-dismissed entry around
+    // (closing: true) for the length of its exit spring. Repeater destroys
+    // its delegate the instant an item leaves `model`, with no way to
+    // animate that removal itself, so removal here is deferred until the
+    // card has actually finished sliding out (see removeDisplayPopup).
+    //
+    // The entry's notification is Retainable-locked for as long as it lives
+    // in this list. Without that, NotificationService.qml's dismiss-then-
+    // destroy handlers (the Retainable `onDropped` Connections in its
+    // NotifWrapper) can tear the wrapper down in the very same tick it
+    // leaves `popups` — confirmed by reading that handler, which filters
+    // `popups` and calls `wrapper.destroy()` together — which would leave a
+    // still-animating card reading a destroyed object's properties.
+    component PopupEntry: QtObject {
+        required property var wrapper
+        property bool closing: false
+    }
+
+    property list<PopupEntry> displayPopups: []
+
+    property Component popupEntryComponent: Component {
+        PopupEntry {}
+    }
+
+    function syncDisplayPopups() {
+        const live = NotificationService.popups;
+
+        for (const w of live) {
+            if (displayPopups.some(e => e.wrapper === w))
+                continue;
+            w.notification.Retainable.lock();
+            displayPopups = [...displayPopups, popupEntryComponent.createObject(popupWindow, {
+                "wrapper": w
+            })];
+        }
+
+        for (const e of displayPopups) {
+            if (!e.closing && live.indexOf(e.wrapper) === -1)
+                e.closing = true;
+        }
+    }
+
+    function removeDisplayPopup(entry) {
+        displayPopups = displayPopups.filter(e => e !== entry);
+        if (entry.wrapper && entry.wrapper.notification)
+            entry.wrapper.notification.Retainable.unlock();
+        entry.destroy();
+    }
+
+    Connections {
+        target: NotificationService
+        function onPopupsChanged() {
+            popupWindow.syncDisplayPopups();
+        }
+    }
+
+    Component.onCompleted: popupWindow.syncDisplayPopups()
 
     Column {
         id: column
@@ -51,21 +113,56 @@ PanelWindow {
         spacing: 8
 
         Repeater {
-            model: NotificationService.popups
+            model: popupWindow.displayPopups
 
-            NotificationCard {
-                id: card
+            Item {
+                id: entryRoot
                 required property var modelData
-                width: column.width
-                wrapper: modelData
-                floating: true
+                readonly property var entry: modelData
 
-                opacity: 0
-                Component.onCompleted: opacity = 1
-                Behavior on opacity {
-                    NumberAnimation {
-                        duration: 150
+                width: column.width
+                implicitHeight: card.implicitHeight
+
+                // Slides in from, and out to, past the stack's own right
+                // edge — which already sits flush against the screen's
+                // right edge (see popupWindow's margins.right) — replacing
+                // the plain opacity fade this used to do. A transform, not
+                // `x`, since `x` is owned by the enclosing Column
+                // (positioners re-set it on every relayout).
+                transform: Translate {
+                    x: offsetSpring.value
+                }
+
+                // FrameSpring, not Behavior/SpringAnimation — see
+                // FrameSpring.qml's header comment and AGENT.md's "capped
+                // near 60Hz" section for why a frame-driven spring is used
+                // instead everywhere else in this repo. Starts already
+                // off-screen and springs to resting position on creation;
+                // once `entry.closing` flips true it springs back out, and
+                // only once *that* settles (running goes false again) is
+                // the entry actually dropped from displayPopups.
+                FrameSpring {
+                    id: offsetSpring
+                    Component.onCompleted: {
+                        snapTo(NotificationTheme.notificationWidth);
+                        retarget(0);
                     }
+                    onRunningChanged: if (!running && entryRoot.entry.closing)
+                        popupWindow.removeDisplayPopup(entryRoot.entry)
+                }
+
+                Connections {
+                    target: entryRoot.entry
+                    function onClosingChanged() {
+                        offsetSpring.retarget(NotificationTheme.notificationWidth);
+                    }
+                }
+
+                NotificationCard {
+                    id: card
+                    width: entryRoot.width
+                    wrapper: entryRoot.entry.wrapper
+                    floating: true
                 }
             }
         }
