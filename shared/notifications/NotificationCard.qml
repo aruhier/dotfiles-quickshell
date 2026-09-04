@@ -269,7 +269,7 @@ Item {
         width: 24
         height: 24
         radius: 12
-        color: "black"
+        color: NotificationTheme.bgHover
         opacity: card.hovered && card.interactive ? 1 : 0
         scale: closePress.value
 
@@ -297,14 +297,14 @@ Item {
             anchors.fill: parent
             radius: 12
             visible: closeArea.containsMouse
-            color: "#1e1e1e"
+            color: Theme.accent
         }
 
         Text {
             renderType: Text.NativeRendering
             anchors.centerIn: parent
             text: "✕"
-            color: NotificationTheme.text
+            color: closeArea.containsMouse ? "black" : NotificationTheme.text
             font.pixelSize: 12
         }
     }
