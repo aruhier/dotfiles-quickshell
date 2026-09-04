@@ -30,6 +30,10 @@ Item {
     // this used to render.
     property int padding: 6
     property int iconSize: 64
+    // Breathing room to either side of the icon — between it and the card
+    // edge on the left, and between it and the summary/body text on the
+    // right (on top of mainColumn's own padding and the row's spacing).
+    property int iconHorizontalPadding: 4
 
     // False when this card is rendered as the peeking front layer of a
     // collapsed NotificationGroupCard stack — swaync's group gesture
@@ -53,6 +57,28 @@ Item {
     HoverHandler {
         onHoveredChanged: card.hovered = hovered
     }
+
+    // How wide this card would need to be to show its header (summary +
+    // time) and its action-button labels without eliding/squishing them —
+    // read by NotificationPopupWindow.qml to size the popup stack up from
+    // its usual minimum when a toast's content actually needs it. Ignores
+    // body text on purpose: it wraps (see the body Text's wrapMode below),
+    // so a long paragraph should fill more lines rather than stretch the
+    // toast wider, unlike a long single-line summary or action label, which
+    // would otherwise just get clipped.
+    readonly property real headerNaturalWidth: summaryText.implicitWidth + (timeText.visible ? headerRow.spacing + timeText.implicitWidth : 0)
+    readonly property real actionsNaturalWidth: {
+        if (!actionsRow.visible)
+            return 0;
+        let w = 0;
+        for (let i = 0; i < actionsRepeater.count; i++) {
+            const item = actionsRepeater.itemAt(i);
+            if (item)
+                w += item.implicitWidth;
+        }
+        return w + actionsRow.spacing * Math.max(0, actionsRepeater.count - 1);
+    }
+    readonly property real naturalWidth: Math.max(card.padding * 2 + card.iconSize + card.iconHorizontalPadding * 2 + contentRow.spacing + headerNaturalWidth, actionsNaturalWidth)
 
     // No trailing `+ padding` when actionsRow is visible — its buttons sit
     // flush with the card's bottom edge (see the border-overlay comment
@@ -121,12 +147,15 @@ Item {
         spacing: 6
 
         RowLayout {
+            id: contentRow
             Layout.fillWidth: true
             spacing: 8
 
             Item {
                 Layout.preferredWidth: card.iconSize
                 Layout.preferredHeight: card.iconSize
+                Layout.leftMargin: card.iconHorizontalPadding
+                Layout.rightMargin: card.iconHorizontalPadding
                 // Vertically centered against the whole card (not just this
                 // row's top) — matches swaync's default.notification-content
                 // GTK box, which centers the image against the full,
@@ -155,10 +184,12 @@ Item {
                 spacing: 2
 
                 RowLayout {
+                    id: headerRow
                     Layout.fillWidth: true
                     spacing: 6
 
                     Text {
+                        id: summaryText
                         renderType: Text.NativeRendering
                         Layout.fillWidth: true
                         text: card.wrapper.summary
@@ -170,6 +201,7 @@ Item {
                     }
 
                     Text {
+                        id: timeText
                         renderType: Text.NativeRendering
                         // swaync only calls set_time() for control-center
                         // entries (controlCenter.vala) — a floating popup's
@@ -209,6 +241,7 @@ Item {
         spacing: 1
 
         Repeater {
+            id: actionsRepeater
             model: card.wrapper.otherActions
 
             Rectangle {
@@ -225,6 +258,10 @@ Item {
                 // background would show through.
                 Layout.fillWidth: true
                 Layout.preferredHeight: 28 + card.padding
+                // Not used for actual layout (Layout.fillWidth above wins),
+                // only read by card.naturalWidth below as this button's
+                // unsquished minimum — text padded 8px each side.
+                implicitWidth: actionLabel.implicitWidth + 16
                 color: actionArea.containsMouse ? NotificationTheme.bgHover : (card.floating ? "transparent" : NotificationTheme.bg)
                 bottomLeftRadius: index === 0 ? card.radius : 0
                 bottomRightRadius: index === card.wrapper.otherActions.length - 1 ? card.radius : 0
@@ -236,6 +273,7 @@ Item {
                 }
 
                 Text {
+                    id: actionLabel
                     renderType: Text.NativeRendering
                     anchors.centerIn: parent
                     text: actionButton.modelData.text

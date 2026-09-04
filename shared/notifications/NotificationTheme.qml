@@ -29,16 +29,25 @@ QtObject {
     // the same card width once compared side by side.
     readonly property int fontSize: 16
 
-    // Narrower than config.json's notification-window-width (500) and
-    // taller-looking as a result — same body text wraps over more lines at
-    // this width. Deliberately diverges from the swaync value here, by
-    // request, unlike controlCenterWidth below which still mirrors it.
-    readonly property int notificationWidth: 380
     // control-center-width — not set explicitly in config.json, so swaync
     // falls back to configSchema.json's own default (500), not a guess.
     readonly property int controlCenterWidth: 500
     // config.json's control-center-margin-top/bottom.
     readonly property int controlCenterMarginV: 50
+    // Popup stack width, by request: narrow (380) for an ordinary toast, but
+    // grows up to a control-center card's own width when a toast's content
+    // (long summary/time, or wide action-button labels — see
+    // NotificationCard.qml's naturalWidth) actually needs more room, instead
+    // of always reserving the wider size. NotificationPopupWindow.qml clamps
+    // to this range using the max naturalWidth across currently-shown popups.
+    readonly property int notificationMinWidth: 380
+    // The control-center list's own left/rightMargin (NotificationCenterPanel
+    // .qml's notificationListView) — subtracted so the popup, at its widest,
+    // tops out at the same width as a control-center card. Popups have no
+    // equivalent side margins of their own (NotificationPopupWindow.qml's
+    // Column spans the full window width), so this has to be baked in here
+    // instead of just reusing controlCenterWidth directly.
+    readonly property int notificationMaxWidth: controlCenterWidth - 24
 
     // config.json's mpris widget-config is image-size: 64 / image-radius: 12
     // (~/dotfiles/swaync/config.json) — bumped up from that by request, art

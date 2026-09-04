@@ -47,7 +47,21 @@ PanelWindow {
     // cutting it off.
     visible: displayPopupsModel.count > 0
 
-    implicitWidth: NotificationTheme.notificationWidth
+    // Widest currently-shown popup's naturalWidth (see NotificationCard.qml),
+    // clamped to [notificationMinWidth, notificationMaxWidth] — most toasts
+    // are short and sit at the minimum; a long summary or wide action labels
+    // push the whole stack wider, up to a control-center card's width.
+    readonly property real maxNaturalWidth: {
+        let w = 0;
+        for (let i = 0; i < popupRepeater.count; i++) {
+            const item = popupRepeater.itemAt(i);
+            if (item)
+                w = Math.max(w, item.naturalWidth);
+        }
+        return w;
+    }
+
+    implicitWidth: Math.min(Math.max(maxNaturalWidth, NotificationTheme.notificationMinWidth), NotificationTheme.notificationMaxWidth)
     implicitHeight: column.implicitHeight
 
     // One entry per popup currently on screen — a superset of
@@ -173,12 +187,15 @@ PanelWindow {
         spacing: 8
 
         Repeater {
+            id: popupRepeater
             model: displayPopupsModel
 
             Item {
                 id: entryRoot
                 required property var entry
                 required property int index
+
+                readonly property alias naturalWidth: card.naturalWidth
 
                 width: column.width
                 implicitHeight: card.implicitHeight
@@ -204,7 +221,7 @@ PanelWindow {
                 FrameSpring {
                     id: offsetSpring
                     Component.onCompleted: {
-                        snapTo(NotificationTheme.notificationWidth);
+                        snapTo(popupWindow.width);
                         retarget(0);
                     }
                     onRunningChanged: if (!running && entryRoot.entry.closing)
@@ -214,7 +231,7 @@ PanelWindow {
                 Connections {
                     target: entryRoot.entry
                     function onClosingChanged() {
-                        offsetSpring.retarget(NotificationTheme.notificationWidth);
+                        offsetSpring.retarget(popupWindow.width);
                     }
                 }
 
