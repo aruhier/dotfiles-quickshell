@@ -29,8 +29,11 @@ QtObject {
     // the same card width once compared side by side.
     readonly property int fontSize: 16
 
-    // config.json's notification-window-width.
-    readonly property int notificationWidth: 500
+    // Narrower than config.json's notification-window-width (500) and
+    // taller-looking as a result — same body text wraps over more lines at
+    // this width. Deliberately diverges from the swaync value here, by
+    // request, unlike controlCenterWidth below which still mirrors it.
+    readonly property int notificationWidth: 380
     // control-center-width — not set explicitly in config.json, so swaync
     // falls back to configSchema.json's own default (500), not a guess.
     readonly property int controlCenterWidth: 500

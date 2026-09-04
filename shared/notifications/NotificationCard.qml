@@ -20,8 +20,16 @@ Item {
     // popups never set this, they have no keyboard focus to select with.
     property bool selected: false
 
-    property int padding: 8
-    property int iconSize: 40
+    // 6/64, not the original 8/40 — matches swaync's actual built-in
+    // defaults (data/style/style.scss: notification-background padding:
+    // 6px 12px, --notification-icon-size: 64px; not overridden by this
+    // user's ~/.config/swaync/style.css, which only recolors), confirmed
+    // against a live swaync screenshot
+    // (~/tmp/screenshots/swaync-notification-popup-cropped.png) showing a
+    // large, vertically-centered icon rather than the small top-aligned one
+    // this used to render.
+    property int padding: 6
+    property int iconSize: 64
 
     // False when this card is rendered as the peeking front layer of a
     // collapsed NotificationGroupCard stack — swaync's group gesture
@@ -46,7 +54,11 @@ Item {
         onHoveredChanged: card.hovered = hovered
     }
 
-    implicitHeight: padding * 2 + mainColumn.implicitHeight + (actionsRow.visible ? actionsRow.height + padding : 0)
+    // No trailing `+ padding` when actionsRow is visible — its buttons sit
+    // flush with the card's bottom edge (see the border-overlay comment
+    // below), so adding bottom padding here would leave a gap below them
+    // where the card's own rounded background shows through.
+    implicitHeight: padding * 2 + mainColumn.implicitHeight + (actionsRow.visible ? actionsRow.height : 0)
 
     // Kept as a property (rather than inlining NotificationTheme.cardRadius
     // at each call site below) since actionButton's per-corner radii and the
@@ -115,7 +127,13 @@ Item {
             Item {
                 Layout.preferredWidth: card.iconSize
                 Layout.preferredHeight: card.iconSize
-                Layout.alignment: Qt.AlignTop
+                // Vertically centered against the whole card (not just this
+                // row's top) — matches swaync's default.notification-content
+                // GTK box, which centers the image against the full,
+                // possibly-multi-line text column next to it. Since this
+                // RowLayout holds the entirety of the card's content (icon +
+                // text), centering within the row achieves the same thing.
+                Layout.alignment: Qt.AlignVCenter
 
                 Image {
                     anchors.fill: parent
@@ -198,8 +216,15 @@ Item {
                 required property var modelData
                 required property int index
 
+                // 28 (the visual button height, centered text) plus
+                // card.padding baked in as the button's own bottom margin —
+                // it needs to reach the card's true bottom edge (see the
+                // border-overlay comment below), so that trailing space has
+                // to belong to the button's fill/hover color rather than be
+                // left as a gap after actionsRow where the card's own
+                // background would show through.
                 Layout.fillWidth: true
-                Layout.preferredHeight: 28
+                Layout.preferredHeight: 28 + card.padding
                 color: actionArea.containsMouse ? NotificationTheme.bgHover : (card.floating ? "transparent" : NotificationTheme.bg)
                 bottomLeftRadius: index === 0 ? card.radius : 0
                 bottomRightRadius: index === card.wrapper.otherActions.length - 1 ? card.radius : 0
