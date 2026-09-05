@@ -37,7 +37,7 @@ Item {
     onTargetWidthChanged: widthSpring.retarget(targetWidth)
 
     // Icon vertical nudge / size bias — see Mpd.qml.
-    readonly property real iconVerticalOffset: 2
+    readonly property real iconVerticalOffset: 1.0
     readonly property real iconSizeRatio: 1.0
 
     Row {
