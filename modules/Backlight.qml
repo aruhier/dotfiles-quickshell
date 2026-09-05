@@ -71,7 +71,7 @@ Item {
         onWheel: (event) => {
             if (!root.available)
                 return;
-            BacklightService.bump(event.angleDelta.y > 0 ? "+5%" : "5%-");
+            BacklightService.bump(event.angleDelta.y > 0 ? 1 : -1);
         }
     }
 }

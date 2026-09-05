@@ -929,3 +929,50 @@ isn't the mechanism, not that it needs a bigger turn.
   → plug glyph, everything else including `Full` → `{capacity}%` + level icon.
   Level icons are indexed `capacity / (100 / size)` clamped to the last entry
   (`ALabel::getIcon`): 0-19, 20-39, 40-59, 60-79, 80-100.
+
+## BacklightService reads sysfs directly; no more `sh -c cat` polling (2026-09-05)
+
+`services/BacklightService.qml` used to run `sh -c "…cat …/brightness; cat
+…/max_brightness"` every 5s and hand the step math to `brightnessctl
+--exponent`. A fork + `sh` + two `cat`s per tick, forever, to learn a number
+that almost never changes. Now:
+
+- **Device discovery: `Qt.labs.folderlistmodel`.** `FolderListModel` over
+  `file:///sys/class/backlight` with `showDirs: true` lists the class
+  entries — they're symlinks into `/sys/devices/…`, and QDir follows them, so
+  they come back as directories, not files (`showFiles: false` still lists
+  them). Nothing else in Quickshell 0.3.1 can enumerate a directory; `FileView`
+  is files-only. Verified under `quickshell -p`.
+- **Values: two `FileView`s** on `brightness` and `max_brightness`. `reload()`
+  re-reads and fires `onLoaded` every time, even when the bytes are identical —
+  so the poll handler is just `reload()` and the parse lives in `onLoaded`. No
+  `blockLoading` needed; the async path already lands within a frame.
+- **Polling stays, because sysfs has no inotify.** Backlight attributes signal
+  readers through `sysfs_notify`/`poll(2)`, which `FileView.watchChanges`
+  (inotify) can't observe — a watch there simply never fires. External changes
+  (hardware keys, `brightnessctl` from a keybind) are still found by the 5s
+  tick; it's now one pseudo-file read. Confirmed by setting brightness from a
+  shell while a probe ran: picked up on the following tick.
+- **Writes still shell out to `brightnessctl`, but only on user input.** The
+  sysfs node is `root:root 0644`, so an unprivileged write needs
+  brightnessctl's logind/setuid helper. Called directly, argv-style — no
+  `sh -c` wrapper, no `|| true`.
+- **The exponent math moved into QML.** `percent = (raw/maxRaw) ^ (1/exponent)`
+  on read, inverse on write, so the curve no longer depends on the installed
+  brightnessctl having `-e` (0.5 does; it isn't ancient history). Two details
+  that only show up at the dark end: a step is rounded to an integer raw value
+  and can round back onto the current one (`bump()` forces ±1 so the wheel
+  never feels dead), and the write is clamped to `minRaw: 1` because raw 0
+  switches the panel off with nothing but another backlight write to undo it.
+- **`raw` updates optimistically before the process runs**, so the label tracks
+  the wheel instead of waiting for a fork + poll. A burst of wheel events
+  coalesces: `Process.exec()` on a running `Process` isn't a queue, so the
+  latest target is parked in `pendingRaw` and flushed `onExited`.
+- **`bump()` takes signed wheel notches now** (`bump(1)`/`bump(-1)`), not
+  brightnessctl delta strings like `"+5%"`/`"5%-"`; step size is service policy
+  (`step: 0.05`), not the caller's.
+
+Noctalia (`src/system/brightness_service.cpp`) was read for reference — it's
+C++ now, so nothing was portable, but its device ranking was worth copying:
+prefer any device over `acpi_video*` (a mirror of another device) and
+`nvidia*` (often a stub), which is what `rank()` does.
