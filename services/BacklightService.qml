@@ -2,19 +2,19 @@ pragma Singleton
 import QtQuick
 import Quickshell.Io
 
-// Shared backlight state for the whole process — one poll cycle (and one
-// brightnessctl invocation) instead of one per monitor/Bar, since
-// /sys/class/backlight is a single system-wide device regardless of how
-// many outputs are connected. Backlight.qml just reads these properties and
-// calls bump(); only this singleton owns the Processes/Timer.
+// Shared backlight state for the whole process with exponential perceptual scaling.
 QtObject {
     id: root
 
     property real percent: 0
     property bool available: false
 
+    // Waybar default exponent is 2.0 (quadratic). Increase to 3.0 for steeper low-end control.
+    property real exponent: 2.75
+
     function bump(delta) {
-        bumpProc.exec(["sh", "-c", "brightnessctl set " + delta + " >/dev/null 2>&1 || true"]);
+        // Option A: Let brightnessctl handle exponential step natively if supported
+        bumpProc.exec(["sh", "-c", "brightnessctl set " + delta + " --exponent=" + exponent + " >/dev/null 2>&1 || true"]);
     }
 
     function refresh() {
@@ -42,7 +42,12 @@ QtObject {
                 var cur = parseFloat(parts[0]);
                 var max = parseFloat(parts[1]);
                 if (max > 0) {
-                    root.percent = (cur / max) * 100;
+                    // Linear ratio (0.0 to 1.0)
+                    var linearRatio = Math.max(0, Math.min(1, cur / max));
+
+                    // Convert linear backlight ratio to exponential perceptual percent
+                    // P_perceptual = (cur / max) ^ (1 / exponent) * 100
+                    root.percent = Math.pow(linearRatio, 1.0 / root.exponent) * 100;
                     root.available = true;
                 } else {
                     root.available = false;
