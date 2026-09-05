@@ -8,9 +8,14 @@ import QtQuick
 // a deliberate exception, pulled from Theme.qml's bar accent by request to
 // tie the two surfaces' selection color together.
 QtObject {
-    readonly property color bg: "#2a2a2a"
-    readonly property color bgFloating: Qt.rgba(0.165, 0.165, 0.165, 0.965)
-    readonly property color bgGlobal: Qt.rgba(0.165, 0.165, 0.165, 0.95)
+    // Panel/card fills carry real alpha (swaync's own values were
+    // rgb(42,42,42) / rgba(...,0.95) — opaque enough that Hyprland's
+    // `layerrule = blur, quickshell-notification-center` had nothing to
+    // show through). Cards sit slightly lighter than the panel so they
+    // still read as chips on top of it.
+    readonly property color bg: Qt.rgba(0.20, 0.20, 0.20, 0.825)
+    readonly property color bgFloating: Qt.rgba(0.165, 0.165, 0.165, 0.875)
+    readonly property color bgGlobal: Qt.rgba(0.165, 0.165, 0.165, 0.875)
     readonly property color bgHover: "#4b4b4b"
     // Action-button chip fill — not in this user's ~/.config/swaync/style.css
     // (which only recolors backgrounds/text, not buttons) nor in swaync's own
