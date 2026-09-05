@@ -19,13 +19,13 @@ ShellRoot {
     readonly property var mainLayout: ({
         left: ["mpd", "submap"],
         center: ["workspaces"],
-        right: ["tray", "backlight", "volume", "privacy", "notifications", "weather", "clock"]
+        right: ["tray", "backlight", "battery", "volume", "privacy", "notifications", "weather", "clock"]
     })
 
     readonly property var defaultLayout: ({
         left: ["mpd", "submap"],
         center: ["workspaces"],
-        right: ["backlight", "volume", "notifications", "clock"]
+        right: ["backlight", "battery", "volume", "notifications", "clock"]
     })
 
     function layoutFor(screenName) {

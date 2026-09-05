@@ -23,7 +23,10 @@ QtObject {
     // not system-focused (between workspaceBg and accent). See Workspaces.qml.
     readonly property color workspaceActiveBg: Qt.tint(workspaceBg, Qt.rgba(accent.r, accent.g, accent.b, 0.5))
 
-    readonly property color critical: "#f53c3c"
+    // Lightened from style.css's #f53c3c: waybar only ever used that red as
+    // a *background* (`#battery.critical`), and as text on groupBg it lands
+    // at 2.7:1 — unreadable. This reads red at 4.4:1 on the group pill.
+    readonly property color critical: "#FF8A80"
     readonly property color privacyActive: "#D14005"
 
     // QML's font.family takes one name, not a CSS fallback chain. Using

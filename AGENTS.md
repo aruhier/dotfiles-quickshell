@@ -107,8 +107,8 @@ hover popups, network) from paying their cost on screens that don't list
 them.
 
 Current layout: every output gets `mpd`, `submap`, `workspaces`,
-`backlight`, `volume`, `notifications`, `clock`; only `DP-1` (in `mainScreens`)
-additionally gets `tray`, `privacy`, `weather`.
+`backlight`, `battery`, `volume`, `notifications`, `clock`; only `DP-1` (in
+`mainScreens`) additionally gets `tray`, `privacy`, `weather`.
 
 **Left/right group edge-spacing tuning is order-sensitive.** `leftGroup`'s
 comment about the first module's glyph bearing covering
@@ -289,6 +289,9 @@ the flush screen edge may need re-tuning those margins for that edge.
 - **`Tray.qml`'s icon order isn't stable** — nothing sorts tray icons
   without an explicit `order` config, so it's just registration order and
   varies per restart. Not a bug to chase.
+- **`Battery.qml`** reads `Quickshell.Services.UPower` inline (no service —
+  same reasoning as `Privacy.qml`), and shows a `Tooltip` with upower's
+  time-to-empty/full estimate. See the port note below.
 
 ## How to take a screenshot for visual verification
 
@@ -862,3 +865,67 @@ the symptom worse, that's a real, informative result, not noise to
 retry-with-different-numbers past. Don't keep tuning the same knob after
 it's moved the symptom in the wrong direction; that's a sign the knob
 isn't the mechanism, not that it needs a bigger turn.
+
+## Battery module, ported from waybar (2026-09-05)
+
+`modules/Battery.qml` replaces the waybar `battery` module (and its
+`battery#bat2` sibling) from `~/.config/waybar/config.d/common.json` +
+`style.css`. Notes worth keeping:
+
+- **Backed by `Quickshell.Services.UPower`, not `/sys/class/power_supply`.**
+  This is not just convenience: waybar's own detection requires a battery
+  directory to have `capacity` or `charge_now` (`battery.cpp`'s
+  `refreshBatteries`), and this machine's `qcom-battmgr-bat` has *neither* —
+  only `energy_now`/`energy_full` — plus a `power_now` that reads negative
+  while discharging, which waybar parses into a `uint32_t`. upowerd handles
+  all of that, aggregates multiple packs into its `DisplayDevice`, and
+  already smooths the rate for time-to-empty, which is the EMA waybar has to
+  hand-roll (`smooth_power_`).
+- **`UPowerDevice.percentage` is 0..1**, unlike upower's own D-Bus property
+  (0..100). Multiply before rounding.
+- **Don't name a module property `state`.** `state` is `QQuickItem`'s own
+  string property driving QML's states/transitions system; declaring
+  `readonly property int state` over it shadows a built-in. Named
+  `deviceState` here.
+- **The battery/plug glyphs are drawn upright** (MDI `battery-*` and
+  `power-plug` are vertical, nub on top). waybar rotates them into the usual
+  horizontal battery with Pango's `gravity='west'` — which is 90° *clockwise*
+  (Pango's `WEST` = "glyphs rotated 90 degrees clockwise"), i.e. QML
+  `rotation: 90`. waybar's config applies that to the level and plugged icons
+  but *not* to the charging bolt, so the bolt stands upright there; that
+  asymmetry is reproduced as-is behind `rotateIcon`.
+- **A rotated `Text` needs a wrapper sized off `TextMetrics.tightBoundingRect`,
+  not the swapped `implicitWidth`/`implicitHeight`.** `rotation` doesn't
+  affect an item's implicit size, so the glyph needs a wrapper to reserve the
+  space its rotated form occupies — but `implicitHeight` is the whole line box
+  (ascent + descent), ~5px taller than these glyphs' ink at `iconFontSize`.
+  Using it as the rotated width gave a label→icon gap of 10.6px against every
+  other module's 8.1px, which read as a visibly loose module. The ink rect
+  (`tightBoundingRect`) is vertically centered in the line box for this font,
+  so rotating about the wrapper's center lands it centered horizontally with
+  no further correction. Measured with the column-scan method above: 7.5px vs
+  Backlight's 8.1px, and identical 23.8px gaps to the modules on either side.
+- **The critical state deliberately departs from `style.css`.** waybar's
+  `#battery.critical:not(.charging)` blinks the module's *background* red↔white
+  (0.5s, alternating) with the text going black. Here the label and icon turn
+  `Theme.critical`, the label goes bold, and the pair pulses its opacity
+  1 → 0.6 over 1.2s each way: a solid block of color fights the pill-shaped
+  groups the bar is built from, and the 0.5s cadence reads as a distraction
+  rather than a warning. The 30%-warning threshold is still computed
+  (`level`) but, as in `style.css`, draws nothing.
+- **`Theme.critical` is lightened from style.css's `#f53c3c`.** That red was
+  only ever a *background* in waybar; as text on `groupBg` it's 2.68:1.
+  `#FF8A80` is 4.40:1 and still unmistakably red. Related: an opacity pulse
+  fades toward the background, so its trough costs real contrast (1.6:1 at
+  0.3) — hence the shallow 0.6 floor plus bold, rather than a deep fade.
+- **Use `font.weight`, not `font.bold`, with `Theme.fontFamily`.** Inter is a
+  variable font and Qt selects along its weight axis by number; `font.bold`
+  didn't visibly change the label here. Bold is applied to the percentage
+  only — the Nerd Font fallback has no bold face, so Qt would synthesize a
+  smeared glyph.
+- **waybar's status → format mapping**, for reference when comparing:
+  `Charging` → bolt, `Plugged` (on the adapter, not charging — including this
+  laptop's 80% charge-end threshold, which upower reports as `PendingCharge`)
+  → plug glyph, everything else including `Full` → `{capacity}%` + level icon.
+  Level icons are indexed `capacity / (100 / size)` clamped to the last entry
+  (`ALabel::getIcon`): 0-19, 20-39, 40-59, 60-79, 80-100.
