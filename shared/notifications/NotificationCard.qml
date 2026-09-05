@@ -20,34 +20,30 @@ Item {
     // popups never set this, they have no keyboard focus to select with.
     property bool selected: false
 
-    // 6/64, not the original 8/40 — matches swaync's actual built-in
-    // defaults (data/style/style.scss: notification-background padding:
-    // 6px 12px, --notification-icon-size: 64px; not overridden by this
-    // user's ~/.config/swaync/style.css, which only recolors), confirmed
-    // against a live swaync screenshot
-    // (~/tmp/screenshots/swaync-notification-popup-cropped.png) showing a
-    // large, vertically-centered icon rather than the small top-aligned one
-    // this used to render.
-    property int padding: 6
+    // 10, not the 6 this used to carry: swaync stacks
+    // `.notification-default-action { padding: 4px }` on top of this user's
+    // `.notification-content { padding: 6px }`, and the reference screenshot
+    // (~/tmp/swaync-notification-panel.png) bears the sum out — its summary's
+    // text box starts ~10px in from the card's border on both the top and
+    // left edges.
+    property int padding: 10
+    // --notification-icon-size, straight from swaync's built-in
+    // /etc/xdg/swaync/style.css (this user's own stylesheet only recolors).
     property int iconSize: 64
     // Breathing room to either side of the icon — between it and the card
     // edge on the left, and between it and the summary/body text on the
     // right (on top of mainColumn's own padding and the row's spacing).
     property int iconHorizontalPadding: 4
-    // Inset of the action-button row from the card's edges — wider than
-    // `padding` because swaync's buttons carry their own `.notification-action
-    // { padding: 4px }` on top of the card's content padding. Measured off the
-    // reference screenshot (~/tmp/swaync-screenshot.png): 12px there, and that
-    // image is ~1.36x scale — its buttons' corners measure ~7.5px against the
-    // 6px `border-radius` swaync's own style.css declares, which is what pins
-    // the factor down — so ~9 logical px.
-    property int actionsMargin: 9
+    // Inset of the action-button row from the card's edges:
+    // `.notification-alt-actions { padding: 4px }` plus each button's own
+    // `.notification-action { margin: 4px }`. Measured at 8px on all three
+    // sides in ~/tmp/swaync-notification-panel.png.
+    property int actionsMargin: 8
     // The gap above the row is bigger than its side/bottom inset — swaync
     // stacks `.notification-content`'s own bottom padding on top of the action
-    // row's, and the reference screenshot bears that out: ~24 logical px from
-    // the last line of body text down to the top of the buttons, against the
-    // ~9 beside and below them.
-    property int actionsTopMargin: 19
+    // row's. Measured at 16px from the body text block's bottom down to the
+    // top of the buttons, against the 8 beside and below them.
+    property int actionsTopMargin: 16
 
     // False when this card is rendered as the peeking front layer of a
     // collapsed NotificationGroupCard stack — swaync's group gesture
@@ -201,7 +197,9 @@ Item {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: 2
+                // Summary text box bottom to body text box top, measured at
+                // ~3px on the reference screenshot.
+                spacing: 3
 
                 RowLayout {
                     id: headerRow
@@ -231,7 +229,10 @@ Item {
                         text: card.wrapper.timeStr
                         color: NotificationTheme.text
                         font.family: Theme.fontFamily
-                        font.pixelSize: NotificationTheme.fontSize - 1
+                        // `.time` reuses --font-size-summary and is bold, same
+                        // as `.summary` beside it — not a size down from it.
+                        font.bold: true
+                        font.pixelSize: NotificationTheme.fontSize
                     }
                 }
 
@@ -242,7 +243,13 @@ Item {
                     text: card.wrapper.body
                     color: NotificationTheme.text
                     font.family: Theme.fontFamily
-                    font.pixelSize: NotificationTheme.fontSize
+                    font.pixelSize: NotificationTheme.fontSizeBody
+                    // Pango leads Inter more generously than Qt does: swaync's
+                    // body lines sit 21.25px apart at this size against the
+                    // ~19.4px Qt's own font metrics give, so wrapped bodies
+                    // would otherwise read visibly tighter than the reference.
+                    lineHeight: 1.1
+                    lineHeightMode: Text.ProportionalHeight
                     wrapMode: Text.WordWrap
                     maximumLineCount: 5
                     elide: Text.ElideRight
@@ -264,10 +271,9 @@ Item {
         anchors.leftMargin: card.actionsMargin
         anchors.rightMargin: card.actionsMargin
         visible: card.wrapper.otherActions.length > 0
-        // Two adjacent buttons' own 4px `.notification-action` paddings plus
-        // the row's own spacing, which is what the gap in the reference
-        // screenshot measures out to (14px there, ~10 logical).
-        spacing: 10
+        // Two adjacent buttons' own 4px `.notification-action` margins,
+        // which is exactly the gap the reference screenshot measures.
+        spacing: 8
 
         Repeater {
             id: actionsRepeater
@@ -287,9 +293,9 @@ Item {
                 // share the *leftover* space and leave each button sized
                 // around its own label.
                 Layout.preferredWidth: 1
-                // A GTK button's height around a 16px label: the reference
-                // screenshot's buttons are 56px tall at its ~1.36x scale.
-                Layout.preferredHeight: 40
+                // A GTK button's height around its label — 36px, measured
+                // off ~/tmp/swaync-notification-panel.png.
+                Layout.preferredHeight: 36
                 // Not used for actual layout (the two Layout.preferred* above
                 // win), only read by card.naturalWidth below as this button's
                 // unsquished minimum — text padded 8px each side.
@@ -326,7 +332,7 @@ Item {
                     // past 700 off this variable font by weight alone, but it
                     // does honour the named instance fontconfig exposes.
                     font.styleName: "ExtraBold"
-                    font.pixelSize: NotificationTheme.fontSize
+                    font.pixelSize: NotificationTheme.fontSizeAction
                 }
 
                 MouseArea {

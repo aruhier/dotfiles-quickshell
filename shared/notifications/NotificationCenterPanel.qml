@@ -361,8 +361,11 @@ PanelWindow {
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: 14
-                spacing: 12
+                // swaync's `.widget { margin: 8px; padding: 8px }`: 16px
+                // in from the panel edge, and 8+8 = 32px between adjacent
+                // widgets.
+                anchors.margins: NotificationTheme.panelPadding
+                spacing: NotificationTheme.panelSpacing
 
                 // ---- header ----
                 // No Clear All button here — config.json's title widget has
@@ -377,8 +380,7 @@ PanelWindow {
                     text: "Notifications"
                     color: NotificationTheme.text
                     font.family: Theme.fontFamily
-                    font.pixelSize: NotificationTheme.fontSize + 2
-                    font.bold: true
+                    font.pixelSize: NotificationTheme.fontSizeTitle
                 }
 
                 // ---- DND ----
@@ -395,19 +397,19 @@ PanelWindow {
                     }
 
                     Rectangle {
-                        Layout.preferredWidth: 40
-                        Layout.preferredHeight: 22
+                        Layout.preferredWidth: NotificationTheme.switchWidth
+                        Layout.preferredHeight: NotificationTheme.switchHeight
                         radius: height / 2
                         color: NotificationService.dnd ? NotificationTheme.bgSelected : NotificationTheme.bg
                         border.width: NotificationService.dnd ? 0 : 1
                         border.color: NotificationTheme.borderColor
 
                         Rectangle {
-                            width: parent.height - 4
-                            height: parent.height - 4
+                            width: parent.height - NotificationTheme.switchPadding * 2
+                            height: parent.height - NotificationTheme.switchPadding * 2
                             radius: width / 2
                             anchors.verticalCenter: parent.verticalCenter
-                            x: NotificationService.dnd ? parent.width - width - 2 : 2
+                            x: NotificationService.dnd ? parent.width - width - NotificationTheme.switchPadding : NotificationTheme.switchPadding
                             color: NotificationTheme.bgHover
 
                             Behavior on x {
@@ -462,14 +464,19 @@ PanelWindow {
                         id: notificationListView
                         anchors.fill: parent
                         clip: true
-                        // swaync's style.css: `.notification { margin: 6px
-                        // 12px }` — matched here as spacing (vertical gap
-                        // between cards) + left/rightMargin (horizontal
-                        // gutter), rather than the bare 2px this had before,
-                        // which read as cramped against the panel edges.
-                        spacing: 10
-                        leftMargin: 12
-                        rightMargin: 12
+                        // A card sits further in than the title/DND labels
+                        // above it — see NotificationTheme.listPadding. These
+                        // are on top of the ColumnLayout's own panelPadding,
+                        // so a card's left edge lands at 16 + 26 = 42px from
+                        // the panel edge, matching swaync's. Vertically each
+                        // row carries listCardMargin above and below itself,
+                        // so stacked cards sit 2x that apart while the first
+                        // and last still clear the list's own bounds.
+                        spacing: NotificationTheme.listCardMargin * 2
+                        leftMargin: NotificationTheme.listPadding
+                        rightMargin: NotificationTheme.listPadding
+                        topMargin: NotificationTheme.listCardMargin
+                        bottomMargin: NotificationTheme.listCardMargin
                         model: NotificationService.notificationGroups
 
                         delegate: NotificationGroupCard {

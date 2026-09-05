@@ -148,6 +148,33 @@ QtObject {
         root.centerOpen = false;
     }
 
+    // swaync hides its toast stack for as long as the control center is up
+    // (notificationWindow is closed by controlCenter's own open path): the
+    // panel already lists every notification a toast would show, so leaving
+    // popups floating on top of it just renders the same notification twice
+    // — and, since the stack shares the panel's top-right corner, covers the
+    // panel's first card while doing it. Called from onCenterOpenChanged
+    // below rather than from toggleCenter() so *every* path that opens the
+    // panel clears the stack, not just the bar indicator's click.
+    function clearPopups() {
+        const toClear = root.popups.slice();
+        root.popups = [];
+        for (const w of toClear) {
+            w.timer.stop();
+            // Same cleanup the popup timer's own onTriggered does: a
+            // transient notification never enters `notifications`, so once
+            // its popup is gone nothing references it any more and it has
+            // to be dismissed for real to get destroyed.
+            if (root.notifications.indexOf(w) === -1 && w.notification)
+                w.notification.dismiss();
+        }
+    }
+
+    onCenterOpenChanged: {
+        if (root.centerOpen)
+            root.clearPopups();
+    }
+
     function clearAll() {
         // Snapshot first: dismiss() below mutates `notifications` via the
         // Retainable onDropped handler as we go.
@@ -284,11 +311,20 @@ QtObject {
             if (!transient)
                 root.notifications = [wrapper, ...root.notifications];
 
-            if (!root.dnd) {
+            // No toast while the panel is open, for the same reason
+            // clearPopups() above empties the stack when it opens — the
+            // notification is already visible in the panel's list, which
+            // this line has just prepended it to.
+            if (!root.dnd && !root.centerOpen) {
                 root.popupScreen = root.focusedScreen();
                 root.popups = [...root.popups, wrapper];
                 if (wrapper.timer.interval > 0)
                     wrapper.timer.start();
+            } else if (transient) {
+                // Suppressed popup + not in history = nothing left holding
+                // this one, and no popup timer will ever fire to clean it
+                // up. Dismiss now so Retainable drops it.
+                notif.dismiss();
             }
         }
     }
