@@ -34,6 +34,20 @@ Item {
     // edge on the left, and between it and the summary/body text on the
     // right (on top of mainColumn's own padding and the row's spacing).
     property int iconHorizontalPadding: 4
+    // Inset of the action-button row from the card's edges — wider than
+    // `padding` because swaync's buttons carry their own `.notification-action
+    // { padding: 4px }` on top of the card's content padding. Measured off the
+    // reference screenshot (~/tmp/swaync-screenshot.png): 12px there, and that
+    // image is ~1.36x scale — its buttons' corners measure ~7.5px against the
+    // 6px `border-radius` swaync's own style.css declares, which is what pins
+    // the factor down — so ~9 logical px.
+    property int actionsMargin: 9
+    // The gap above the row is bigger than its side/bottom inset — swaync
+    // stacks `.notification-content`'s own bottom padding on top of the action
+    // row's, and the reference screenshot bears that out: ~24 logical px from
+    // the last line of body text down to the top of the buttons, against the
+    // ~9 beside and below them.
+    property int actionsTopMargin: 19
 
     // False when this card is rendered as the peeking front layer of a
     // collapsed NotificationGroupCard stack — swaync's group gesture
@@ -70,21 +84,27 @@ Item {
     readonly property real actionsNaturalWidth: {
         if (!actionsRow.visible)
             return 0;
-        let w = 0;
+        // Widest label, times the button count — every button renders at the
+        // same width (see actionButton's Layout.preferredWidth below), so the
+        // longest label is what decides how wide they all have to be. Plus the
+        // row's own left/right inset from the card edges, since the buttons no
+        // longer span the card's full width.
+        let widest = 0;
         for (let i = 0; i < actionsRepeater.count; i++) {
             const item = actionsRepeater.itemAt(i);
             if (item)
-                w += item.implicitWidth;
+                widest = Math.max(widest, item.implicitWidth);
         }
-        return w + actionsRow.spacing * Math.max(0, actionsRepeater.count - 1);
+        return widest * actionsRepeater.count + actionsRow.spacing * Math.max(0, actionsRepeater.count - 1) + card.actionsMargin * 2;
     }
     readonly property real naturalWidth: Math.max(card.padding * 2 + card.iconSize + card.iconHorizontalPadding * 2 + contentRow.spacing + headerNaturalWidth, actionsNaturalWidth)
 
-    // No trailing `+ padding` when actionsRow is visible — its buttons sit
-    // flush with the card's bottom edge (see the border-overlay comment
-    // below), so adding bottom padding here would leave a gap below them
-    // where the card's own rounded background shows through.
-    implicitHeight: padding * 2 + mainColumn.implicitHeight + (actionsRow.visible ? actionsRow.height : 0)
+    // actionsRow sits inset from the card's edges now (individually rounded
+    // button chips, not a flush bottom bar — see actionsRow below), so it
+    // needs its own top gap plus a matching bottom gap on top of its own
+    // height, unlike the old flush design this replaced. When it's hidden the
+    // card falls back to plain `padding` on the bottom like the top.
+    implicitHeight: padding + mainColumn.implicitHeight + (actionsRow.visible ? actionsTopMargin + actionsRow.height + actionsMargin : padding)
 
     // Kept as a property (rather than inlining NotificationTheme.cardRadius
     // at each call site below) since actionButton's per-corner radii and the
@@ -231,14 +251,23 @@ Item {
         }
     }
 
+    // Individually rounded button chips, inset from the card's edges —
+    // matches a live swaync screenshot (~/tmp/swaync-screenshot.png): each
+    // action is its own bordered rectangle with visible fill at rest (not
+    // just on hover), not a flush full-width bar split by a hairline.
     RowLayout {
         id: actionsRow
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: mainColumn.bottom
-        anchors.topMargin: card.padding
+        anchors.topMargin: card.actionsTopMargin
+        anchors.leftMargin: card.actionsMargin
+        anchors.rightMargin: card.actionsMargin
         visible: card.wrapper.otherActions.length > 0
-        spacing: 1
+        // Two adjacent buttons' own 4px `.notification-action` paddings plus
+        // the row's own spacing, which is what the gap in the reference
+        // screenshot measures out to (14px there, ~10 logical).
+        spacing: 10
 
         Repeater {
             id: actionsRepeater
@@ -249,22 +278,29 @@ Item {
                 required property var modelData
                 required property int index
 
-                // 28 (the visual button height, centered text) plus
-                // card.padding baked in as the button's own bottom margin —
-                // it needs to reach the card's true bottom edge (see the
-                // border-overlay comment below), so that trailing space has
-                // to belong to the button's fill/hover color rather than be
-                // left as a gap after actionsRow where the card's own
-                // background would show through.
                 Layout.fillWidth: true
-                Layout.preferredHeight: 28 + card.padding
-                // Not used for actual layout (Layout.fillWidth above wins),
-                // only read by card.naturalWidth below as this button's
+                // Equal preferred widths, so the row splits evenly and every
+                // button ends up the same width regardless of how long its
+                // label is — swaync's buttons are equal (312/311px in the
+                // reference screenshot) even though "Mark as Read" is far
+                // wider than "Delete". Without this, fillWidth would only
+                // share the *leftover* space and leave each button sized
+                // around its own label.
+                Layout.preferredWidth: 1
+                // A GTK button's height around a 16px label: the reference
+                // screenshot's buttons are 56px tall at its ~1.36x scale.
+                Layout.preferredHeight: 40
+                // Not used for actual layout (the two Layout.preferred* above
+                // win), only read by card.naturalWidth below as this button's
                 // unsquished minimum — text padded 8px each side.
                 implicitWidth: actionLabel.implicitWidth + 16
-                color: actionArea.containsMouse ? NotificationTheme.bgHover : (card.floating ? "transparent" : NotificationTheme.bg)
-                bottomLeftRadius: index === 0 ? card.radius : 0
-                bottomRightRadius: index === card.wrapper.otherActions.length - 1 ? card.radius : 0
+                // swaync's `.text-button { border-radius: 6px }` — deliberately
+                // tighter than the card's own 10, which is what makes these
+                // read as buttons inside the card rather than pills.
+                radius: 6
+                color: actionArea.containsMouse ? NotificationTheme.bgHover : NotificationTheme.bgButton
+                border.width: 1
+                border.color: NotificationTheme.borderNotification
                 scale: actionPress.value
 
                 PressSpring {
@@ -279,6 +315,17 @@ Item {
                     text: actionButton.modelData.text
                     color: NotificationTheme.text
                     font.family: Theme.fontFamily
+                    // ExtraBold, not plain `bold` (700): swaync's labels render
+                    // through GTK's own bold face, which is heavier than what
+                    // Inter Variable gives at 700 — measured off the reference
+                    // screenshot (~/tmp/swaync-screenshot.png), its labels'
+                    // stroke width normalised to this monitor's scale is 5.6px
+                    // against the 3.9px `font.bold` produced here. Selected by
+                    // styleName rather than `font.weight: Font.ExtraBold`, which
+                    // renders identically to plain bold — Qt won't pick a face
+                    // past 700 off this variable font by weight alone, but it
+                    // does honour the named instance fontconfig exposes.
+                    font.styleName: "ExtraBold"
                     font.pixelSize: NotificationTheme.fontSize
                 }
 
@@ -348,12 +395,10 @@ Item {
     }
 
     // Selection/default border, as its own top-most overlay rather than
-    // this Rectangle's own `border` — that paints underneath children, and
-    // actionsRow's buttons sit flush with the card's outer edges (no
-    // margins) with an opaque background, so they'd fully cover the border
-    // along the bottom/side strip where they sit — a visible break in the
-    // outline, worst on the 2px selected border. A plain Item has no mouse
-    // handling of its own, so this doesn't steal clicks/hover from the
+    // this Rectangle's own `border` — that paints underneath children, so a
+    // border set there would sit below mainColumn/actionsRow's opaque
+    // backgrounds instead of outlining the whole card. A plain Item has no
+    // mouse handling of its own, so this doesn't steal clicks/hover from the
     // MouseAreas underneath despite painting on top of them.
     Rectangle {
         anchors.fill: parent

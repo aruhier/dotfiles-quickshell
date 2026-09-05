@@ -14,7 +14,7 @@ ShellRoot {
     // `mainScreens` (check names with `hyprctl monitors -j`) get
     // `mainLayout`; every other screen gets `defaultLayout`. Module names
     // must match a key in Bar.qml's `moduleComponents`.
-    readonly property var mainScreens: ["DP-1"]
+    readonly property var mainScreens: ["DP-1", "eDP-1"]
 
     readonly property var mainLayout: ({
         left: ["mpd", "submap"],

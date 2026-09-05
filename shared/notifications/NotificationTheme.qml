@@ -12,6 +12,14 @@ QtObject {
     readonly property color bgFloating: Qt.rgba(0.165, 0.165, 0.165, 0.965)
     readonly property color bgGlobal: Qt.rgba(0.165, 0.165, 0.165, 0.95)
     readonly property color bgHover: "#4b4b4b"
+    // Action-button chip fill — not in this user's ~/.config/swaync/style.css
+    // (which only recolors backgrounds/text, not buttons) nor in swaync's own
+    // built-in style.scss (.text-button gets no explicit background there,
+    // so it falls through to the GTK theme's default button chrome). Picked
+    // to match a live swaync screenshot's actual rendered button color
+    // (~/tmp/swaync-screenshot.png, sampled rgb(64,64,64)) rather than guess
+    // at the underlying GTK theme.
+    readonly property color bgButton: "#404040"
     // Matches Theme.qml's bar accent — ties the notification panel's
     // selection color to the bar's own identity instead of an unrelated blue.
     readonly property color bgSelected: "#6AA099"
