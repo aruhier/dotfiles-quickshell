@@ -30,20 +30,28 @@ import ".."
 QtObject {
     id: root
 
-    // False for a spring that's one of several coupled/chained values that
-    // all need to move by the *exact same* dt each tick to stay visually
-    // locked together (e.g. Workspaces.qml's sliding selection indicator
-    // and the delegate it tracks) — set this false and drive `advance(dt)`
-    // from one shared FrameAnimation instead. Each standalone FrameSpring
-    // otherwise owns an independent FrameAnimation, and independent
-    // instances measure their own elapsed time separately; on a very high
-    // refresh-rate output that per-instance timing skew (confirmed
-    // empirically: two standalone springs chasing the same target reported
-    // values differing in the 2nd decimal place at the "same" moment) is
-    // small in absolute terms but enough, compounded across several
-    // coupled springs, to read as visible wobble between parts that are
-    // supposed to move as one. See AGENT.md's Workspaces.qml section.
-    property bool standalone: true
+    // Set to a SpringGroup for a spring that's one of several coupled values
+    // that all need to move by the *exact same* dt each tick to stay
+    // visually locked together (e.g. Workspaces.qml's sliding selection
+    // indicator and the delegate it tracks). The group then owns the one
+    // FrameAnimation that advances all of its springs, and this spring runs
+    // no driver of its own. Left null, each FrameSpring owns an independent
+    // FrameAnimation, and independent instances measure their own elapsed
+    // time separately; on a very high refresh-rate output that per-instance
+    // timing skew (confirmed empirically: two standalone springs chasing the
+    // same target reported values differing in the 2nd decimal place at the
+    // "same" moment) is small in absolute terms but enough, compounded
+    // across several coupled springs, to read as visible wobble between
+    // parts that are supposed to move as one. See AGENT.md's Workspaces.qml
+    // section.
+    property SpringGroup group: null
+    onGroupChanged: if (group)
+        group.add(root)
+    // Must unregister: the group can't detect this on its own, since a
+    // destroyed QObject is not null from JS, it's a wrapper that throws on
+    // access. See SpringGroup.remove().
+    Component.onDestruction: if (group)
+        group.remove(root)
 
     property real stiffness: Theme.frameSpringStiffness
     property real damping: Theme.frameSpringDamping
@@ -104,8 +112,12 @@ QtObject {
         }
     }
 
+    // Gated on `running`, which advance() clears the moment the spring
+    // settles — a FrameAnimation left running re-renders and swaps a buffer
+    // every frame for as long as it lives, whatever it's animating. A
+    // grouped spring is driven by its SpringGroup instead; see that file.
     property FrameAnimation driver: FrameAnimation {
-        running: root.standalone && root.running
+        running: !root.group && root.running
         onTriggered: root.advance(frameTime)
     }
 }

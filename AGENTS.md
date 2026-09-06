@@ -817,16 +817,13 @@ instances. Old Behavior/SpringAnimation never had this problem: every
 instance shared Qt's one `QUnifiedTimer`, so all of them always advanced
 by the *exact* same `dt` per tick, keeping the pill, each delegate, and
 the selection square (cosmetically overlaid pixel-for-pixel on its focused
-delegate) perfectly locked together. **Fix:** added a `standalone: false`
-switch to `FrameSpring.qml` — when false, it doesn't run its own
-`FrameAnimation`, and the caller must call `advance(dt)` on it externally.
-Workspaces.qml now has one shared `sharedSpringDriver: FrameAnimation`
-that calls `advance(frameTime)` on all of its springs (the pill's, every
-current delegate's — reached via `repeater.itemAt(i).preferredWidthSpring`,
-exposed through a `property alias` since a Repeater delegate is its own
-Component and its plain `id`s aren't reachable from the surrounding file —
-and the selection indicator's three) in one `onTriggered` block, so they
-all move by the identical real `frameTime` every tick. This measurably
+delegate) perfectly locked together. **Fix:** a shared driver — originally a
+`standalone: false` switch on `FrameSpring.qml` plus a hand-rolled
+`sharedSpringDriver: FrameAnimation` in Workspaces.qml, since superseded by
+`SpringGroup.qml` (see the 2026-09-06 section below). Either way the point is
+the same: one `FrameAnimation` calls `advance(frameTime)` on all of this
+file's springs in one `onTriggered` block, so they all move by the identical
+real `frameTime` every tick. This measurably
 reduced but did not fully eliminate the wobble.
 
 **Bug 2: sub-pixel float values feeding non-antialiased edges.**
@@ -865,6 +862,68 @@ the symptom worse, that's a real, informative result, not noise to
 retry-with-different-numbers past. Don't keep tuning the same knob after
 it's moved the symptom in the wrong direction; that's a sign the knob
 isn't the mechanism, not that it needs a bigger turn.
+
+## An always-running FrameAnimation costs ~8% CPU at idle (2026-09-06)
+
+`qs` sat at a constant 7-8% of a core doing nothing. Cause: Workspaces.qml's
+shared spring driver was declared `running: true` unconditionally, on the
+reasoning (written in the comment at the time) that `advance()` on a settled
+spring is a cheap early-return no-op.
+
+**That reasoning is wrong, and the mistake is worth internalising: the
+callback's cost is not the cost.** A running `FrameAnimation` is a running
+`QAbstractAnimation`, so for as long as it lives Qt Quick requests an update,
+runs polish+sync, re-renders the scene graph and swaps a buffer *every frame*,
+whether or not a single pixel changed. Measured on eDP-1 at 90Hz: ~90 wayland
+commits/s and ~240 GPU ioctls/s at idle, 48% of profile samples in
+`QSGRenderThread`. With the driver gated: **zero** commits, 0.2% CPU. Anything
+that ticks per frame must be gated on having something to do.
+
+**Fix:** `shared/animations/SpringGroup.qml`. Springs join a group by declaring
+`group: someGroup` (replacing the old `standalone: false`); they register
+themselves with it on creation, so nothing outside a Repeater delegate needs to
+reach in — which also retired the `property alias preferredWidthSpring` that
+only existed for the old driver's `repeater.itemAt(i)` walk. The group owns the
+one `FrameAnimation`, gated **declaratively**: `running: group.anyRunning`,
+where `anyRunning` scans the registered springs' own `running` flags — the same
+state `advance()` clears when a spring settles.
+
+Why declarative rather than "start it when something retargets, stop it when
+nothing is running" (which was the first version of this fix, and worked): that
+version had two imperative touch points, and adding a sixth spring while
+forgetting the stop-side collection would freeze animations mid-flight. Binding
+to the springs' own state means there is exactly one source of truth and no way
+to forget either half. This is also what DankMaterialShell does — every
+`FrameAnimation` in that tree is gated on a `running`/`_pending` flag, none is
+ever left on (`Common/SpringMotion.qml`,
+`Modules/DankIsland/VectorSpringMotion.qml`,
+`Modules/DankBar/DankBarHoverController.qml`). Our `FrameSpring` inherited that
+gating correctly for standalone springs; only the shared driver dropped it.
+(DMS's other answer to coupled springs, `VectorSpringMotion`, integrates several
+scalars inside one spring object — clean for a fixed component set like its
+island's geometry, but it hand-unrolls every component through every function,
+so it doesn't fit Workspaces' per-delegate springs, whose count changes with the
+workspace list.)
+
+Two subtleties worth keeping, both about destruction. A spring destroyed
+mid-animation (workspace closed while its pill is still easing) emits no
+`runningChanged`, so `anyRunning` would never re-evaluate and the driver would
+stay on forever. **And a destroyed QObject sitting in a JS array is not null** —
+it's a stale wrapper that throws `TypeError: Property 'advance' of object
+TypeError is not a function` on any property access. The first attempt here
+tried to have the group prune "null" entries from inside its own `onTriggered`,
+which therefore threw every frame instead of pruning anything. Both are solved
+by `FrameSpring` unregistering itself in `Component.onDestruction`, so the
+group's array only ever holds live springs. Don't try to detect a dead QObject
+by truthiness.
+
+**Method note:** quickshell hot-reloads on file change, so A/B testing is
+edit-file → measure, same PID. But a config reload burns a few hundred ms
+rebuilding the scene, so **wait ~6s after each edit before sampling** — an early
+pass measured immediately after the write and produced a per-module CPU table
+that was pure reload noise (the tell: results alternated hot/cold with loop
+order). `strace -f -c` is the crispest idle check: ~90 `sendmsg`/s when
+rendering every frame, none at all when truly idle. Full write-up in INVEST.md.
 
 ## Battery module, ported from waybar (2026-09-05)
 

@@ -42,29 +42,17 @@ Rectangle {
     // section (Behavior-based SpringAnimation is throttled to Qt Quick's
     // shared ~60Hz GUI-thread clock regardless of the output's real refresh
     // rate). retarget() is called explicitly below since this isn't
-    // declarative like Behavior. `standalone: false` — driven by
-    // `sharedSpringDriver` below along with every other spring in this
-    // file, not its own independent FrameAnimation; see that driver's
-    // comment for why they all need one shared clock.
+    // declarative like Behavior. `group: sharedSprings` — driven by the
+    // shared SpringGroup below along with every other spring in this file,
+    // not its own independent FrameAnimation; see that group's comment for
+    // why they all need one shared clock.
     WorkspaceFrameSpring {
         id: widthSpring
-        standalone: false
+        group: sharedSprings
         Component.onCompleted: snapTo(root.targetWidth)
     }
 
-    onTargetWidthChanged: root.retargetSpring(widthSpring, targetWidth)
-
-    // Every retarget in this file goes through here rather than calling
-    // spring.retarget() directly: the shared driver below is stopped while
-    // nothing moves, so something has to wake it. retarget() only sets
-    // `running` when the new target is actually more than epsilon away, so
-    // keying the start off `spring.running` (not off "retarget was called")
-    // starts the driver exactly when there's motion to drive.
-    function retargetSpring(spring, value) {
-        spring.retarget(value);
-        if (spring.running)
-            sharedSpringDriver.running = true;
-    }
+    onTargetWidthChanged: widthSpring.retarget(targetWidth)
 
     // One shared clock for every spring in this file (the pill's own width
     // above, each delegate's width below, and the selection indicator's
@@ -84,42 +72,12 @@ Rectangle {
     // "everyone advances by the identical dt" guarantee Qt's old shared
     // QUnifiedTimer gave every Behavior/SpringAnimation for free.
     //
-    // Started by retargetSpring() above and stopped here once every spring
-    // has settled — NOT left permanently running. It's tempting to leave it
-    // on (advance() on a settled spring really is a cheap no-op, early
-    // `if (!running) return`), but the callback's cost was never the point:
-    // a running FrameAnimation is a running QAbstractAnimation, so Qt Quick
-    // requests an update, runs polish+sync, re-renders the scene graph and
-    // swaps a buffer *every frame*, whether or not a pixel changed. Measured
-    // on eDP-1 at 90Hz: an idle bar committing ~90 frames/s and burning
-    // 7-8% of a core (QSGRenderThread + GUI thread + Mesa + the Wayland
-    // event threads), versus 0.0% with the driver stopped. See INVEST.md.
-    FrameAnimation {
-        id: sharedSpringDriver
-        running: false
-        onTriggered: {
-            widthSpring.advance(frameTime);
-            let anyRunning = widthSpring.running;
-            for (let i = 0; i < repeater.count; i++) {
-                const delegate = repeater.itemAt(i);
-                if (delegate && delegate.preferredWidthSpring) {
-                    delegate.preferredWidthSpring.advance(frameTime);
-                    anyRunning = anyRunning || delegate.preferredWidthSpring.running;
-                }
-            }
-            rowXOffsetSpring.advance(frameTime);
-            focusedLocalXSpring.advance(frameTime);
-            selectionWidthSpring.advance(frameTime);
-            anyRunning = anyRunning || rowXOffsetSpring.running || focusedLocalXSpring.running || selectionWidthSpring.running;
-
-            // Polled here rather than tracked with a counter on each
-            // spring's runningChanged: a delegate destroyed mid-flight
-            // (workspace closed while its pill is still easing) would leak
-            // such a counter and pin the driver on forever, whereas this
-            // just sees one fewer running spring on the next tick.
-            if (!anyRunning)
-                running = false;
-        }
+    // Springs register themselves by declaring `group: sharedSprings`; the
+    // group's driver runs only while one of them still has motion left, so
+    // nothing here has to remember to start or stop it. See SpringGroup.qml
+    // for why that gating is not optional.
+    SpringGroup {
+        id: sharedSprings
     }
 
     // Shared text metrics for pill sizing, instead of an invisible Text per
@@ -181,20 +139,21 @@ Rectangle {
 
                 // FrameSpring, not Behavior/WorkspaceSpring — see Theme.qml's
                 // "capped near 60Hz" note on the root pill's own FrameSpring
-                // above. `standalone: false` and exposed via alias (a
-                // Repeater delegate is its own Component, so its ids aren't
-                // reachable from the surrounding file by bare name) —
-                // advance() is called on it from root's shared FrameAnimation
-                // below, for the same "everyone needs the exact same dt"
-                // reason as the other springs in this file.
-                property alias preferredWidthSpring: preferredWidthSpringImpl
+                // above. `group: sharedSprings` for the same "everyone needs
+                // the exact same dt" reason as the other springs in this
+                // file; it registers itself with the group on creation, so
+                // unlike the previous shared-driver arrangement nothing
+                // outside this delegate needs to reach it (it used to need a
+                // `property alias` for that, since a Repeater delegate is its
+                // own Component and its bare ids aren't visible to the
+                // surrounding file).
                 WorkspaceFrameSpring {
-                    id: preferredWidthSpringImpl
-                    standalone: false
+                    id: preferredWidthSpring
+                    group: sharedSprings
                     Component.onCompleted: snapTo(wsDelegate.targetPreferredWidth)
                 }
 
-                onTargetPreferredWidthChanged: root.retargetSpring(preferredWidthSpring, targetPreferredWidth)
+                onTargetPreferredWidthChanged: preferredWidthSpring.retarget(targetPreferredWidth)
                 // Square, flush buttons; rounding avoids stray 1px seams.
                 antialiasing: false
 
@@ -259,10 +218,10 @@ Rectangle {
         // reads.
         WorkspaceFrameSpring {
             id: focusedLocalXSpring
-            standalone: false
+            group: sharedSprings
             Component.onCompleted: snapTo(selection.focusedTargetLocalX)
         }
-        onFocusedTargetLocalXChanged: root.retargetSpring(focusedLocalXSpring, focusedTargetLocalX)
+        onFocusedTargetLocalXChanged: focusedLocalXSpring.retarget(focusedTargetLocalX)
 
         // row.x mirrored through its own spring rather than read live.
         // row.x is a plain RowLayout-managed geometry property — it snaps
@@ -280,10 +239,10 @@ Rectangle {
         property real rowTargetXOffset: row.x
         WorkspaceFrameSpring {
             id: rowXOffsetSpring
-            standalone: false
+            group: sharedSprings
             Component.onCompleted: snapTo(selection.rowTargetXOffset)
         }
-        onRowTargetXOffsetChanged: root.retargetSpring(rowXOffsetSpring, rowTargetXOffset)
+        onRowTargetXOffsetChanged: rowXOffsetSpring.retarget(rowTargetXOffset)
 
         // Math.round() on both x and width — see root's own implicitWidth
         // above for why (non-antialiased edge + continuously-varying
@@ -295,10 +254,10 @@ Rectangle {
 
         WorkspaceFrameSpring {
             id: selectionWidthSpring
-            standalone: false
+            group: sharedSprings
             Component.onCompleted: snapTo(selection.targetSelectionWidth)
         }
-        onTargetSelectionWidthChanged: root.retargetSpring(selectionWidthSpring, targetSelectionWidth)
+        onTargetSelectionWidthChanged: selectionWidthSpring.retarget(targetSelectionWidth)
         width: Math.round(selectionWidthSpring.value)
     }
 
