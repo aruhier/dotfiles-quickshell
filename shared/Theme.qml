@@ -1,4 +1,5 @@
 pragma Singleton
+pragma ComponentBehavior: Bound
 import QtQuick
 
 // Shared palette + metrics for the whole bar. Singleton: pure static data

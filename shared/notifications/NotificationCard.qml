@@ -1,11 +1,13 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Widgets
-import ".."
-import "../../services"
-import "../animations"
+import qs.shared
+import qs.services
+import qs.shared.animations
+import qs.shared.notifications
 
 // One notification's visual — reused by both the popup stack
 // (NotificationPopupWindow.qml, floating: true) and the control-center list
@@ -206,21 +208,18 @@ Item {
                     Layout.fillWidth: true
                     spacing: 6
 
-                    Text {
+                    StyledText {
                         id: summaryText
-                        renderType: Text.NativeRendering
                         Layout.fillWidth: true
                         text: card.wrapper.summary
                         color: NotificationTheme.text
-                        font.family: Theme.fontFamily
                         font.bold: true
                         font.pixelSize: NotificationTheme.fontSize
                         elide: Text.ElideRight
                     }
 
-                    Text {
+                    StyledText {
                         id: timeText
-                        renderType: Text.NativeRendering
                         // swaync only calls set_time() for control-center
                         // entries (controlCenter.vala) — a floating popup's
                         // time label is never populated, confirmed via a
@@ -228,7 +227,6 @@ Item {
                         visible: !card.floating
                         text: card.wrapper.timeStr
                         color: NotificationTheme.text
-                        font.family: Theme.fontFamily
                         // `.time` reuses --font-size-summary and is bold, same
                         // as `.summary` beside it — not a size down from it.
                         font.bold: true
@@ -236,13 +234,11 @@ Item {
                     }
                 }
 
-                Text {
-                    renderType: Text.NativeRendering
+                StyledText {
                     Layout.fillWidth: true
                     visible: card.wrapper.body !== ""
                     text: card.wrapper.body
                     color: NotificationTheme.text
-                    font.family: Theme.fontFamily
                     font.pixelSize: NotificationTheme.fontSizeBody
                     // Pango leads Inter more generously than Qt does: swaync's
                     // body lines sit 21.25px apart at this size against the
@@ -314,13 +310,11 @@ Item {
                     pressed: actionArea.pressed
                 }
 
-                Text {
+                StyledText {
                     id: actionLabel
-                    renderType: Text.NativeRendering
                     anchors.centerIn: parent
                     text: actionButton.modelData.text
                     color: NotificationTheme.text
-                    font.family: Theme.fontFamily
                     // ExtraBold, not plain `bold` (700): swaync's labels render
                     // through GTK's own bold face, which is heavier than what
                     // Inter Variable gives at 700 — measured off the reference
@@ -391,8 +385,7 @@ Item {
             color: Theme.accent
         }
 
-        Text {
-            renderType: Text.NativeRendering
+        StyledText {
             anchors.centerIn: parent
             text: "✕"
             color: closeArea.containsMouse ? "black" : NotificationTheme.text

@@ -1,5 +1,6 @@
+pragma ComponentBehavior: Bound
 import QtQuick
-import ".."
+import qs.shared.animations
 
 // FrameSpring preconfigured for press-feedback scale: bind a MouseArea's
 // `pressed` to `pressed` here, and an item's `scale` to `.value`. Shrinks to
@@ -12,11 +13,15 @@ import ".."
 FrameSpring {
     id: root
 
+    // Explicit starting value, not left at FrameSpring's default 0: `to`
+    // only snaps at Component.onCompleted, and a button rendered at scale 0
+    // for the frame before that would visibly pop in.
     value: 1
-    target: 1
 
     property bool pressed: false
     property real pressedScale: 0.88
+
+    to: pressed ? pressedScale : 1
 
     // Theme.springEpsilon (0.25) is tuned for pixel-scale springs (e.g. the
     // notification panel's ~300px slide) — on a 0..1 scale value, the whole
@@ -26,6 +31,4 @@ FrameSpring {
     // scale 1 on press. A much smaller epsilon here keeps the same
     // mass-spring-damper feel at the right units for a scale value.
     epsilon: 0.002
-
-    onPressedChanged: retarget(pressed ? pressedScale : 1)
 }

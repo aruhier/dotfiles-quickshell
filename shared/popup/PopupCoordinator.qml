@@ -1,4 +1,5 @@
 pragma Singleton
+pragma ComponentBehavior: Bound
 import QtQuick
 
 // Ensures only one hover popup (Clock's calendar, Weather's forecast, …) is

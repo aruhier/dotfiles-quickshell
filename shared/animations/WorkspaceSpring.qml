@@ -1,5 +1,6 @@
+pragma ComponentBehavior: Bound
 import QtQuick
-import ".."
+import qs.shared
 
 // Faster spring tuning used only by Workspaces.qml, where the pill width,
 // delegate width, and sliding selection indicator all need to stay in sync

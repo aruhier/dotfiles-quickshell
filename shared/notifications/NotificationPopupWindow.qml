@@ -1,10 +1,12 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQml.Models
 import Quickshell
 import Quickshell.Wayland
-import ".."
-import "../../services"
-import "../animations"
+import qs.shared
+import qs.services
+import qs.shared.animations
+import qs.shared.notifications
 
 // Floating notification-toast stack, top-right corner, sitting just under
 // the bar and its border stripe (barHeight + barBorderHeight), plus the

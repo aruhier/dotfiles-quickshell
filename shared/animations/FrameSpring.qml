@@ -1,5 +1,7 @@
+pragma ComponentBehavior: Bound
 import QtQuick
-import ".."
+import qs.shared
+import qs.shared.animations
 
 // A spring-physics value driven by FrameAnimation (ticks once per actual
 // rendered frame, tied to the window's real vsync/frame-swap cadence)
@@ -15,11 +17,11 @@ import ".."
 // DankMaterialShell's Common/SpringMotion.qml, which uses this exact
 // FrameAnimation-driven approach.
 //
-// Unlike Behavior/SpringAnimation, this isn't declarative — there's no
-// "animate whenever this expression changes" wiring. Bind the consuming
-// property to `.value` and call `retarget(newTarget)` imperatively when
-// the desired value changes (e.g. from a Connections handler), same as
-// DankMaterialShell's usage.
+// Bind the consuming property to `.value`, and say where the spring should
+// go with `to:` — see that property below. `to` is the declarative wrapper
+// over the underlying imperative API (snapTo()/retarget()), which is still
+// there for springs that genuinely have no single resting expression (entry
+// animations, direction-dependent slides).
 //
 // stiffness/damping/mass default to Hyprland's own spring config, unlike
 // Theme.qml's springSpring/springDamping — those are tuned for Qt's
@@ -68,6 +70,28 @@ QtObject {
     property real target: value
     property real velocity: 0
     property bool running: false
+
+    // Optional declarative target. Bind it and the spring wires itself up:
+    // it snaps to the initial value on creation and retargets on every later
+    // change, so a consumer needs one line (`to: root.someWidth`) instead of
+    // the three-step ritual this type otherwise requires (bind `.value`, snap
+    // in Component.onCompleted, retarget from an onXChanged handler) — three
+    // steps of which two fail *silently* when forgotten: no initial snap and
+    // the value animates in from 0 on every reload, no retarget and it
+    // freezes at its startup value forever.
+    //
+    // NaN, not 0, is the "unset" sentinel: a spring driven imperatively (an
+    // entry animation that snaps somewhere off-screen and eases to 0, a
+    // press that has no single resting expression) must not have a resting
+    // target of 0 forced on it. Those leave `to` alone and keep calling
+    // snapTo()/retarget() directly; the two handlers below then do nothing.
+    // A call site's own Component.onCompleted does not shadow this one —
+    // both run, base first.
+    property real to: NaN
+    onToChanged: if (!isNaN(to))
+        retarget(to)
+    Component.onCompleted: if (!isNaN(to))
+        snapTo(to)
 
     function isSettled() {
         return Math.abs(target - value) <= epsilon && Math.abs(velocity) <= epsilon;

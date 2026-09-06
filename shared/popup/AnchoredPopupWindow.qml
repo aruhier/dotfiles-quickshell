@@ -1,6 +1,6 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
-import Quickshell.Widgets
 
 // Base type for a PopupWindow anchored just below a bar module, horizontally
 // centered on the module (+ 4px gap below it), sliding to stay on-screen.

@@ -1,9 +1,9 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Services.UPower
-import "../shared"
-import "../shared/animations"
-import "../shared/popup"
+import qs.shared
+import qs.shared.popup
 
 // Battery indicator, a port of the waybar `battery` module this bar
 // replaced (~/.config/waybar/config.d/common.json + style.css). Same
@@ -19,7 +19,7 @@ import "../shared/popup"
 // polling, the multi-battery aggregation (`displayDevice`) and the
 // time-remaining smoothing that waybar had to hand-roll over
 // /sys/class/power_supply.
-Item {
+BarModule {
     id: root
 
     // Real laptop batteries only — UPower.devices also carries line-power
@@ -31,10 +31,7 @@ Item {
     readonly property var device: UPower.displayDevice
     readonly property var mainBattery: batteries.length > 0 ? batteries[0] : null
 
-    // Plain bool, not read back through `visible` — see Mpd.qml's
-    // `contentVisible` for why (Loader/visible deadlock).
-    readonly property bool contentVisible: batteries.length > 0 && device !== null && device.ready
-    visible: contentVisible
+    contentVisible: batteries.length > 0 && device !== null && device.ready
 
     // Quickshell normalizes UPowerDevice.percentage to 0..1, unlike
     // upower's own D-Bus property (0..100).
@@ -134,23 +131,7 @@ Item {
         return parts.join("  ·  ");
     }
 
-    // Unconditional, not gated on `contentVisible`: see Mpd.qml for why
-    // gating width on the same property as `visible` breaks visibility.
-    readonly property real targetWidth: content.implicitWidth + 12
-    implicitWidth: widthSpring.value
-    implicitHeight: Theme.barHeight
-    clip: true
-
-    // FrameSpring, not Behavior/WidthSpring — see Submap.qml's FrameSpring
-    // for why (Behavior-based SpringAnimation is throttled to Qt Quick's
-    // shared ~60Hz GUI-thread clock regardless of the output's real refresh
-    // rate).
-    FrameSpring {
-        id: widthSpring
-        Component.onCompleted: snapTo(root.targetWidth)
-    }
-
-    onTargetWidthChanged: widthSpring.retarget(targetWidth)
+    contentWidth: content.implicitWidth
 
     // Icon vertical nudge / size bias — see Mpd.qml. The rotated glyph
     // needs a different nudge from the upright bolt, mirroring the two
@@ -213,12 +194,9 @@ Item {
         // together or they read as two separate blinking things.
         opacity: root.blinkOpacity
 
-        Text {
+        StyledText {
             id: label
-            renderType: Text.NativeRendering
             anchors.verticalCenter: parent.verticalCenter
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSize
             // Bold only on the label, not the glyph: the Nerd Font fallback
             // has no bold face, so Qt would synthesize a smeared one.
             // `font.weight`, not `font.bold` — Inter is a variable font and
@@ -253,13 +231,11 @@ Item {
                 text: glyph.text
             }
 
-            Text {
+            Icon {
                 id: glyph
-                renderType: Text.NativeRendering
                 anchors.centerIn: parent
                 rotation: root.rotateIcon ? 90 : 0
-                font.family: Theme.fontFamily
-                font.pixelSize: Theme.iconSize(root.iconSizeRatio)
+                sizeRatio: root.iconSizeRatio
                 color: root.textColor
                 text: root.icon
             }

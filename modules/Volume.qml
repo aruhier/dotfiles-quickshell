@@ -1,11 +1,11 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Services.Pipewire
-import "../shared"
-import "../shared/animations"
+import qs.shared
 
 // Volume indicator (backed by pipewire-pulse).
-Item {
+BarModule {
     id: root
 
     readonly property var sink: Pipewire.defaultAudioSink
@@ -16,21 +16,7 @@ Item {
         objects: root.sink ? [root.sink] : []
     }
 
-    readonly property real targetWidth: content.implicitWidth + 12
-    implicitWidth: widthSpring.value
-    implicitHeight: Theme.barHeight
-    clip: true
-
-    // FrameSpring, not Behavior/WidthSpring — see Submap.qml's FrameSpring
-    // for why (Behavior-based SpringAnimation is throttled to Qt Quick's
-    // shared ~60Hz GUI-thread clock regardless of the output's real refresh
-    // rate).
-    FrameSpring {
-        id: widthSpring
-        Component.onCompleted: snapTo(root.targetWidth)
-    }
-
-    onTargetWidthChanged: widthSpring.retarget(targetWidth)
+    contentWidth: content.implicitWidth
 
     readonly property int pct: Math.round(volume * 100)
 
@@ -43,24 +29,18 @@ Item {
         anchors.centerIn: parent
         spacing: 6
 
-        Text {
-            renderType: Text.NativeRendering
+        Icon {
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.iconSize(root.iconSizeRatio)
-            color: Theme.groupText
+            sizeRatio: root.iconSizeRatio
             // Muted state replaces the whole format (icon only, no percent).
             text: root.muted ? "󰝟" : root.pct < 33 ? "󰕿" : root.pct < 66 ? "󰖀" : "󰕾"
         }
 
-        Text {
+        StyledText {
             id: label
-            renderType: Text.NativeRendering
             anchors.verticalCenter: parent.verticalCenter
             visible: !root.muted
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSize
             color: Theme.groupText
             text: root.pct + "%"
         }

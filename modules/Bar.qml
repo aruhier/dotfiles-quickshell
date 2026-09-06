@@ -1,8 +1,10 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
-import "../shared"
+import qs.shared
+import qs.modules
 
 // One bar instance per output. Which modules appear where is decided by
 // shell.qml (`layout`, passed in) — this file only knows how to render

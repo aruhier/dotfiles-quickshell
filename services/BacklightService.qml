@@ -1,4 +1,5 @@
 pragma Singleton
+pragma ComponentBehavior: Bound
 import QtQuick
 import Qt.labs.folderlistmodel
 import Quickshell.Io
@@ -7,9 +8,10 @@ import Quickshell.Io
 // scaling.
 //
 // Reads come straight out of /sys/class/backlight: a FolderListModel finds the
-// device, FileViews read max_brightness/brightness. A poll tick is therefore
-// one pseudo-file read and no fork — the old shape spawned `sh -c` plus two
-// `cat`s every 5s just to learn a number that hadn't changed.
+// device, FileViews read max_brightness/brightness, and an inotify watch on
+// `brightness` reports external changes. Nothing polls and nothing forks —
+// the original shape spawned `sh -c` plus two `cat`s every 5s just to learn a
+// number that usually hadn't changed.
 //
 // Writes still go through brightnessctl (the sysfs node is root-owned; that's
 // what its setuid/logind helper is for), but only on an actual user action.
@@ -121,9 +123,25 @@ QtObject {
         onLoadFailed: root.maxRaw = 0
     }
 
+    // watchChanges, not a poll timer. sysfs backlight attributes call
+    // sysfs_notify() on change, and kernfs raises a real fsnotify FS_MODIFY
+    // from that — so an inotify watch on this pseudo-file does fire, and
+    // hardware keys or a brightnessctl keybind land here immediately instead
+    // of up to a tick late. (An earlier note in this file claimed sysfs emits
+    // nothing inotify can see and that polling was therefore unavoidable;
+    // that was wrong, and noctalia's brightness_service.cpp watching the same
+    // path with IN_MODIFY is what prompted re-testing it. Verified on this
+    // machine both with inotifywait and with a standalone `qs -p` FileView
+    // probe: every external change fired onFileChanged with the new value.)
+    //
+    // reload() is explicit because FileView does not re-read on its own; the
+    // parse stays in onLoaded, which fires on every reload even when the
+    // bytes are identical.
     property FileView brightnessFile: FileView {
         id: brightnessFile
         path: root.devicePath === "" ? "" : root.devicePath + "/brightness"
+        watchChanges: true
+        onFileChanged: reload()
         onLoaded: root.raw = parseInt(text().trim()) || 0
     }
 
@@ -135,16 +153,5 @@ QtObject {
             root.refresh();
             root.flush();
         }
-    }
-
-    // sysfs backlight files don't emit inotify events (they signal readers via
-    // sysfs_notify/poll(2), which FileView.watchChanges can't use), so external
-    // changes — hardware keys, another tool — are still found by polling. It's
-    // just a 4KB pseudo-file read now.
-    property Timer pollTimer: Timer {
-        interval: 1000
-        running: root.available
-        repeat: true
-        onTriggered: root.refresh()
     }
 }

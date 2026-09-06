@@ -1,11 +1,12 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Widgets
 import Quickshell.Services.Pipewire
-import "../shared"
-import "../shared/animations"
-import "../shared/popup"
+import qs.shared
+import qs.shared.animations
+import qs.shared.popup
 
 // Shows an icon per active privacy-sensitive capture: mic (any open
 // audio-capture stream — ideally this would also require the stream to be
@@ -109,30 +110,24 @@ Item {
         required property bool active
         required property string glyph
 
-        readonly property real targetWidth: active ? label.implicitWidth + 8 : 0
         implicitWidth: widthSpring.value
         implicitHeight: Theme.barHeight
         clip: true
 
-        // FrameSpring, not Behavior/WidthSpring — see Submap.qml's
-        // FrameSpring for why (Behavior-based SpringAnimation is throttled
-        // to Qt Quick's shared ~60Hz GUI-thread clock regardless of the
-        // output's real refresh rate).
+        // Not BarModule: this is a per-capture-kind sub-icon inside the
+        // module, not the module itself — it collapses to zero width on its
+        // own so mic-only and mic+screenshare both lay out right, while the
+        // module's own width just follows the row.
         FrameSpring {
             id: widthSpring
-            Component.onCompleted: snapTo(icon.targetWidth)
+            to: icon.active ? label.implicitWidth + 8 : 0
         }
 
-        onTargetWidthChanged: widthSpring.retarget(targetWidth)
-
-        Text {
-            renderType: Text.NativeRendering
+        Icon {
             id: label
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: 1
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.iconSize()
             color: Theme.privacyActive
             text: icon.glyph
         }
@@ -182,8 +177,7 @@ Item {
                 anchors.fill: parent
                 spacing: 8
 
-                Text {
-                    renderType: Text.NativeRendering
+                StyledText {
                     Layout.fillWidth: true
                     text: "Currently capturing"
                     font.pixelSize: 12
@@ -216,8 +210,7 @@ Item {
                             source: Quickshell.iconPath(appRow.modelData.icon, "application-x-executable")
                         }
 
-                        Text {
-                            renderType: Text.NativeRendering
+                        StyledText {
                             Layout.fillWidth: true
                             text: appRow.modelData.name
                             font.pixelSize: 12
@@ -225,20 +218,14 @@ Item {
                             elide: Text.ElideRight
                         }
 
-                        Text {
-                            renderType: Text.NativeRendering
+                        Icon {
                             visible: appRow.modelData.mic
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.iconSize()
                             color: Theme.privacyActive
                             text: root.micGlyph
                         }
 
-                        Text {
-                            renderType: Text.NativeRendering
+                        Icon {
                             visible: appRow.modelData.screen
-                            font.family: Theme.fontFamily
-                            font.pixelSize: Theme.iconSize()
                             color: Theme.privacyActive
                             text: root.screenGlyph
                         }

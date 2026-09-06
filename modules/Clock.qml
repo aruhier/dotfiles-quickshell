@@ -1,29 +1,15 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import "../shared"
-import "../shared/animations"
-import "../shared/popup"
+import qs.shared
+import qs.shared.popup
 
 // Clock with a hover popup showing a native month-grid calendar.
-Item {
+BarModule {
     id: root
 
-    readonly property real targetWidth: content.implicitWidth + 12
-    implicitWidth: widthSpring.value
-    implicitHeight: Theme.barHeight
-    clip: true
-
-    // FrameSpring, not Behavior/WidthSpring — see Submap.qml's FrameSpring
-    // for why (Behavior-based SpringAnimation is throttled to Qt Quick's
-    // shared ~60Hz GUI-thread clock regardless of the output's real refresh
-    // rate).
-    FrameSpring {
-        id: widthSpring
-        Component.onCompleted: snapTo(root.targetWidth)
-    }
-
-    onTargetWidthChanged: widthSpring.retarget(targetWidth)
+    contentWidth: content.implicitWidth
 
     property date now: new Date()
 
@@ -43,22 +29,16 @@ Item {
         anchors.centerIn: parent
         spacing: 6
 
-        Text {
-            renderType: Text.NativeRendering
+        Icon {
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.iconSize(root.iconSizeRatio)
-            color: Theme.groupText
+            sizeRatio: root.iconSizeRatio
             text: "󰃭"
         }
 
-        Text {
+        StyledText {
             id: label
-            renderType: Text.NativeRendering
             anchors.verticalCenter: parent.verticalCenter
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSize
             color: Theme.groupText
             text: Qt.formatDateTime(root.now, "ddd dd MMM  hh:mm")
         }
@@ -184,11 +164,9 @@ Item {
                     Layout.fillWidth: true
                     spacing: 8
 
-                    Text {
-                        renderType: Text.NativeRendering
+                    StyledText {
                         text: "‹"
                         font.pixelSize: 16
-                        color: Theme.text
                         MouseArea {
                             anchors.fill: parent
                             anchors.margins: -6
@@ -197,8 +175,7 @@ Item {
                         }
                     }
 
-                    Text {
-                        renderType: Text.NativeRendering
+                    StyledText {
                         Layout.fillWidth: true
                         horizontalAlignment: Text.AlignHCenter
                         text: Qt.formatDate(new Date(popup.viewYear, popup.viewMonth, 1), "MMMM yyyy")
@@ -212,11 +189,9 @@ Item {
                         }
                     }
 
-                    Text {
-                        renderType: Text.NativeRendering
+                    StyledText {
                         text: "›"
                         font.pixelSize: 16
-                        color: Theme.text
                         MouseArea {
                             anchors.fill: parent
                             anchors.margins: -6
@@ -240,13 +215,13 @@ Item {
 
                     Repeater {
                         model: popup.headers
-                        delegate: Text {
-                            renderType: Text.NativeRendering
+                        delegate: StyledText {
+                            required property string modelData
+
                             Layout.preferredWidth: 28
                             horizontalAlignment: Text.AlignHCenter
                             text: modelData
                             font.pixelSize: 11
-                            color: Theme.text
                             opacity: 0.7
                         }
                     }
@@ -255,18 +230,20 @@ Item {
                     Repeater {
                         model: popup.cells
                         delegate: Rectangle {
+                            id: dayCell
+                            required property var modelData
+
                             Layout.preferredWidth: 28
                             Layout.preferredHeight: 24
                             radius: 6
-                            color: modelData.isToday ? Theme.accent : "transparent"
+                            color: dayCell.modelData.isToday ? Theme.accent : "transparent"
 
-                            Text {
-                                renderType: Text.NativeRendering
+                            StyledText {
                                 anchors.centerIn: parent
-                                text: modelData.day
+                                text: dayCell.modelData.day
                                 font.pixelSize: 12
-                                color: modelData.isToday ? Theme.accentText : (modelData.inMonth ? Theme.textBright : Theme.text)
-                                opacity: modelData.inMonth ? 1.0 : 0.35
+                                color: dayCell.modelData.isToday ? Theme.accentText : (dayCell.modelData.inMonth ? Theme.textBright : Theme.text)
+                                opacity: dayCell.modelData.inMonth ? 1.0 : 0.35
                             }
                         }
                     }

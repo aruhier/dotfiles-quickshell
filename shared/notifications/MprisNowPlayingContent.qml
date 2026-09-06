@@ -1,10 +1,11 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
-import Quickshell
 import Quickshell.Widgets
 import Quickshell.Services.Mpris
-import ".."
-import "../animations"
+import qs.shared
+import qs.shared.animations
+import qs.shared.notifications
 
 // One MPRIS "now playing" card's content — the art/title/artist/transport
 // row from NotificationCenterPanel.qml's now-playing widget, factored out so
@@ -46,23 +47,19 @@ RowLayout {
         Layout.fillWidth: true
         spacing: 4
 
-        Text {
-            renderType: Text.NativeRendering
+        StyledText {
             Layout.fillWidth: true
             text: root.player ? root.player.trackTitle : ""
             color: NotificationTheme.text
-            font.family: Theme.fontFamily
             font.pixelSize: NotificationTheme.mprisTitleFontSize
             font.bold: true
             elide: Text.ElideRight
         }
 
-        Text {
-            renderType: Text.NativeRendering
+        StyledText {
             Layout.fillWidth: true
             text: root.player ? root.player.trackArtist : ""
             color: NotificationTheme.text
-            font.family: Theme.fontFamily
             font.pixelSize: NotificationTheme.mprisArtistFontSize
             elide: Text.ElideRight
         }
@@ -70,11 +67,9 @@ RowLayout {
         RowLayout {
             spacing: 12
 
-            Text {
-                renderType: Text.NativeRendering
+            StyledText {
                 text: "󰒝"
                 color: root.player && root.player.shuffleSupported ? (root.player.shuffle ? NotificationTheme.bgSelected : NotificationTheme.text) : NotificationTheme.textDisabled
-                font.family: Theme.fontFamily
                 font.pixelSize: NotificationTheme.mprisControlIconSize - 4
                 scale: shufflePress.value
 
@@ -92,11 +87,9 @@ RowLayout {
                 }
             }
 
-            Text {
-                renderType: Text.NativeRendering
+            StyledText {
                 text: "󰒮"
                 color: root.player && root.player.canGoPrevious ? NotificationTheme.text : NotificationTheme.textDisabled
-                font.family: Theme.fontFamily
                 font.pixelSize: NotificationTheme.mprisControlIconSize
                 scale: prevTrackPress.value
 
@@ -114,11 +107,9 @@ RowLayout {
                 }
             }
 
-            Text {
-                renderType: Text.NativeRendering
+            StyledText {
                 text: root.player && root.player.isPlaying ? "󰏤" : "󰐊"
                 color: root.player && root.player.canTogglePlaying ? NotificationTheme.text : NotificationTheme.textDisabled
-                font.family: Theme.fontFamily
                 font.pixelSize: NotificationTheme.mprisControlIconSize
                 scale: playPausePress.value
 
@@ -136,11 +127,9 @@ RowLayout {
                 }
             }
 
-            Text {
-                renderType: Text.NativeRendering
+            StyledText {
                 text: "󰒭"
                 color: root.player && root.player.canGoNext ? NotificationTheme.text : NotificationTheme.textDisabled
-                font.family: Theme.fontFamily
                 font.pixelSize: NotificationTheme.mprisControlIconSize
                 scale: nextTrackPress.value
 
@@ -158,11 +147,9 @@ RowLayout {
                 }
             }
 
-            Text {
-                renderType: Text.NativeRendering
+            StyledText {
                 text: root.player && root.player.loopState === MprisLoopState.Track ? "󰑘" : "󰑖"
                 color: root.player && root.player.loopSupported ? (root.player.loopState !== MprisLoopState.None ? NotificationTheme.bgSelected : NotificationTheme.text) : NotificationTheme.textDisabled
-                font.family: Theme.fontFamily
                 font.pixelSize: NotificationTheme.mprisControlIconSize - 4
                 scale: loopPress.value
 

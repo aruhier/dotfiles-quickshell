@@ -1,5 +1,7 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
+import qs.shared
 
 // Flush pill-shaped module group for the bar's left/right ends: rounded only
 // on the side facing center, square on the side flush against the screen
@@ -39,9 +41,9 @@ Rectangle {
 
     RowLayout {
         id: row
-        anchors.left: edge === Qt.RightEdge ? undefined : parent.left
-        anchors.right: edge === Qt.RightEdge ? parent.right : undefined
-        anchors.rightMargin: edge === Qt.RightEdge ? outerMargin : 0
+        anchors.left: group.edge === Qt.RightEdge ? undefined : parent.left
+        anchors.right: group.edge === Qt.RightEdge ? parent.right : undefined
+        anchors.rightMargin: group.edge === Qt.RightEdge ? group.outerMargin : 0
         anchors.verticalCenter: parent.verticalCenter
         spacing: 10
 

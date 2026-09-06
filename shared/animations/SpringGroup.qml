@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 
 // One FrameAnimation driving several FrameSprings that must advance by the

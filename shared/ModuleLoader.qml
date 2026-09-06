@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 
@@ -28,5 +29,5 @@ Loader {
     // `active: false` alone would still reserve RowLayout spacing on both
     // sides; explicit `visible` excludes it properly.
     visible: item ? (item.contentVisible === undefined ? true : item.contentVisible) : false
-    Layout.preferredWidth: item ? item.implicitWidth : 0
+    Layout.preferredWidth: (item as Item)?.implicitWidth ?? 0
 }

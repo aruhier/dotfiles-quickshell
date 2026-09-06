@@ -1,10 +1,12 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Widgets
-import ".."
-import "../../services"
-import "../animations"
+import qs.shared
+import qs.services
+import qs.shared.animations
+import qs.shared.notifications
 
 // One row of NotificationCenterPanel.qml's list: a control-center-only
 // per-app group, mirroring swaync's notification-grouping (default on —
@@ -155,8 +157,7 @@ Item {
                 color: "#1e1e1e"
             }
 
-            Text {
-                renderType: Text.NativeRendering
+            StyledText {
                 anchors.centerIn: parent
                 text: "✕"
                 color: NotificationTheme.text
@@ -200,23 +201,19 @@ Item {
                 source: Quickshell.iconPath(root.latest.appIcon, "dialog-information")
             }
 
-            Text {
-                renderType: Text.NativeRendering
+            StyledText {
                 Layout.fillWidth: true
                 text: root.latest.appName
                 color: NotificationTheme.text
-                font.family: Theme.fontFamily
                 font.bold: true
                 font.pixelSize: NotificationTheme.fontSize
                 elide: Text.ElideRight
             }
 
             // Collapse button.
-            Text {
-                renderType: Text.NativeRendering
+            StyledText {
                 text: "󰅃"
                 color: NotificationTheme.text
-                font.family: Theme.fontFamily
                 font.pixelSize: NotificationTheme.fontSize + 4
                 scale: collapsePress.value
 
@@ -260,8 +257,7 @@ Item {
                     color: "#1e1e1e"
                 }
 
-                Text {
-                    renderType: Text.NativeRendering
+                StyledText {
                     anchors.centerIn: parent
                     text: "✕"
                     color: NotificationTheme.text

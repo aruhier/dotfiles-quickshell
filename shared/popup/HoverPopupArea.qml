@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 
 // Hover MouseArea that opens a lazily-loaded HoverPopup: activates `loader`

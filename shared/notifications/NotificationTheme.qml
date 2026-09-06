@@ -1,4 +1,5 @@
 pragma Singleton
+pragma ComponentBehavior: Bound
 import QtQuick
 
 // Palette + metrics for the notification popups/control-center, pulled 1:1

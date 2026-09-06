@@ -4,7 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Services.Notifications
-import "../shared/notifications"
+import qs.shared.notifications
 
 // Native notification daemon + state, replacing swaync. Owns the DBus
 // org.freedesktop.Notifications server and every list/timer driving the
@@ -300,9 +300,12 @@ QtObject {
         onNotification: notif => {
             notif.tracked = true;
 
+            // `as NotifWrapper`: createObject() is statically typed QObject,
+            // so every wrapper.<field> read below is unverifiable without the
+            // cast — and NotifWrapper is right there as a named type.
             const wrapper = root.notifComponent.createObject(root, {
                 "notification": notif
-            });
+            }) as NotifWrapper;
             if (!wrapper)
                 return;
 

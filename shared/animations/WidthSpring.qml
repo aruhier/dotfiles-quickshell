@@ -1,5 +1,6 @@
+pragma ComponentBehavior: Bound
 import QtQuick
-import ".."
+import qs.shared
 
 // Shared spring tuning for a module's implicitWidth easing (see Theme.qml's
 // springSpring/springDamping for the empirical reasoning). Use as

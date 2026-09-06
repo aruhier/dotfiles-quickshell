@@ -1,13 +1,14 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Widgets
-import Quickshell.Services.Mpris
-import ".."
-import "../../services"
-import "../animations"
+import qs.shared
+import qs.services
+import qs.shared.animations
+import qs.shared.notifications
 
 // swaync's control-center panel: click-triggered (toggled from the bar's
 // NotificationCenter indicator via NotificationService.centerOpen), pinned
@@ -84,82 +85,6 @@ PanelWindow {
             panelWindow.open = NotificationService.centerOpen;
             rightMarginSpring.retarget(NotificationService.centerOpen ? panel.restingRightMargin : panel.closedRightMargin);
         }
-    }
-
-    // Generic MPRIS now-playing widget — matches swaync's own mpris widget,
-    // which shows whatever's active over MPRIS rather than being tied to
-    // MPD specifically, and lets you page between multiple players (swaync
-    // shows </> arrows plus pagination dots when more than one is present —
-    // confirmed via a live screenshot of the real thing).
-    readonly property var mprisPlayers: Mpris.players.values
-
-    // Which player the widget shows. Defaults to whichever's playing (or
-    // index 0 if none are) the first time a player list actually exists;
-    // after that it's just the user's own </> choice, clamped so it never
-    // points past the end of a list that shrank.
-    property int mprisIndex: 0
-    property bool mprisIndexInitialized: false
-
-    function defaultMprisIndex() {
-        for (let i = 0; i < panelWindow.mprisPlayers.length; i++) {
-            if (panelWindow.mprisPlayers[i].isPlaying)
-                return i;
-        }
-        return 0;
-    }
-
-    onMprisPlayersChanged: {
-        if (!mprisIndexInitialized && mprisPlayers.length > 0) {
-            mprisIndex = defaultMprisIndex();
-            mprisIndexInitialized = true;
-        } else if (mprisIndex >= mprisPlayers.length) {
-            mprisIndex = Math.max(0, mprisPlayers.length - 1);
-        }
-    }
-
-    readonly property var activePlayer: mprisPlayers.length > 0 ? mprisPlayers[Math.min(mprisIndex, mprisPlayers.length - 1)] : null
-
-    // Which way the now-playing card's content should slide — read by the
-    // slide spring below, set here (not inferred from the index delta)
-    // since wraparound at the ends of the list would otherwise make the
-    // direction ambiguous.
-    property int mprisSlideDirection: 1
-
-    // The player the widget was just showing, captured right before
-    // mprisIndex changes below — the now-playing card renders this as a
-    // second, non-interactive content layer sliding out while the new
-    // activePlayer's content slides in, so a player switch reads as an
-    // actual transition between two players' content instead of the single
-    // layer just jumping straight to the new data mid-slide.
-    property var previousMprisPlayer: null
-
-    // True for exactly the duration of the synchronous mprisIndex write
-    // below — Qt property notifies are direct/synchronous, so every
-    // dependent binding and change handler downstream of that write (incl.
-    // the now-playing card's track-change pop) reacts before the line after
-    // it runs. Lets the card tell "track changed because the player was
-    // switched" (slide only) apart from "track changed on the same player"
-    // (pop only) without a race on which handler happens to fire first.
-    property bool suppressMprisPop: false
-
-    function prevMprisPlayer() {
-        if (mprisPlayers.length === 0)
-            return;
-        mprisSlideDirection = -1;
-        previousMprisPlayer = activePlayer;
-        suppressMprisPop = true;
-        mprisIndex = (mprisIndex - 1 + mprisPlayers.length) % mprisPlayers.length;
-        suppressMprisPop = false;
-    }
-
-    function nextMprisPlayer() {
-        if (mprisPlayers.length === 0)
-            return;
-        mprisSlideDirection = 1;
-        previousMprisPlayer = activePlayer;
-        suppressMprisPop = true;
-        mprisIndex = (mprisIndex + 1) % mprisPlayers.length;
-        suppressMprisPop = false;
     }
 
     WlrLayershell.layer: WlrLayer.Top
@@ -375,11 +300,9 @@ PanelWindow {
                 // live swaync screenshot: no button anywhere in the panel.
                 // Clearing is still reachable via the `notifications clear`
                 // IPC call (see shell.qml), just not from this UI.
-                Text {
-                    renderType: Text.NativeRendering
+                StyledText {
                     text: "Notifications"
                     color: NotificationTheme.text
-                    font.family: Theme.fontFamily
                     font.pixelSize: NotificationTheme.fontSizeTitle
                 }
 
@@ -387,12 +310,10 @@ PanelWindow {
                 RowLayout {
                     Layout.fillWidth: true
 
-                    Text {
-                        renderType: Text.NativeRendering
+                    StyledText {
                         Layout.fillWidth: true
                         text: "Do Not Disturb"
                         color: NotificationTheme.text
-                        font.family: Theme.fontFamily
                         font.pixelSize: NotificationTheme.fontSize
                     }
 
@@ -450,12 +371,10 @@ PanelWindow {
                             source: Quickshell.iconPath("notification-disabled-symbolic", "dialog-information-symbolic")
                         }
 
-                        Text {
-                            renderType: Text.NativeRendering
+                        StyledText {
                             Layout.alignment: Qt.AlignHCenter
                             text: "No Notifications"
                             color: NotificationTheme.text
-                            font.family: Theme.fontFamily
                             font.pixelSize: NotificationTheme.fontSize
                         }
                     }
@@ -500,27 +419,26 @@ PanelWindow {
 
                 // ---- now playing (mpris) ----
                 // Generic MPRIS widget, like swaync's own — whatever's
-                // active over MPRIS (see panelWindow.activePlayer above),
-                // not tied to any specific player. Sits on its own rounded
+                // active over MPRIS, not tied to any specific player.
+                // Which player is showing, and the </> paging between them,
+                // is MprisService; this is just its view. Sits on its own rounded
                 // card and gets </> paging + dots once a second player
                 // shows up, and shuffle/repeat controls alongside
                 // prev/play/next — all matching a live swaync screenshot of
                 // this same widget.
                 ColumnLayout {
                     Layout.fillWidth: true
-                    visible: panelWindow.activePlayer !== null
+                    visible: MprisService.activePlayer !== null
                     spacing: 8
 
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 4
 
-                        Text {
-                            renderType: Text.NativeRendering
-                            visible: panelWindow.mprisPlayers.length > 1
+                        StyledText {
+                            visible: MprisService.players.length > 1
                             text: "󰅁"
                             color: NotificationTheme.text
-                            font.family: Theme.fontFamily
                             font.pixelSize: NotificationTheme.mprisControlIconSize - 4
                             scale: prevPlayerPress.value
 
@@ -533,7 +451,7 @@ PanelWindow {
                                 id: prevPlayerArea
                                 anchors.fill: parent
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: panelWindow.prevMprisPlayer()
+                                onClicked: MprisService.prev()
                             }
                         }
 
@@ -549,14 +467,14 @@ PanelWindow {
                             // list shrinking out from under mprisIndex): the
                             // card itself stays put — only its content (the
                             // clipped layer below, sized to mprisClip.width)
-                            // slides — panelWindow.mprisSlideDirection is
+                            // slides — MprisService.slideDirection is
                             // set by prevMprisPlayer/nextMprisPlayer right
                             // before this index write, not inferred from the
                             // delta, since wraparound at the ends of the
                             // list makes the delta's sign ambiguous.
-                            readonly property int watchedIndex: panelWindow.mprisIndex
+                            readonly property int watchedIndex: MprisService.index
                             onWatchedIndexChanged: {
-                                mprisSlideSpring.value = panelWindow.mprisSlideDirection * mprisClip.width;
+                                mprisSlideSpring.value = MprisService.slideDirection * mprisClip.width;
                                 mprisSlideSpring.retarget(0);
                             }
 
@@ -568,9 +486,9 @@ PanelWindow {
                             // above — that gets the slide instead, so the
                             // two effects never stack on the same
                             // transition.
-                            readonly property string trackKey: panelWindow.activePlayer ? panelWindow.activePlayer.trackTitle + "|" + panelWindow.activePlayer.trackArtist : ""
+                            readonly property string trackKey: MprisService.activePlayer ? MprisService.activePlayer.trackTitle + "|" + MprisService.activePlayer.trackArtist : ""
                             onTrackKeyChanged: {
-                                if (panelWindow.suppressMprisPop)
+                                if (MprisService.suppressPop)
                                     return;
                                 mprisPopSpring.value = 0.94;
                                 mprisPopSpring.retarget(1);
@@ -635,10 +553,10 @@ PanelWindow {
                                 MprisNowPlayingContent {
                                     width: mprisClip.width
                                     height: mprisClip.height
-                                    visible: mprisSlideSpring.running && panelWindow.previousMprisPlayer !== null
-                                    player: panelWindow.previousMprisPlayer
+                                    visible: mprisSlideSpring.running && MprisService.previousPlayer !== null
+                                    player: MprisService.previousPlayer
                                     interactive: false
-                                    x: mprisSlideSpring.value - panelWindow.mprisSlideDirection * mprisClip.width
+                                    x: mprisSlideSpring.value - MprisService.slideDirection * mprisClip.width
                                 }
 
                                 // Incoming: the current activePlayer, always
@@ -650,18 +568,16 @@ PanelWindow {
                                     id: incomingContent
                                     width: mprisClip.width
                                     height: mprisClip.height
-                                    player: panelWindow.activePlayer
+                                    player: MprisService.activePlayer
                                     x: mprisSlideSpring.value
                                 }
                             }
                         }
 
-                        Text {
-                            renderType: Text.NativeRendering
-                            visible: panelWindow.mprisPlayers.length > 1
+                        StyledText {
+                            visible: MprisService.players.length > 1
                             text: "󰅂"
                             color: NotificationTheme.text
-                            font.family: Theme.fontFamily
                             font.pixelSize: NotificationTheme.mprisControlIconSize - 4
                             scale: nextPlayerPress.value
 
@@ -674,25 +590,25 @@ PanelWindow {
                                 id: nextPlayerArea
                                 anchors.fill: parent
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: panelWindow.nextMprisPlayer()
+                                onClicked: MprisService.next()
                             }
                         }
                     }
 
                     RowLayout {
                         Layout.alignment: Qt.AlignHCenter
-                        visible: panelWindow.mprisPlayers.length > 1
+                        visible: MprisService.players.length > 1
                         spacing: 6
 
                         Repeater {
-                            model: panelWindow.mprisPlayers.length
+                            model: MprisService.players.length
 
                             Rectangle {
                                 required property int index
                                 width: 6
                                 height: 6
                                 radius: 3
-                                color: index === panelWindow.mprisIndex ? NotificationTheme.text : NotificationTheme.textDisabled
+                                color: index === MprisService.index ? NotificationTheme.text : NotificationTheme.textDisabled
                             }
                         }
                     }

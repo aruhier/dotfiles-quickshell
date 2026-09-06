@@ -1,8 +1,9 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Hyprland
-import "../shared"
-import "../shared/animations"
+import qs.shared
+import qs.shared.animations
 
 // Workspace pill row: every workspace on every monitor shown on every bar.
 // Colors: default (has windows) = workspaceBg, empty = workspaceEmptyBg,
@@ -41,18 +42,15 @@ Rectangle {
     // FrameSpring.qml's header comment and AGENT.md's "capped near 60Hz"
     // section (Behavior-based SpringAnimation is throttled to Qt Quick's
     // shared ~60Hz GUI-thread clock regardless of the output's real refresh
-    // rate). retarget() is called explicitly below since this isn't
-    // declarative like Behavior. `group: sharedSprings` — driven by the
+    // rate). `group: sharedSprings` — driven by the
     // shared SpringGroup below along with every other spring in this file,
     // not its own independent FrameAnimation; see that group's comment for
     // why they all need one shared clock.
     WorkspaceFrameSpring {
         id: widthSpring
         group: sharedSprings
-        Component.onCompleted: snapTo(root.targetWidth)
+        to: root.targetWidth
     }
-
-    onTargetWidthChanged: widthSpring.retarget(targetWidth)
 
     // One shared clock for every spring in this file (the pill's own width
     // above, each delegate's width below, and the selection indicator's
@@ -150,10 +148,8 @@ Rectangle {
                 WorkspaceFrameSpring {
                     id: preferredWidthSpring
                     group: sharedSprings
-                    Component.onCompleted: snapTo(wsDelegate.targetPreferredWidth)
+                    to: wsDelegate.targetPreferredWidth
                 }
-
-                onTargetPreferredWidthChanged: preferredWidthSpring.retarget(targetPreferredWidth)
                 // Square, flush buttons; rounding avoids stray 1px seams.
                 antialiasing: false
 
@@ -167,7 +163,7 @@ Rectangle {
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: modelData.activate()
+                    onClicked: wsDelegate.modelData.activate()
                 }
             }
         }
@@ -219,9 +215,8 @@ Rectangle {
         WorkspaceFrameSpring {
             id: focusedLocalXSpring
             group: sharedSprings
-            Component.onCompleted: snapTo(selection.focusedTargetLocalX)
+            to: selection.focusedTargetLocalX
         }
-        onFocusedTargetLocalXChanged: focusedLocalXSpring.retarget(focusedTargetLocalX)
 
         // row.x mirrored through its own spring rather than read live.
         // row.x is a plain RowLayout-managed geometry property — it snaps
@@ -240,9 +235,8 @@ Rectangle {
         WorkspaceFrameSpring {
             id: rowXOffsetSpring
             group: sharedSprings
-            Component.onCompleted: snapTo(selection.rowTargetXOffset)
+            to: selection.rowTargetXOffset
         }
-        onRowTargetXOffsetChanged: rowXOffsetSpring.retarget(rowTargetXOffset)
 
         // Math.round() on both x and width — see root's own implicitWidth
         // above for why (non-antialiased edge + continuously-varying
@@ -255,9 +249,8 @@ Rectangle {
         WorkspaceFrameSpring {
             id: selectionWidthSpring
             group: sharedSprings
-            Component.onCompleted: snapTo(selection.targetSelectionWidth)
+            to: selection.targetSelectionWidth
         }
-        onTargetSelectionWidthChanged: selectionWidthSpring.retarget(targetSelectionWidth)
         width: Math.round(selectionWidthSpring.value)
     }
 
@@ -269,7 +262,7 @@ Rectangle {
     Repeater {
         model: Hyprland.workspaces
 
-        delegate: Text {
+        delegate: StyledText {
             id: wsLabel
             required property var modelData
             required property int index
@@ -278,14 +271,11 @@ Rectangle {
             // reading repeater.count (a real NOTIFY property) keeps this live.
             readonly property var bgItem: repeater.count > index ? repeater.itemAt(index) : null
 
-            renderType: Text.NativeRendering
             visible: bgItem ? bgItem.visible : false
             x: bgItem ? row.x + bgItem.x + (bgItem.width - implicitWidth) / 2 : 0
             y: bgItem ? row.y + bgItem.y + (bgItem.height - implicitHeight) / 2 : 0
             text: modelData.name
             color: modelData.focused ? Theme.accentText : Theme.workspaceEmptyText
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSize
             font.bold: modelData.focused || (bgItem && bgItem.activeOnThisScreen)
         }
     }

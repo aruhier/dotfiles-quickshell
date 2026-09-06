@@ -1,40 +1,33 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Widgets
 import Quickshell.Services.SystemTray
-import "../shared"
-import "../shared/animations"
-import "../shared/popup"
+import qs.shared
+import qs.shared.popup
 
 // System tray.
-Item {
+BarModule {
     id: root
 
-    // 6px padding on each side, matching every other module's horizontal
-    // padding.
-    readonly property real targetWidth: row.implicitWidth + 12
-    implicitWidth: widthSpring.value
-    implicitHeight: Theme.barHeight
-    clip: true
+    contentWidth: row.implicitWidth
 
-    // Currently-hovered delegate Item, or null. One Tooltip PopupWindow is
-    // shared across every tray icon instead of each delegate owning its
-    // own — a PopupWindow is a real compositor surface, and only one can
-    // ever be shown at a time anyway (MouseAreas don't overlap), so N-1 of
-    // them just sat there idle for the process lifetime.
+    // One Tooltip PopupWindow is shared across every tray icon instead of
+    // each delegate owning its own — a PopupWindow is a real compositor
+    // surface, and only one can ever be shown at a time anyway (MouseAreas
+    // don't overlap), so N-1 of them just sat there idle for the process
+    // lifetime.
+    //
+    // Two properties, not one, because the tooltip needs two unrelated
+    // things: the delegate *Item* to anchor the popup under, and the
+    // *SystemTrayItem* to read a label off. Reaching the latter through the
+    // former (`hoveredIcon.modelData`) meant reading a delegate's required
+    // property through an `Item`-typed handle — which no type checker can
+    // verify, and which silently returns undefined the moment a delegate
+    // stops declaring it.
     property Item hoveredIcon: null
-
-    // FrameSpring, not Behavior/WidthSpring — see Submap.qml's FrameSpring
-    // for why (Behavior-based SpringAnimation is throttled to Qt Quick's
-    // shared ~60Hz GUI-thread clock regardless of the output's real refresh
-    // rate).
-    FrameSpring {
-        id: widthSpring
-        Component.onCompleted: snapTo(root.targetWidth)
-    }
-
-    onTargetWidthChanged: widthSpring.retarget(targetWidth)
+    property SystemTrayItem hoveredItem: null
 
     RowLayout {
         id: row
@@ -63,10 +56,13 @@ Item {
                     hoverEnabled: true
                     acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
                     onContainsMouseChanged: {
-                        if (containsMouse)
+                        if (containsMouse) {
                             root.hoveredIcon = trayIcon;
-                        else if (root.hoveredIcon === trayIcon)
+                            root.hoveredItem = trayIcon.modelData;
+                        } else if (root.hoveredIcon === trayIcon) {
                             root.hoveredIcon = null;
+                            root.hoveredItem = null;
+                        }
                     }
                     onClicked: (mouse) => {
                         if (mouse.button === Qt.LeftButton) {
@@ -95,8 +91,10 @@ Item {
                 // quits while its tooltip is showing) leaving root.hoveredIcon
                 // pointing at a destroyed delegate.
                 Component.onDestruction: {
-                    if (root.hoveredIcon === trayIcon)
+                    if (root.hoveredIcon === trayIcon) {
                         root.hoveredIcon = null;
+                        root.hoveredItem = null;
+                    }
                 }
             }
         }
@@ -116,7 +114,7 @@ Item {
             show: root.hoveredIcon !== null
             // `title` first: some apps report garbage in their SNI tooltip
             // text; `title` is reliably clean.
-            text: root.hoveredIcon ? (root.hoveredIcon.modelData.title || root.hoveredIcon.modelData.tooltipTitle || root.hoveredIcon.modelData.id) : ""
+            text: root.hoveredItem ? (root.hoveredItem.title || root.hoveredItem.tooltipTitle || root.hoveredItem.id) : ""
         }
     }
 }

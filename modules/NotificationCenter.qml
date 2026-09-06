@@ -1,8 +1,7 @@
+pragma ComponentBehavior: Bound
 import QtQuick
-import Quickshell
-import "../services"
-import "../shared"
-import "../shared/animations"
+import qs.services
+import qs.shared
 
 // Notification-center indicator + toggle. The actual daemon, popup stack,
 // and control-center panel live in services/NotificationService.qml and
@@ -12,7 +11,7 @@ import "../shared/animations"
 // indicator was clicked, see `screen` below); this is just a thin
 // per-output view, same shape as the old swaync-client indicator it
 // replaces.
-Item {
+BarModule {
     id: root
 
     // Which output this bar instance (and thus this indicator) is on —
@@ -37,34 +36,18 @@ Item {
         "dnd-none": "#9c9ca4"
     })
 
-    readonly property real targetWidth: label.implicitWidth + 12
-    implicitWidth: widthSpring.value
-    implicitHeight: Theme.barHeight
-    clip: true
-
-    // FrameSpring, not Behavior/WidthSpring — see Submap.qml's FrameSpring
-    // for why (Behavior-based SpringAnimation is throttled to Qt Quick's
-    // shared ~60Hz GUI-thread clock regardless of the output's real refresh
-    // rate).
-    FrameSpring {
-        id: widthSpring
-        Component.onCompleted: snapTo(root.targetWidth)
-    }
-
-    onTargetWidthChanged: widthSpring.retarget(targetWidth)
+    contentWidth: label.implicitWidth
 
     // Icon vertical nudge / size bias — see Mpd.qml.
     readonly property real iconVerticalOffset: 0
     readonly property real iconSizeRatio: 0.9
 
-    Text {
-        renderType: Text.NativeRendering
+    Icon {
         id: label
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
         anchors.verticalCenterOffset: root.iconVerticalOffset
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.iconSize(root.iconSizeRatio)
+        sizeRatio: root.iconSizeRatio
         color: root.iconColors[root.alt] || Theme.groupText
         text: root.icons[root.alt] || root.icons["none"]
     }

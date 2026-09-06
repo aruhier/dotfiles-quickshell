@@ -1,7 +1,7 @@
+pragma ComponentBehavior: Bound
 import QtQuick
-import Quickshell
-import Quickshell.Widgets
-import ".."
+import qs.shared
+import qs.shared.popup
 
 // Small reusable hover tooltip anchored below a bar module.
 AnchoredPopupWindow {
@@ -23,8 +23,7 @@ AnchoredPopupWindow {
         border.width: 1
         radius: 6
 
-        Text {
-            renderType: Text.NativeRendering
+        StyledText {
             id: label
             anchors.fill: parent
             anchors.margins: 10
@@ -32,7 +31,6 @@ AnchoredPopupWindow {
             textFormat: Text.RichText
             wrapMode: Text.WordWrap
             color: Theme.groupText
-            font.family: Theme.fontFamily
             font.pixelSize: Theme.fontSize
         }
     }

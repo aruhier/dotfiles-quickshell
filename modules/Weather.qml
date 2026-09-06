@@ -1,17 +1,17 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
-import "../services"
-import "../shared"
-import "../shared/animations"
-import "../shared/popup"
+import qs.services
+import qs.shared
+import qs.shared.popup
 import "../shared/WeatherIcons.js" as WeatherIcons
 
 // Native weather widget: bar icon+temperature plus its own popup (current +
 // hourly/daily forecast). The Open-Meteo fetch/geolocation/refresh-timer
 // lives in services/WeatherService.qml (singleton, one fetch cycle for the
 // whole process); this is just a view over that shared state.
-Item {
+BarModule {
     id: root
 
     readonly property var current: WeatherService.current
@@ -22,27 +22,9 @@ Item {
     readonly property string locationName: WeatherService.locationName
 
     readonly property bool hasContent: WeatherService.hasContent
-    // Not read back through `visible` (root has no `visible` binding of its
-    // own) — see Mpd.qml's `contentVisible` for why that pattern is unsafe
-    // in general (Loader/visible deadlock); this just names the same signal
-    // Bar.qml's Loaders look for.
-    readonly property bool contentVisible: hasContent
 
-    readonly property real targetWidth: hasContent ? content.implicitWidth + 12 : 0
-    implicitWidth: widthSpring.value
-    implicitHeight: Theme.barHeight
-    clip: true
-
-    // FrameSpring, not Behavior/WidthSpring — see Submap.qml's FrameSpring
-    // for why (Behavior-based SpringAnimation is throttled to Qt Quick's
-    // shared ~60Hz GUI-thread clock regardless of the output's real refresh
-    // rate).
-    FrameSpring {
-        id: widthSpring
-        Component.onCompleted: snapTo(root.targetWidth)
-    }
-
-    onTargetWidthChanged: widthSpring.retarget(targetWidth)
+    contentVisible: hasContent
+    contentWidth: hasContent ? content.implicitWidth : 0
 
     // Icon vertical nudge / size bias — see Mpd.qml. Only the bar glyph
     // uses this; popup forecast icons use their own hardcoded sizes.
@@ -79,23 +61,17 @@ Item {
         anchors.centerIn: parent
         spacing: 6
 
-        Text {
-            renderType: Text.NativeRendering
+        Icon {
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.iconSize(root.iconSizeRatio)
-            color: Theme.groupText
+            sizeRatio: root.iconSizeRatio
             text: root.current ? WeatherIcons.iconFor(root.current.code, root.current.isDay) : root.errored ? "?" : ""
         }
 
-        Text {
+        StyledText {
             id: label
-            renderType: Text.NativeRendering
             anchors.verticalCenter: parent.verticalCenter
             visible: root.current !== null
-            font.family: Theme.fontFamily
-            font.pixelSize: Theme.fontSize
             color: Theme.groupText
             text: root.current ? root.displayTemp(root.current.tempC) : ""
         }
@@ -136,25 +112,21 @@ Item {
                     spacing: 12
                     visible: root.current !== null
 
-                    Text {
-                        renderType: Text.NativeRendering
+                    Icon {
                         text: root.current ? WeatherIcons.iconFor(root.current.code, root.current.isDay) : ""
-                        font.family: Theme.fontFamily
                         font.pixelSize: 40
                         color: root.current ? root.tempColor(root.current.tempC) : Theme.textBright
                     }
 
                     ColumnLayout {
                         spacing: 0
-                        Text {
-                            renderType: Text.NativeRendering
+                        StyledText {
                             text: root.current ? root.displayTemp(root.current.tempC) : ""
                             font.pixelSize: 26
                             font.bold: true
                             color: Theme.textBright
                         }
-                        Text {
-                            renderType: Text.NativeRendering
+                        StyledText {
                             text: root.current ? WeatherIcons.descriptionFor(root.current.code) : ""
                             font.pixelSize: 12
                             color: Theme.text
@@ -168,22 +140,19 @@ Item {
                     ColumnLayout {
                         spacing: 2
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                        Text {
-                            renderType: Text.NativeRendering
+                        StyledText {
                             Layout.alignment: Qt.AlignRight
                             text: root.current ? "Feels " + root.displayTemp(root.current.feelsC) : ""
                             font.pixelSize: 12
                             color: Theme.text
                         }
-                        Text {
-                            renderType: Text.NativeRendering
+                        StyledText {
                             Layout.alignment: Qt.AlignRight
                             text: root.daily.length ? root.displayTemp(root.daily[0].maxC) + " / " + root.displayTemp(root.daily[0].minC) : ""
                             font.pixelSize: 12
                             color: Theme.text
                         }
-                        Text {
-                            renderType: Text.NativeRendering
+                        StyledText {
                             Layout.alignment: Qt.AlignRight
                             text: root.current ? root.current.humidity + "% hum · " + Math.round(root.current.windKmh) + " km/h" : ""
                             font.pixelSize: 11
@@ -193,8 +162,7 @@ Item {
                     }
                 }
 
-                Text {
-                    renderType: Text.NativeRendering
+                StyledText {
                     Layout.fillWidth: true
                     visible: root.current === null
                     text: root.loading ? "Fetching weather…" : "Weather unavailable — click to retry"
@@ -224,6 +192,9 @@ Item {
                         // WeatherService has data (i.e. always).
                         model: popup.visible ? root.hourly : []
                         delegate: ColumnLayout {
+                            id: hourCell
+                            required property var modelData
+
                             // maximumWidth must be overridden or fillWidth
                             // does nothing: QtQuick.Layouts auto-clamps a
                             // nested Layout's maximumWidth to its own
@@ -231,25 +202,21 @@ Item {
                             Layout.fillWidth: true
                             Layout.maximumWidth: Number.POSITIVE_INFINITY
                             spacing: 3
-                            Text {
-                                renderType: Text.NativeRendering
+                            StyledText {
                                 Layout.alignment: Qt.AlignHCenter
-                                text: Qt.formatTime(new Date(modelData.time), "HH:mm")
+                                text: Qt.formatTime(new Date(hourCell.modelData.time), "HH:mm")
                                 font.pixelSize: 10
                                 color: Theme.text
                             }
-                            Text {
-                                renderType: Text.NativeRendering
+                            Icon {
                                 Layout.alignment: Qt.AlignHCenter
-                                text: WeatherIcons.iconFor(modelData.code, modelData.isDay)
-                                font.family: Theme.fontFamily
+                                text: WeatherIcons.iconFor(hourCell.modelData.code, hourCell.modelData.isDay)
                                 font.pixelSize: 16
-                                color: root.tempColor(modelData.tempC)
+                                color: root.tempColor(hourCell.modelData.tempC)
                             }
-                            Text {
-                                renderType: Text.NativeRendering
+                            StyledText {
                                 Layout.alignment: Qt.AlignHCenter
-                                text: root.displayTemp(modelData.tempC)
+                                text: root.displayTemp(hourCell.modelData.tempC)
                                 font.pixelSize: 11
                                 color: Theme.textBright
                             }
@@ -273,28 +240,28 @@ Item {
                     Repeater {
                         model: popup.visible ? root.daily : []
                         delegate: RowLayout {
+                            id: dayRow
+                            required property var modelData
+                            required property int index
+
                             Layout.fillWidth: true
                             spacing: 8
 
-                            Text {
-                                renderType: Text.NativeRendering
+                            StyledText {
                                 Layout.preferredWidth: 56
-                                text: root.dayLabel(modelData.date, index)
+                                text: root.dayLabel(dayRow.modelData.date, dayRow.index)
                                 font.pixelSize: 12
                                 color: Theme.text
                             }
-                            Text {
-                                renderType: Text.NativeRendering
+                            Icon {
                                 Layout.preferredWidth: 22
-                                text: WeatherIcons.iconFor(modelData.code, true)
-                                font.family: Theme.fontFamily
+                                text: WeatherIcons.iconFor(dayRow.modelData.code, true)
                                 font.pixelSize: 15
-                                color: root.tempColor((modelData.maxC + modelData.minC) / 2)
+                                color: root.tempColor((dayRow.modelData.maxC + dayRow.modelData.minC) / 2)
                             }
-                            Text {
-                                renderType: Text.NativeRendering
+                            StyledText {
                                 Layout.preferredWidth: 36
-                                text: modelData.pop + "%"
+                                text: dayRow.modelData.pop + "%"
                                 font.pixelSize: 11
                                 color: Theme.text
                                 opacity: 0.8
@@ -302,15 +269,13 @@ Item {
                             Item {
                                 Layout.fillWidth: true
                             }
-                            Text {
-                                renderType: Text.NativeRendering
-                                text: root.displayTemp(modelData.minC)
+                            StyledText {
+                                text: root.displayTemp(dayRow.modelData.minC)
                                 font.pixelSize: 12
                                 color: Theme.text
                             }
-                            Text {
-                                renderType: Text.NativeRendering
-                                text: root.displayTemp(modelData.maxC)
+                            StyledText {
+                                text: root.displayTemp(dayRow.modelData.maxC)
                                 font.pixelSize: 12
                                 font.bold: true
                                 color: Theme.textBright
@@ -332,8 +297,7 @@ Item {
                     visible: root.daily.length > 0
                     spacing: 10
 
-                    Text {
-                        renderType: Text.NativeRendering
+                    StyledText {
                         text: root.locationName || "Current location"
                         font.pixelSize: 10
                         color: Theme.text
@@ -341,20 +305,16 @@ Item {
                         Layout.fillWidth: true
                         elide: Text.ElideRight
                     }
-                    Text {
-                        renderType: Text.NativeRendering
+                    StyledText {
                         visible: root.daily.length > 0
                         text: WeatherIcons.glyph("sunrise") + " " + (root.daily.length ? Qt.formatTime(new Date(root.daily[0].sunrise), "HH:mm") : "")
-                        font.family: Theme.fontFamily
                         font.pixelSize: 10
                         color: Theme.text
                         opacity: 0.7
                     }
-                    Text {
-                        renderType: Text.NativeRendering
+                    StyledText {
                         visible: root.daily.length > 0
                         text: WeatherIcons.glyph("sunset") + " " + (root.daily.length ? Qt.formatTime(new Date(root.daily[0].sunset), "HH:mm") : "")
-                        font.family: Theme.fontFamily
                         font.pixelSize: 10
                         color: Theme.text
                         opacity: 0.7

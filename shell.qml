@@ -1,10 +1,12 @@
 //@ pragma UseQApplication
+//@ pragma AppId dev.aruhier.quickshell-bar
+pragma ComponentBehavior: Bound
 import Quickshell
 import Quickshell.Io
 import Quickshell.Hyprland
-import "modules"
-import "services"
-import "shared/notifications"
+import qs.modules
+import qs.services
+import qs.shared.notifications
 
 // One Bar per output, with per-monitor module layout configured below.
 ShellRoot {
@@ -94,8 +96,16 @@ ShellRoot {
     Variants {
         model: Quickshell.screens
 
+        // `bar.modelData`, not a bare `modelData`: this is a Variants
+        // delegate, and an unqualified model reference in one silently
+        // resolves against whatever ambient context happens to be in scope
+        // rather than the delegate's own property (see AGENT.md — it cost
+        // real debugging time once already, in ModuleLoader). The id makes
+        // it unambiguous, and `pragma ComponentBehavior: Bound` above turns
+        // the ambiguous form into a compile error rather than wrong data.
         Bar {
-            layout: root.layoutFor(modelData.name)
+            id: bar
+            layout: root.layoutFor(bar.modelData.name)
         }
     }
 

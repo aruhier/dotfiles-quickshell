@@ -1,7 +1,7 @@
+pragma ComponentBehavior: Bound
 import QtQuick
-import Quickshell
-import Quickshell.Widgets
-import ".."
+import qs.shared
+import qs.shared.popup
 
 // Base type for a hover-triggered popup anchored below a bar module. Adds
 // the background chrome, the show/hide grace timer, and PopupCoordinator

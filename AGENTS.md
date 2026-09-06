@@ -17,6 +17,15 @@ The visual spec lives in the code itself:
 
 ## Layout
 
+All cross-file imports go through Quickshell's synthesised `qs` module
+(`import qs.shared`, `import qs.services`, `import qs.shared.animations`, …),
+which is rooted at this config directory — not relative-path imports like
+`import "../shared"`. A file that uses a type from its *own* directory imports
+that directory too, even though QML would resolve it implicitly: without the
+explicit import `scripts/lint.sh` can't tell a `pragma Singleton` from a type
+and reports every property on it as missing. Only the `.js` import in
+Weather.qml stays a relative path (JS resources have no module form here).
+
 ```
 shell.qml             Variants{ model: Quickshell.screens } → one Bar per
                       output; also owns the per-screen layout config (which
@@ -26,14 +35,28 @@ modules/Bar.qml       PanelWindow per output; left/center/right groups,
                       `layout` shell.qml hands it — no per-module or
                       per-screen special-casing lives here
 modules/*.qml         one file per bar module — thin views, no owned
-                      subprocesses/network/timers for cross-monitor state
+                      subprocesses/network/timers for cross-monitor state.
+                      Almost all of them are `BarModule`s (see below)
 services/*.qml        pragma-Singleton types holding state + the actual
                       subprocess/network I/O for anything system-wide
-                      (BacklightService, MpdService, NotificationService,
-                      WeatherService) — one poll/subscription/fetch cycle
-                      for the whole process regardless of monitor count
+                      (BacklightService, MpdService, MprisService,
+                      NotificationService, WeatherService) — one
+                      watch/subscription/fetch cycle for the whole process
+                      regardless of monitor count
 shared/Theme.qml      pragma-Singleton palette + metrics — shared
                       process-wide, not one instance per output
+shared/BarModule.qml  base type for a bar module: eased width (contentWidth +
+                      padding through a FrameSpring), bar-height sizing,
+                      clip, and the `contentVisible` flag ModuleLoader reads.
+                      A module sets `contentWidth` and its content; it must
+                      not bind implicitWidth itself. Workspaces.qml and
+                      Privacy.qml deliberately don't use it — see below
+shared/StyledText.qml every piece of text in the shell. Owns
+                      renderType/font.family/default pixelSize so none of
+                      those is a rule anyone has to remember. Colour is NOT
+                      unified (three palettes) — state it at each site
+shared/Icon.qml       StyledText sized off Theme.iconSize with a `sizeRatio`
+                      per-glyph bias. Sets no anchors on purpose
 shared/popup/         everything to do with anchored hover popups:
   HoverPopup.qml         base type for a hover-triggered popup (grace-period
                          close, PopupCoordinator registration) — Clock's
@@ -142,10 +165,12 @@ the flush screen edge may need re-tuning those margins for that edge.
 - **`.modules-center`'s pill caps are cream, fixed 15px on the container**,
   not a margin around the buttons — see `Workspaces.qml`'s `capWidth`.
 
-- **Every `Text {}` needs `renderType: Text.NativeRendering`.** The default
-  SDF renderer shows visible chromatic fringing on this machine; native
-  rendering gives crisp text. No global setting exists for this — every
-  `Text` needs it explicitly.
+- **Use `shared/StyledText.qml` / `shared/Icon.qml`, never a bare `Text {}`.**
+  The default SDF renderer shows visible chromatic fringing on this machine,
+  so every text item needs `renderType: Text.NativeRendering`, and there is no
+  global setting for it. That used to be a rule spelled out here and repeated
+  at ~65 call sites; it now lives in those two types instead. A bare `Text {}`
+  in this repo is a bug.
 
 - **`font.family` can't take a CSS-style comma fallback string.** QML only
   accepts one family; Qt fuzzy-resolves a joined string down to just the
@@ -153,7 +178,8 @@ the flush screen edge may need re-tuning those margins for that edge.
   Fix in use: `Theme.fontFamily` = `"Inter Variable"` alone, relying on
   Qt's automatic per-glyph fallback for Nerd Font icon codepoints
   (`font.families`, the correct fix, isn't registered on this Qt build's
-  Text type — retry if that ever changes).
+  Text type — retry if that ever changes). Set in `StyledText.qml`, so no
+  call site repeats it.
 
 - **`Workspaces.qml`'s button width needs a GTK-chrome allowance.**
   Formula: `Math.round(Math.max(label.implicitWidth + 18, 34))`, tuned
@@ -782,12 +808,13 @@ Backlight, Clock, Tray, Volume, NotificationCenter, Mpd, Weather,
 Privacy's `PrivacyIcon`, and Workspaces.qml's whole spring set (pill
 width, delegate width, selection indicator x/width) — plus the
 notification control-center panel's slide (the animation that started
-this whole investigation). The conversion pattern at each site: rename
-the old `implicitWidth: <expr>` binding to `readonly property real
-targetWidth: <expr>`, bind `implicitWidth: someSpring.value`, add a
-`FrameSpring { id: someSpring; Component.onCompleted:
-snapTo(root.targetWidth) }` child, and add `onTargetWidthChanged:
-someSpring.retarget(targetWidth)`. `WidthSpring.qml`/`WorkspaceSpring.qml`
+this whole investigation).
+
+The four-step conversion ritual this section originally described (bind
+`.value`, snap in `Component.onCompleted`, retarget from an `onXChanged`
+handler) is **gone** — see the `to` section below; two of its four steps
+failed silently when forgotten, which is exactly the kind of thing that
+should not be documented prose. `WidthSpring.qml`/`WorkspaceSpring.qml`
 (the old Behavior/SpringAnimation-based types) are left in place, unused
 after this rollout — not deleted, since they're a legitimate fallback if
 FrameAnimation ever turns out to have its own problem on some other
@@ -923,7 +950,7 @@ rebuilding the scene, so **wait ~6s after each edit before sampling** — an ear
 pass measured immediately after the write and produced a per-module CPU table
 that was pure reload noise (the tell: results alternated hot/cold with loop
 order). `strace -f -c` is the crispest idle check: ~90 `sendmsg`/s when
-rendering every frame, none at all when truly idle. Full write-up in INVEST.md.
+rendering every frame, none at all when truly idle.
 
 ## Battery module, ported from waybar (2026-09-05)
 
@@ -1006,12 +1033,11 @@ that almost never changes. Now:
   re-reads and fires `onLoaded` every time, even when the bytes are identical —
   so the poll handler is just `reload()` and the parse lives in `onLoaded`. No
   `blockLoading` needed; the async path already lands within a frame.
-- **Polling stays, because sysfs has no inotify.** Backlight attributes signal
-  readers through `sysfs_notify`/`poll(2)`, which `FileView.watchChanges`
-  (inotify) can't observe — a watch there simply never fires. External changes
-  (hardware keys, `brightnessctl` from a keybind) are still found by the 5s
-  tick; it's now one pseudo-file read. Confirmed by setting brightness from a
-  shell while a probe ran: picked up on the following tick.
+- **Polling stays, because sysfs has no inotify.** ~~Backlight attributes
+  signal readers through `sysfs_notify`/`poll(2)`, which
+  `FileView.watchChanges` (inotify) can't observe — a watch there simply never
+  fires.~~ **Wrong — corrected 2026-09-06, see the section at the end of this
+  file. There is no poll timer any more.**
 - **Writes still shell out to `brightnessctl`, but only on user input.** The
   sysfs node is `root:root 0644`, so an unprivileged write needs
   brightnessctl's logind/setuid helper. Called directly, argv-style — no
@@ -1035,3 +1061,165 @@ Noctalia (`src/system/brightness_service.cpp`) was read for reference — it's
 C++ now, so nothing was portable, but its device ranking was worth copying:
 prefer any device over `acpi_video*` (a mirror of another device) and
 `nvidia*` (often a stub), which is what `rank()` does.
+
+## Refactor pass against DankMaterialShell and Noctalia (2026-09-06)
+
+Both projects were re-read side by side with this repo — DMS (`/tmp/DankMaterialShell`,
+636 QML files) and Noctalia, which is now a **C++** shell (`/tmp/noctalia`, 684
+headers / 577 .cpp, meson, no QML at all), so only its design is transferable,
+never its code. Most of both is scope this bar deliberately doesn't have
+(DMS's `SettingsData` alone is 3570 lines, plus a plugin system and a widget
+registry; Noctalia ships a user-facing TOML config with a validation schema).
+What follows is what was actually worth taking.
+
+### sysfs backlight *does* emit inotify — the old note was wrong
+
+`services/BacklightService.qml` used to run a 1s `Timer` calling `reload()`,
+on the documented belief (struck through above) that `sysfs_notify`/`poll(2)`
+is invisible to inotify and `FileView.watchChanges` could therefore never fire
+on `/sys/class/backlight/*/brightness`.
+
+Noctalia's `src/system/brightness_service.cpp:945` does
+`inotify_add_watch(<device>/brightness, IN_MODIFY)` in production, which was
+reason enough to re-test rather than trust the note. Both halves confirmed on
+this machine:
+
+```
+$ inotifywait -m -e modify /sys/class/backlight/dp_aux_backlight/brightness
+  → MODIFY on every external brightnessctl write
+```
+
+and a standalone `qs -p` probe with `FileView { watchChanges: true }` on the
+same path logged `FILECHANGED` + the new value for all three external changes,
+immediately. The mechanism: `sysfs_notify()` reaches `kernfs_notify()`, which
+raises a real `FS_MODIFY` through fsnotify — so inotify sees it like any other
+file. **Fix:** `watchChanges: true` + `onFileChanged: reload()`, and
+`pollTimer` deleted. `refresh()` survives only for the post-write resync in
+`setProc.onExited`.
+
+**Lesson (a repeat of the `pw-dump` one earlier in this file):** an empirical
+"confirmed" negative can encode the wrong mechanism. The original test really
+did fail, but the write-up blamed sysfs-vs-inotify in general rather than
+whatever actually went wrong in that one probe. A second implementation doing
+the thing you wrote off as impossible is the cheapest possible signal to go
+re-run the experiment.
+
+### FrameSpring is declarative now: `to:`
+
+`FrameSpring` grew an optional `to` property. Bind it and the spring snaps to
+the initial value on creation and retargets on every change; `snapTo()`/
+`retarget()` remain for the springs that genuinely have no single resting
+expression (the toast stack's entry animation, the mpris card's
+direction-dependent slide). `NaN` is the unset sentinel — 0 would force a
+resting target of 0 on those imperative springs.
+
+Why this and not just a style note: of the four steps the old ritual needed,
+**two failed silently**. No `Component.onCompleted: snapTo(...)` and the module
+animates in from width 0 on every reload; no `onTargetWidthChanged: retarget(...)`
+and the width freezes at its startup value forever, with nothing logged either
+way.
+
+Verified before writing it that a base type's `Component.onCompleted` and a
+call site's own both run (base first, no shadowing) — that's what lets the
+imperative call sites keep their handlers while the base's is a no-op for them.
+
+### `BarModule`, `StyledText`, `Icon`
+
+Modelled on DMS's `Modules/Plugins/BasePill.qml` (every DMS bar widget is a
+`BasePill { content: Component { … } }`) and its `StyledText`/`DankIcon`.
+
+`BarModule` deliberately uses **plain inheritance, not** DMS's
+`default property alias content: <inner>.data`. DMS needs the alias because
+`BasePill` wraps content in a background + ripple + Loader; this bar has no
+such chrome, and an alias here would silently reparent each module's
+`MouseArea`/`Timer`/`PwObjectTracker` into a nested item and change what
+`anchors.fill: parent` means.
+
+Three modules don't use it, on purpose: **Workspaces.qml** rounds its spring
+output and drives five coupled springs off one `SpringGroup`; **Privacy.qml**
+springs its per-app icons rather than its own width; **Submap.qml** does use it
+but overrides `padding` and `implicitHeight` and puts its accent pill in a
+child Rectangle. A base type doesn't have to be universal.
+
+### `pragma ComponentBehavior: Bound`, everywhere
+
+DMS has it in 225 of its 636 files. It's the compiler-level guard for this
+file's worst documented bug class — an unqualified `modelData` in a delegate
+resolving to an ancestor's instead of the delegate's own, silently, with wrong
+data and no warning. Every delegate in this repo already declared its required
+properties, so the rollout was clean; `shell.qml`'s `Variants` delegate got an
+`id: bar` so its model access is qualified too.
+
+### `MprisService`
+
+~90 lines of player-selection policy (`mprisPlayers`, `mprisIndex`,
+`defaultMprisIndex()`, `prev`/`nextMprisPlayer()`, slide direction, the
+`suppressPop` flag) lived inside `NotificationCenterPanel.qml`, which had this
+repo's own services/views split backwards. Moved to `services/MprisService.qml`,
+mirroring DMS's `Services/MprisController.qml` (though ours is much thinner —
+a selection cursor over `Mpris.players`, not a media abstraction). The panel
+went 718 → 642 lines.
+
+### `scripts/lint.sh` — and why there's no formatter
+
+`qmllint` can't resolve `qs.*` imports on its own (Quickshell synthesises that
+module at runtime; there are no qmldir files on disk), so every cross-file type
+came back unknown and drowned the real findings. `scripts/lint.sh` builds a
+throwaway shim tree of qmldir files + symlinks describing the same layout,
+points qmllint at it with `-I`, and deletes it after.
+
+It found six real problems on its first runs: four unqualified accesses
+(`ModuleGroup.qml`, `Workspaces.qml`, both of `Weather.qml`'s forecast
+delegates), `Tray.qml` reading a delegate's `modelData` through an `Item`-typed
+handle (fixed by tracking the `SystemTrayItem` separately from the delegate it
+anchors to — two different things that were conflated), and
+`NotificationService.qml` reading fields off an untyped `createObject()` result
+(fixed with `as NotifWrapper`, which was already a named type). `ModuleLoader`
+also picked up `(item as Item)?.implicitWidth`.
+
+**Nothing is suppressed by category.** A first version of `.qmllint.ini`
+demoted whole categories (`MissingProperty`, `MissingType`, …) to `info` to get
+a green run — which meant a genuine missing property anywhere would have been
+downgraded to chatter, *and* left 28 lines of noise on every run, so clean and
+broken looked identical. Instead every category stays fatal and `scripts/lint.sh`
+carries an explicit list of individual known-unfixable findings, each with its
+reason (`--all` prints them). 21 are suppressed today: 19 are gaps in
+Quickshell's own qmltypes — `PanelWindowInterface` is literally
+`isCreatable: false` in `quickshell-window.qmltypes`, and `Margins`, `Edges`,
+`PopupAnchor`, `PopupAdjustment`, `QProcess::ExitStatus` and the
+`NotificationAction` list type aren't exported — and 2 are deliberate
+duck-typing (`Loader.item` in ModuleLoader, `Repeater.itemAt()` in
+NotificationPopupWindow), where the type-safe alternative would mean forcing
+every placeable module onto one base class that Workspaces shouldn't be on.
+
+Verified it still bites: injecting an unqualified `modelData` into a Weather
+delegate and a typo'd `Theme.groupTxt` into Volume made it report exactly those
+two and exit 1.
+
+`.githooks/pre-commit` runs it. **Not** enabled automatically — turn it on with
+`git config core.hooksPath .githooks`.
+
+**No formatter is wired up, deliberately.** DMS uses `qmlfmt` (not packaged
+here); Qt's own `qmlformat` disagrees with this repo's style badly enough to be
+a regression — it explodes `Bar.qml`'s deliberate one-line
+`Component { id: x; Y {} }` declarations into four-line blocks and re-indents
+object literals. Everything else in the tree already matches `qmlformat`
+output, so if it ever gains a way to leave those alone, revisit.
+
+### Considered and not done
+
+- **Dropping `MpdService` for `Quickshell.Services.Mpris`** (one fewer
+  permanent `mpc idleloop` subprocess, ~109 lines). Left alone at the user's
+  request; also note `mpd-mpris.service` is currently *inactive* on this
+  machine, so it would need enabling first, and the bar module would then show
+  any MPRIS player rather than MPD specifically.
+- **Deleting `WidthSpring.qml`/`WorkspaceSpring.qml`.** Still unreferenced, but
+  they're a deliberate documented fallback; not this pass's call to reverse.
+- **DMS's `Ref.qml` / `addRef`/`removeRef` service refcounting.** Buys nothing
+  here — Quickshell instantiates `pragma Singleton` lazily, so a service whose
+  module isn't in any screen's layout never starts in the first place.
+- **`//@ pragma Env` for Qt tunables.** DMS pins `QSG_RENDER_LOOP=threaded` and
+  friends in its `shell.qml`. Nothing here currently depends on an env var, and
+  setting one speculatively is a behaviour change that can't be justified from
+  evidence — but `shell.qml` is the right home if that ever changes.
+  `//@ pragma AppId` *was* added.
