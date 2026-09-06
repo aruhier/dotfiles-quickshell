@@ -52,7 +52,19 @@ Rectangle {
         Component.onCompleted: snapTo(root.targetWidth)
     }
 
-    onTargetWidthChanged: widthSpring.retarget(targetWidth)
+    onTargetWidthChanged: root.retargetSpring(widthSpring, targetWidth)
+
+    // Every retarget in this file goes through here rather than calling
+    // spring.retarget() directly: the shared driver below is stopped while
+    // nothing moves, so something has to wake it. retarget() only sets
+    // `running` when the new target is actually more than epsilon away, so
+    // keying the start off `spring.running` (not off "retarget was called")
+    // starts the driver exactly when there's motion to drive.
+    function retargetSpring(spring, value) {
+        spring.retarget(value);
+        if (spring.running)
+            sharedSpringDriver.running = true;
+    }
 
     // One shared clock for every spring in this file (the pill's own width
     // above, each delegate's width below, and the selection indicator's
@@ -70,23 +82,43 @@ Rectangle {
     // accumulate over, to read as visible wobble between parts that are
     // supposed to move as one. A single shared FrameAnimation restores the
     // "everyone advances by the identical dt" guarantee Qt's old shared
-    // QUnifiedTimer gave every Behavior/SpringAnimation for free. Always
-    // running rather than tracking which springs are currently active:
-    // advance() on a settled spring is a cheap no-op (early `if (!running)
-    // return`), and this module always exists on every screen anyway.
+    // QUnifiedTimer gave every Behavior/SpringAnimation for free.
+    //
+    // Started by retargetSpring() above and stopped here once every spring
+    // has settled — NOT left permanently running. It's tempting to leave it
+    // on (advance() on a settled spring really is a cheap no-op, early
+    // `if (!running) return`), but the callback's cost was never the point:
+    // a running FrameAnimation is a running QAbstractAnimation, so Qt Quick
+    // requests an update, runs polish+sync, re-renders the scene graph and
+    // swaps a buffer *every frame*, whether or not a pixel changed. Measured
+    // on eDP-1 at 90Hz: an idle bar committing ~90 frames/s and burning
+    // 7-8% of a core (QSGRenderThread + GUI thread + Mesa + the Wayland
+    // event threads), versus 0.0% with the driver stopped. See INVEST.md.
     FrameAnimation {
         id: sharedSpringDriver
-        running: true
+        running: false
         onTriggered: {
             widthSpring.advance(frameTime);
+            let anyRunning = widthSpring.running;
             for (let i = 0; i < repeater.count; i++) {
                 const delegate = repeater.itemAt(i);
-                if (delegate && delegate.preferredWidthSpring)
+                if (delegate && delegate.preferredWidthSpring) {
                     delegate.preferredWidthSpring.advance(frameTime);
+                    anyRunning = anyRunning || delegate.preferredWidthSpring.running;
+                }
             }
             rowXOffsetSpring.advance(frameTime);
             focusedLocalXSpring.advance(frameTime);
             selectionWidthSpring.advance(frameTime);
+            anyRunning = anyRunning || rowXOffsetSpring.running || focusedLocalXSpring.running || selectionWidthSpring.running;
+
+            // Polled here rather than tracked with a counter on each
+            // spring's runningChanged: a delegate destroyed mid-flight
+            // (workspace closed while its pill is still easing) would leak
+            // such a counter and pin the driver on forever, whereas this
+            // just sees one fewer running spring on the next tick.
+            if (!anyRunning)
+                running = false;
         }
     }
 
@@ -162,7 +194,7 @@ Rectangle {
                     Component.onCompleted: snapTo(wsDelegate.targetPreferredWidth)
                 }
 
-                onTargetPreferredWidthChanged: preferredWidthSpring.retarget(targetPreferredWidth)
+                onTargetPreferredWidthChanged: root.retargetSpring(preferredWidthSpring, targetPreferredWidth)
                 // Square, flush buttons; rounding avoids stray 1px seams.
                 antialiasing: false
 
@@ -230,7 +262,7 @@ Rectangle {
             standalone: false
             Component.onCompleted: snapTo(selection.focusedTargetLocalX)
         }
-        onFocusedTargetLocalXChanged: focusedLocalXSpring.retarget(focusedTargetLocalX)
+        onFocusedTargetLocalXChanged: root.retargetSpring(focusedLocalXSpring, focusedTargetLocalX)
 
         // row.x mirrored through its own spring rather than read live.
         // row.x is a plain RowLayout-managed geometry property — it snaps
@@ -251,7 +283,7 @@ Rectangle {
             standalone: false
             Component.onCompleted: snapTo(selection.rowTargetXOffset)
         }
-        onRowTargetXOffsetChanged: rowXOffsetSpring.retarget(rowTargetXOffset)
+        onRowTargetXOffsetChanged: root.retargetSpring(rowXOffsetSpring, rowTargetXOffset)
 
         // Math.round() on both x and width — see root's own implicitWidth
         // above for why (non-antialiased edge + continuously-varying
@@ -266,7 +298,7 @@ Rectangle {
             standalone: false
             Component.onCompleted: snapTo(selection.targetSelectionWidth)
         }
-        onTargetSelectionWidthChanged: selectionWidthSpring.retarget(targetSelectionWidth)
+        onTargetSelectionWidthChanged: root.retargetSpring(selectionWidthSpring, targetSelectionWidth)
         width: Math.round(selectionWidthSpring.value)
     }
 
