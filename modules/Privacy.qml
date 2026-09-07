@@ -34,6 +34,26 @@ Item {
     readonly property string micGlyph: "󰍬"
     readonly property string screenGlyph: "󱒃"
 
+    // A cast and a webcam are indistinguishable from the consumer side — both
+    // are `Stream/Input/Video` named "firefox" with no application.name — so
+    // the screen glyph keys off the portal's own Video/Source node, which
+    // exists only for the life of a cast.
+    //
+    // Limit: with both running at once the camera consumer counts as screen
+    // too. Separating them needs a PwNodeLinkTracker per consumer.
+    readonly property bool screencastPortalActive: {
+        const nodes = Pipewire.nodes.values;
+        for (let i = 0; i < nodes.length; i++) {
+            const node = nodes[i];
+            const props = node.properties || {};
+            if (props["media.class"] !== "Video/Source")
+                continue;
+            if ((node.name || "").startsWith("xdg-desktop-portal"))
+                return true;
+        }
+        return false;
+    }
+
     // One row per app currently capturing, merging its mic and screen-share
     // nodes (a video-call app doing both is one row with two glyphs, not two
     // rows). Relies on screenShareTracker above already tracking every node:
@@ -42,25 +62,39 @@ Item {
     readonly property var capturingApps: {
         const nodes = Pipewire.nodes.values;
         const apps = [];
-        const indexByName = {};
+        const indexByKey = {};
         for (let i = 0; i < nodes.length; i++) {
             const node = nodes[i];
-            const isMic = (node.type & PwNodeType.AudioInStream) === PwNodeType.AudioInStream;
             const props = node.properties || {};
-            const isScreen = props["media.class"] === "Stream/Input/Video";
+            const mediaClass = props["media.class"];
+            // Both off media.class: PwNodeType has no VideoStream member, so
+            // the screen side could never use it. Exact compare, not a prefix
+            // — a headset's always-present `Stream/Input/Audio/Internal` node
+            // must not count as a mic.
+            const isMic = mediaClass === "Stream/Input/Audio";
+            const isScreen = mediaClass === "Stream/Input/Video" && root.screencastPortalActive;
             if (!isMic && !isScreen)
                 continue;
-            const name = props["application.name"] || node.name || "Unknown";
-            if (!(name in indexByName)) {
-                indexByName[name] = apps.length;
-                apps.push({
-                    name: name,
-                    icon: props["application.icon-name"] || name,
+            // One app's streams disagree on its name: Firefox is "Firefox" on
+            // its mic stream and a lowercase "firefox", with no
+            // application.name, on its video one. Fold case so they merge.
+            const reported = props["application.name"] || "";
+            const label = reported || node.name || "Unknown";
+            const key = label.toLowerCase();
+            let app = apps[indexByKey[key]];
+            if (app === undefined) {
+                indexByKey[key] = apps.length;
+                app = {
+                    name: label,
+                    // Folded key, not the label: icon names are lowercase.
+                    icon: props["application.icon-name"] || key,
                     mic: false,
                     screen: false
-                });
+                };
+                apps.push(app);
+            } else if (reported) {
+                app.name = reported;
             }
-            const app = apps[indexByName[name]];
             if (isMic)
                 app.mic = true;
             if (isScreen)

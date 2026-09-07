@@ -296,50 +296,21 @@ Item {
     // header row's horizontal space with the summary and time. Declared after
     // mainColumn/actionsRow so it sits on top and wins the hit-test over the
     // whole-card click-to-dismiss MouseArea.
-    Rectangle {
+    CloseButton {
         anchors.top: parent.top
         anchors.right: parent.right
         anchors.margins: 6
-        width: 24
-        height: 24
-        radius: 12
-        color: NotificationTheme.bgHover
+        diameter: 24
+        // Bigger and accent-lit, unlike the group's close-all: this is the
+        // card's own affordance, not a secondary bulk action.
+        restColor: NotificationTheme.bgHover
+        hoverColor: Theme.accent
+        glyphHoverColor: "black"
+        // A pixel under the ratio, tuned before this was shared.
+        glyphSize: 12
+        interactive: card.interactive
         opacity: card.hovered && card.interactive ? 1 : 0
-        scale: closePress.value
-
-        Behavior on opacity {
-            NumberAnimation {
-                duration: 150
-            }
-        }
-
-        PressSpring {
-            id: closePress
-            pressed: closeArea.pressed
-        }
-
-        MouseArea {
-            id: closeArea
-            anchors.fill: parent
-            enabled: card.interactive
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: NotificationService.dismiss(card.wrapper)
-        }
-
-        Rectangle {
-            anchors.fill: parent
-            radius: 12
-            visible: closeArea.containsMouse
-            color: Theme.accent
-        }
-
-        StyledText {
-            anchors.centerIn: parent
-            text: "✕"
-            color: closeArea.containsMouse ? "black" : NotificationTheme.text
-            font.pixelSize: 12
-        }
+        onActivated: NotificationService.dismiss(card.wrapper)
     }
 
     // The selection border is its own top-most overlay rather than the
@@ -351,6 +322,6 @@ Item {
         radius: card.radius
         color: "transparent"
         border.width: card.selected ? 2 : 1
-        border.color: card.selected ? NotificationTheme.bgSelected : Qt.rgba(NotificationTheme.text.r, NotificationTheme.text.g, NotificationTheme.text.b, 0.1)
+        border.color: card.selected ? NotificationTheme.bgSelected : NotificationTheme.borderSubtle
     }
 }

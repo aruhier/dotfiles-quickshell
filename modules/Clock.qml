@@ -17,8 +17,11 @@ BarModule {
     readonly property real iconVerticalOffset: 1
     readonly property real iconSizeRatio: 1.0
 
+    // On the minute, not every second: the label has minute resolution. The
+    // interval binds to `now`, and writing a running Timer's interval restarts
+    // it, so each fire realigns to the next boundary instead of drifting.
     Timer {
-        interval: 1000
+        interval: 60000 - (root.now.getSeconds() * 1000 + root.now.getMilliseconds())
         running: true
         repeat: true
         onTriggered: root.now = new Date()

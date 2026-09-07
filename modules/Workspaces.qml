@@ -205,15 +205,8 @@ Rectangle {
         }
     }
 
-    // Index of the focused workspace, -1 if none.
-    readonly property int focusedIndex: {
-        const wss = Hyprland.workspaces.values;
-        for (let i = 0; i < wss.length; i++) {
-            if (wss[i].focused)
-                return i;
-        }
-        return -1;
-    }
+    // Index of the focused workspace, -1 if none — findIndex's own miss value.
+    readonly property int focusedIndex: Hyprland.workspaces.values.findIndex(ws => ws.focused)
     // repeater.count again, for the same reason as bgItem above.
     readonly property var focusedDelegate: repeater.count > 0 && focusedIndex >= 0 ? repeater.itemAt(focusedIndex) : null
 }

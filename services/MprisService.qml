@@ -23,12 +23,9 @@ QtObject {
 
     readonly property var activePlayer: players.length > 0 ? players[Math.min(index, players.length - 1)] : null
 
+    // 0 when nothing is playing, which is also findIndex's -1 clamped up.
     function defaultIndex() {
-        for (let i = 0; i < root.players.length; i++) {
-            if (root.players[i].isPlaying)
-                return i;
-        }
-        return 0;
+        return Math.max(0, root.players.findIndex(player => player.isPlaying));
     }
 
     onPlayersChanged: {

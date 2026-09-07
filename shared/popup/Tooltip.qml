@@ -17,7 +17,7 @@ AnchoredPopupWindow {
 
     Rectangle {
         anchors.fill: parent
-        color: "#1e1e1e"
+        color: Theme.popupBg
         border.color: Theme.accent
         border.width: 1
         radius: 6

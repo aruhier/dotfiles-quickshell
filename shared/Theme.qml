@@ -16,6 +16,10 @@ QtObject {
     readonly property color accent: "#6AA099"
     readonly property color accentText: "#2d2d2d"
 
+    // Hover popup and tooltip chrome: darker than the bar, bordered with
+    // `accent`, so a popup reads as a surface over it rather than part of it.
+    readonly property color popupBg: "#1e1e1e"
+
     readonly property color workspaceBg: "#9BBFBA"
     readonly property color workspaceEmptyBg: "#E5D4CE"
     readonly property color workspaceEmptyText: "#252527"

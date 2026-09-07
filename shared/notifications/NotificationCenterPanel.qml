@@ -210,7 +210,7 @@ PanelWindow {
 
             color: NotificationTheme.bgGlobal
             border.width: 1
-            border.color: Qt.rgba(NotificationTheme.text.r, NotificationTheme.text.g, NotificationTheme.text.b, 0.1)
+            border.color: NotificationTheme.borderSubtle
             topLeftRadius: NotificationTheme.controlCenterRadius
             bottomLeftRadius: NotificationTheme.controlCenterRadius
             topRightRadius: 0
@@ -358,24 +358,12 @@ PanelWindow {
                         Layout.fillWidth: true
                         spacing: 4
 
-                        StyledText {
+                        PressableIcon {
                             visible: MprisService.players.length > 1
                             text: "󰅁"
                             color: NotificationTheme.text
                             font.pixelSize: NotificationTheme.mprisControlIconSize - 4
-                            scale: prevPlayerPress.value
-
-                            PressSpring {
-                                id: prevPlayerPress
-                                pressed: prevPlayerArea.pressed
-                            }
-
-                            MouseArea {
-                                id: prevPlayerArea
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: MprisService.prev()
-                            }
+                            onActivated: MprisService.prev()
                         }
 
                         Rectangle {
@@ -470,24 +458,12 @@ PanelWindow {
                             }
                         }
 
-                        StyledText {
+                        PressableIcon {
                             visible: MprisService.players.length > 1
                             text: "󰅂"
                             color: NotificationTheme.text
                             font.pixelSize: NotificationTheme.mprisControlIconSize - 4
-                            scale: nextPlayerPress.value
-
-                            PressSpring {
-                                id: nextPlayerPress
-                                pressed: nextPlayerArea.pressed
-                            }
-
-                            MouseArea {
-                                id: nextPlayerArea
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: MprisService.next()
-                            }
+                            onActivated: MprisService.next()
                         }
                     }
 

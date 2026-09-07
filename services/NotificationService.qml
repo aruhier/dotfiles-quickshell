@@ -186,13 +186,8 @@ QtObject {
         readonly property string timeStr: Qt.formatTime(time, "HH:mm")
 
         readonly property list<NotificationAction> allActions: notification ? notification.actions : []
-        readonly property NotificationAction defaultAction: {
-            for (const a of allActions) {
-                if (a.identifier === "default")
-                    return a;
-            }
-            return null;
-        }
+        // `?? null`: the property is typed, and undefined is not one.
+        readonly property NotificationAction defaultAction: allActions.find(a => a.identifier === "default") ?? null
         readonly property list<NotificationAction> otherActions: allActions.filter(a => a.identifier !== "default")
 
         readonly property Timer timer: Timer {

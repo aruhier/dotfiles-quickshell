@@ -5,7 +5,6 @@ import Quickshell
 import Quickshell.Widgets
 import qs.shared
 import qs.services
-import qs.shared.animations
 import qs.shared.notifications
 
 // One row of the control-center list: a per-app group, mirroring swaync's
@@ -82,7 +81,7 @@ Item {
                 // read as stacked cards rather than disappear into the panel.
                 color: NotificationTheme.bgHover
                 border.width: 1
-                border.color: Qt.rgba(NotificationTheme.text.r, NotificationTheme.text.g, NotificationTheme.text.b, 0.1)
+                border.color: NotificationTheme.borderSubtle
             }
         }
 
@@ -107,49 +106,12 @@ Item {
         }
 
         // Close-all, revealed on hover like swaync's.
-        Rectangle {
-            width: 18
-            height: 18
-            radius: 9
+        CloseButton {
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.margins: 8
-            color: "black"
             opacity: collapsedStack.hovered ? 1 : 0
-            scale: closeAllPress.value
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 150
-                }
-            }
-
-            PressSpring {
-                id: closeAllPress
-                pressed: closeAllArea.pressed
-            }
-
-            MouseArea {
-                id: closeAllArea
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: NotificationService.dismissGroup(root.group)
-            }
-
-            Rectangle {
-                anchors.fill: parent
-                radius: 9
-                visible: closeAllArea.containsMouse
-                color: "#1e1e1e"
-            }
-
-            StyledText {
-                anchors.centerIn: parent
-                text: "✕"
-                color: NotificationTheme.text
-                font.pixelSize: 10
-            }
+            onActivated: NotificationService.dismissGroup(root.group)
         }
     }
 
@@ -197,58 +159,15 @@ Item {
             }
 
             // Collapse button.
-            StyledText {
+            PressableIcon {
                 text: "󰅃"
                 color: NotificationTheme.text
                 font.pixelSize: NotificationTheme.fontSize + 4
-                scale: collapsePress.value
-
-                PressSpring {
-                    id: collapsePress
-                    pressed: collapseArea.pressed
-                }
-
-                MouseArea {
-                    id: collapseArea
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: NotificationService.setGroupExpanded(root.group.key, false)
-                }
+                onActivated: NotificationService.setGroupExpanded(root.group.key, false)
             }
 
-            Rectangle {
-                Layout.preferredWidth: 18
-                Layout.preferredHeight: 18
-                radius: 9
-                color: "black"
-                scale: expandedCloseAllPress.value
-
-                PressSpring {
-                    id: expandedCloseAllPress
-                    pressed: expandedCloseAllArea.pressed
-                }
-
-                MouseArea {
-                    id: expandedCloseAllArea
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: NotificationService.dismissGroup(root.group)
-                }
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: 9
-                    visible: expandedCloseAllArea.containsMouse
-                    color: "#1e1e1e"
-                }
-
-                StyledText {
-                    anchors.centerIn: parent
-                    text: "✕"
-                    color: NotificationTheme.text
-                    font.pixelSize: 10
-                }
+            CloseButton {
+                onActivated: NotificationService.dismissGroup(root.group)
             }
         }
 

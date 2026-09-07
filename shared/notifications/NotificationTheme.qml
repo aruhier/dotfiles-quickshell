@@ -25,6 +25,9 @@ QtObject {
     readonly property color borderNotification: Qt.rgba(80 / 255, 80 / 255, 80 / 255, 1)
     readonly property color text: "#f5edec"
     readonly property color textDisabled: Qt.rgba(245 / 255, 237 / 255, 236 / 255, 0.5)
+    // Hairline outline on a card, a peeking group layer and the panel: the
+    // text colour at 10%, so it reads as an edge rather than a drawn line.
+    readonly property color borderSubtle: Qt.rgba(text.r, text.g, text.b, 0.1)
 
     readonly property int cardRadius: 10
     readonly property int controlCenterRadius: 12
