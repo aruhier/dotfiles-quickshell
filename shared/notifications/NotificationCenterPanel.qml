@@ -77,8 +77,9 @@ PanelWindow {
     onVisibleChanged: if (visible) {
         focusScope.forceActiveFocus();
         // Pre-select the first row on every open, rather than carrying a
-        // stale index over or needing an extra keypress before Up/Down works.
-        focusScope.selectedIndex = NotificationService.notificationGroups.length > 0 ? 0 : -1;
+        // stale selection over or needing an extra keypress before Up/Down
+        // works.
+        focusScope.selectedKey = NotificationService.notificationGroups.length > 0 ? NotificationService.notificationGroups[0].key : "";
     }
 
     // Click-outside-to-close.
@@ -93,17 +94,32 @@ PanelWindow {
         focus: true
         Keys.onEscapePressed: NotificationService.closeCenter()
 
-        // Keyboard selection into NotificationService.notificationGroups; -1
-        // means nothing selected, only reachable once the list empties out
-        // from under a selection. Up/Down move it, Return/Enter fire the row's
-        // action, Delete/Backspace dismiss it.
-        property int selectedIndex: -1
+        // Keyboard selection into NotificationService.notificationGroups, held
+        // as the selected group's key rather than its row index: the list
+        // re-sorts under the selection whenever a notification arrives, since
+        // a group jumps to the position of its newest member. Keyed by index,
+        // the highlight stayed put and silently came to mean a *different*
+        // group — a new notification from another app moved the selection off
+        // the row the user had picked and onto the newcomer. "" means nothing
+        // selected, only reachable once the list empties out. Up/Down move it,
+        // Return/Enter fire the row's action, Delete/Backspace dismiss it.
+        property string selectedKey: ""
 
-        function clampSelection() {
-            const len = NotificationService.notificationGroups.length;
-            if (focusScope.selectedIndex >= len)
-                focusScope.selectedIndex = len - 1;
+        readonly property int selectedIndex: {
+            const groups = NotificationService.notificationGroups;
+            for (let i = 0; i < groups.length; i++) {
+                if (groups[i].key === focusScope.selectedKey)
+                    return i;
+            }
+            return -1;
         }
+
+        // Where the selection last sat, so dismissing the selected group lands
+        // it on whatever slid up into that row rather than dropping it — the
+        // behaviour the old index clamp gave for free.
+        property int lastSelectedIndex: 0
+        onSelectedIndexChanged: if (focusScope.selectedIndex >= 0)
+            focusScope.lastSelectedIndex = focusScope.selectedIndex
 
         // Covers dismissal from any source, not just the key handler below:
         // the list can shrink out from under a keyboard selection whenever the
@@ -111,24 +127,25 @@ PanelWindow {
         Connections {
             target: NotificationService
             function onNotificationsChanged() {
-                focusScope.clampSelection();
+                if (focusScope.selectedIndex >= 0)
+                    return;
+                const groups = NotificationService.notificationGroups;
+                focusScope.selectedKey = groups.length === 0 ? "" : groups[Math.min(focusScope.lastSelectedIndex, groups.length - 1)].key;
             }
         }
 
-        Keys.onUpPressed: {
-            if (NotificationService.notificationGroups.length === 0)
+        function moveSelection(delta) {
+            const groups = NotificationService.notificationGroups;
+            if (groups.length === 0)
                 return;
-            focusScope.selectedIndex = focusScope.selectedIndex <= 0 ? 0 : focusScope.selectedIndex - 1;
-            notificationListView.positionViewAtIndex(focusScope.selectedIndex, ListView.Contain);
+            // From no selection, either direction lands on the first row.
+            const next = focusScope.selectedIndex < 0 ? 0 : Math.max(0, Math.min(focusScope.selectedIndex + delta, groups.length - 1));
+            focusScope.selectedKey = groups[next].key;
+            notificationListView.positionViewAtIndex(next, ListView.Contain);
         }
 
-        Keys.onDownPressed: {
-            const len = NotificationService.notificationGroups.length;
-            if (len === 0)
-                return;
-            focusScope.selectedIndex = focusScope.selectedIndex < 0 ? 0 : Math.min(focusScope.selectedIndex + 1, len - 1);
-            notificationListView.positionViewAtIndex(focusScope.selectedIndex, ListView.Contain);
-        }
+        Keys.onUpPressed: focusScope.moveSelection(-1)
+        Keys.onDownPressed: focusScope.moveSelection(1)
 
         Keys.onReturnPressed: focusScope.activateSelected()
         Keys.onEnterPressed: focusScope.activateSelected()
@@ -331,7 +348,6 @@ PanelWindow {
                         delegate: NotificationGroupCard {
                             id: listCard
                             required property var modelData
-                            required property int index
                             // Not `ListView.view.width` alone: that's the
                             // full viewport, ignoring the view's own left and
                             // right margins, so cards overflowed them and got
@@ -339,7 +355,13 @@ PanelWindow {
                             // right edge.
                             width: ListView.view.width - notificationListView.leftMargin - notificationListView.rightMargin
                             group: listCard.modelData
-                            selected: focusScope.selectedIndex === listCard.index
+                            selected: focusScope.selectedKey === listCard.modelData.key
+                            // Clicking a row to expand or collapse it moves
+                            // the keyboard selection there too, so the
+                            // highlight follows the group the user is actually
+                            // working with instead of staying on whichever row
+                            // Up/Down last visited.
+                            onSelectRequested: focusScope.selectedKey = listCard.modelData.key
                         }
                     }
                 }

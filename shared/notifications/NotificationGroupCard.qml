@@ -18,6 +18,12 @@ Item {
     required property var group
     property bool selected: false
 
+    // Emitted when the user acts on this row with the mouse, so the list can
+    // move the keyboard selection here. The card doesn't know its own index
+    // and selection isn't its state to own, hence a signal rather than a
+    // write.
+    signal selectRequested
+
     readonly property int count: group.items.length
     readonly property bool isGroup: count > 1
     // notificationGroups walks a newest-first list and appends same-app
@@ -31,7 +37,13 @@ Item {
     readonly property int peekCount: Math.min(count - 1, 2)
     readonly property int peekOffset: 6
 
-    implicitHeight: !isGroup ? singleCard.implicitHeight : (expanded ? expandedColumn.implicitHeight : collapsedStack.implicitHeight)
+    // Gap between the expanded group's content and the selection ring drawn
+    // around it. Reserved unconditionally (see expandedColumn's margins), so
+    // the ring lands on this row's full width — exactly where the collapsed
+    // stack's and a single card's own selection border sits.
+    readonly property int selectionOutset: 6
+
+    implicitHeight: !isGroup ? singleCard.implicitHeight : (expanded ? expandedColumn.implicitHeight + root.selectionOutset * 2 : collapsedStack.implicitHeight)
 
     // ---- single notification: no group chrome at all ----
     NotificationCard {
@@ -102,7 +114,10 @@ Item {
         MouseArea {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
-            onClicked: NotificationService.setGroupExpanded(root.group.key, true)
+            onClicked: {
+                root.selectRequested();
+                NotificationService.setGroupExpanded(root.group.key, true);
+            }
         }
 
         // Close-all, revealed on hover like swaync's.
@@ -116,27 +131,18 @@ Item {
     }
 
     // ---- 2+, expanded: header + every individual card ----
-    // Selection highlight for the group as a whole: individual rows inside it
-    // are never keyboard-selectable on their own.
-    Rectangle {
-        visible: root.isGroup && root.expanded && root.selected
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: expandedColumn.top
-        anchors.bottom: expandedColumn.bottom
-        anchors.topMargin: -6
-        anchors.bottomMargin: -6
-        radius: NotificationTheme.cardRadius
-        color: "transparent"
-        border.width: 2
-        border.color: NotificationTheme.bgSelected
-    }
-
     ColumnLayout {
         id: expandedColumn
         visible: root.isGroup && root.expanded
         anchors.left: parent.left
         anchors.right: parent.right
+        anchors.top: parent.top
+        // Inset all round by the selection ring's outset, whether or not this
+        // group is the selected one, so moving the selection onto a row never
+        // shifts its contents or the rows below it.
+        anchors.leftMargin: root.selectionOutset
+        anchors.rightMargin: root.selectionOutset
+        anchors.topMargin: root.selectionOutset
         spacing: 6
 
         RowLayout {
@@ -163,7 +169,10 @@ Item {
                 text: "󰅃"
                 color: NotificationTheme.text
                 font.pixelSize: NotificationTheme.fontSize + 4
-                onActivated: NotificationService.setGroupExpanded(root.group.key, false)
+                onActivated: {
+                    root.selectRequested();
+                    NotificationService.setGroupExpanded(root.group.key, false);
+                }
             }
 
             CloseButton {
@@ -182,5 +191,25 @@ Item {
                 floating: false
             }
         }
+    }
+
+    // Selection highlight for the group as a whole: individual rows inside it
+    // are never keyboard-selectable on their own.
+    //
+    // Declared last so it paints over expandedColumn, and outset from it on
+    // every side. Underneath and flush, as it was, the ring survived only in
+    // the gaps between cards: each card's own opaque background and hairline
+    // border sit at exactly the same left and right edges and covered the ring
+    // wherever a card spanned it, so a selected expanded group read as a
+    // dashed outline rather than one box. The outset also keeps the ring clear
+    // of the header's collapse and close buttons, which it used to run under.
+    Rectangle {
+        visible: root.isGroup && root.expanded && root.selected
+        anchors.fill: expandedColumn
+        anchors.margins: -root.selectionOutset
+        radius: NotificationTheme.cardRadius
+        color: "transparent"
+        border.width: 2
+        border.color: NotificationTheme.bgSelected
     }
 }
