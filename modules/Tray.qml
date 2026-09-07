@@ -13,19 +13,15 @@ BarModule {
 
     contentWidth: row.implicitWidth
 
-    // One Tooltip PopupWindow is shared across every tray icon instead of
-    // each delegate owning its own — a PopupWindow is a real compositor
-    // surface, and only one can ever be shown at a time anyway (MouseAreas
-    // don't overlap), so N-1 of them just sat there idle for the process
-    // lifetime.
+    // One Tooltip shared across every tray icon rather than one per delegate:
+    // a PopupWindow is a real compositor surface, and only one can be shown at
+    // a time anyway since the MouseAreas don't overlap.
     //
-    // Two properties, not one, because the tooltip needs two unrelated
-    // things: the delegate *Item* to anchor the popup under, and the
-    // *SystemTrayItem* to read a label off. Reaching the latter through the
-    // former (`hoveredIcon.modelData`) meant reading a delegate's required
-    // property through an `Item`-typed handle — which no type checker can
-    // verify, and which silently returns undefined the moment a delegate
-    // stops declaring it.
+    // Two properties, because the tooltip needs two unrelated things: the
+    // delegate *Item* to anchor under, and the *SystemTrayItem* to read a
+    // label off. Reaching the latter through the former
+    // (`hoveredIcon.modelData`) would mean reading a required property through
+    // an Item-typed handle, which no type checker can verify.
     property Item hoveredIcon: null
     property SystemTrayItem hoveredItem: null
 
@@ -51,7 +47,6 @@ BarModule {
                 }
 
                 MouseArea {
-                    id: hover
                     anchors.fill: parent
                     hoverEnabled: true
                     acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
@@ -87,9 +82,8 @@ BarModule {
                     anchor.gravity: Edges.Bottom | Edges.Right
                 }
 
-                // Guard against a tray icon disappearing mid-hover (app
-                // quits while its tooltip is showing) leaving root.hoveredIcon
-                // pointing at a destroyed delegate.
+                // An app quitting while its tooltip shows would otherwise
+                // leave hoveredIcon pointing at a destroyed delegate.
                 Component.onDestruction: {
                     if (root.hoveredIcon === trayIcon) {
                         root.hoveredIcon = null;
@@ -101,11 +95,9 @@ BarModule {
     }
 
     // LazyLoader, not Loader: Tooltip is a PopupWindow, not an Item — see
-    // Clock.qml's popupLoader for the rationale (a real GPU-backed window
-    // otherwise kept alive for the process lifetime after first use).
-    // Simpler than Clock's/Weather's: Tooltip has no close grace period
-    // (HoverPopup.qml's comment explains why), so 'active' can just mirror
-    // 'show' directly instead of needing an onVisibleChanged teardown hook.
+    // Clock.qml's popupLoader. Simpler than Clock's and Weather's, since
+    // Tooltip has no close grace period: `active` can mirror `show` directly
+    // instead of needing an onVisibleChanged teardown hook.
     LazyLoader {
         active: root.hoveredIcon !== null
 
@@ -113,7 +105,7 @@ BarModule {
             anchorItem: root.hoveredIcon || root
             show: root.hoveredIcon !== null
             // `title` first: some apps report garbage in their SNI tooltip
-            // text; `title` is reliably clean.
+            // text.
             text: root.hoveredItem ? (root.hoveredItem.title || root.hoveredItem.tooltipTitle || root.hoveredItem.id) : ""
         }
     }

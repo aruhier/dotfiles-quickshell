@@ -7,23 +7,18 @@ import qs.shared
 import qs.shared.animations
 import qs.shared.notifications
 
-// One MPRIS "now playing" card's content — the art/title/artist/transport
-// row from NotificationCenterPanel.qml's now-playing widget, factored out so
-// that widget can render two independent instances side by side (an
-// outgoing player's content sliding out, an incoming player's content
-// sliding in during a player switch) without id collisions between their
-// two separate sets of press-spring buttons. `player` may be null (no
-// previous player yet, or no active player at all) — every binding below
-// guards for that, same as the original inline version's own
-// `panelWindow.activePlayer &&` guards.
+// One MPRIS now-playing card's content: the art/title/artist/transport row of
+// the control center's now-playing widget. Its own type so that widget can
+// render two independent instances at once — an outgoing player's content
+// sliding out beside an incoming one sliding in — without id collisions
+// between their press-spring buttons. `player` may be null (no previous
+// player, or none at all), so every binding guards for it.
 RowLayout {
     id: root
 
     required property var player
-    // False for the outgoing/peeking layer during a player-switch slide —
-    // same idea as NotificationCard.qml's own `interactive` doc comment: a
-    // copy that's on its way out shouldn't answer clicks meant for the
-    // incoming layer sliding in alongside it.
+    // False for the outgoing layer during a player-switch slide: a copy on
+    // its way out shouldn't answer clicks meant for the incoming one.
     property bool interactive: true
 
     spacing: 14
@@ -163,11 +158,6 @@ RowLayout {
                     anchors.fill: parent
                     enabled: root.interactive && root.player && root.player.loopSupported
                     cursorShape: Qt.PointingHandCursor
-                    // Inlined from the panel's old cycleLoopState() —
-                    // that operated on the single global activePlayer, but
-                    // this component renders two independent players (the
-                    // outgoing and incoming layers) so the logic now has to
-                    // work off root.player instead.
                     onClicked: {
                         if (root.player.loopState === MprisLoopState.None)
                             root.player.loopState = MprisLoopState.Playlist;

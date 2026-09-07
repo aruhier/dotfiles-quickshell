@@ -3,24 +3,18 @@ import QtQuick
 import qs.services
 import qs.shared
 
-// Notification-center indicator + toggle. The actual daemon, popup stack,
-// and control-center panel live in services/NotificationService.qml and
-// shared/notifications/ (singleton + two top-level windows shared
-// process-wide, instantiated once from shell.qml — the toast stack fixed to
-// the main screen, the control-center panel following whichever screen's
-// indicator was clicked, see `screen` below); this is just a thin
-// per-output view, same shape as the old swaync-client indicator it
-// replaces.
+// Notification-center indicator and toggle. The daemon, popup stack and
+// control-center panel live in NotificationService and shared/notifications/;
+// this is just the per-output view. Left click toggles the panel, right click
+// toggles do-not-disturb.
 BarModule {
     id: root
 
-    // Which output this bar instance (and thus this indicator) is on —
-    // passed to NotificationService.toggleCenter() so the shared panel
-    // opens on the screen actually clicked rather than always the main
-    // screen. See Bar.qml's notificationsComponent.
+    // Which output this bar (and so this indicator) is on — passed to
+    // toggleCenter() so the shared panel opens on the screen actually clicked.
+    // See Bar.qml's notificationsComponent.
     required property var screen
 
-    readonly property int count: NotificationService.count
     readonly property string alt: NotificationService.iconState
 
     readonly property var icons: ({

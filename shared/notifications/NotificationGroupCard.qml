@@ -8,16 +8,11 @@ import qs.services
 import qs.shared.animations
 import qs.shared.notifications
 
-// One row of NotificationCenterPanel.qml's list: a control-center-only
-// per-app group, mirroring swaync's notification-grouping (default on —
-// configSchema.json's notification-grouping defaults true and this repo's
-// config.json doesn't override it). A group with one notification renders
-// as a plain NotificationCard; 2+ collapse into a peeking card-stack that
-// expands, on click, into a header (app icon/name + collapse/close-all) plus
-// the individual cards — ported from SwayNotificationCenter's
-// notificationGroup/{notificationGroup,expandableGroup}.vala (vendored under
-// ~/git/github/SwayNotificationCenter). Floating popups never group this
-// way — NotificationPopupWindow.qml keeps using NotificationCard directly.
+// One row of the control-center list: a per-app group, mirroring swaync's
+// notification-grouping. A group of one renders as a plain NotificationCard;
+// 2+ collapse into a peeking card-stack that expands on click into a header
+// (app icon/name, collapse, close-all) plus the individual cards. Floating
+// popups never group this way and use NotificationCard directly.
 Item {
     id: root
 
@@ -26,15 +21,13 @@ Item {
 
     readonly property int count: group.items.length
     readonly property bool isGroup: count > 1
-    // notificationGroups builds each group by walking `notifications`
-    // (newest-first) and appending same-app entries as they're found, so
-    // items[0] is always that group's most recent notification — matches
-    // swaync's get_latest_notification()/set_icon(), which the header and
-    // single-item view below key off of.
+    // notificationGroups walks a newest-first list and appends same-app
+    // entries as it finds them, so items[0] is always the group's most recent
+    // notification — what the header and single-item view key off.
     readonly property var latest: group.items[0]
     readonly property bool expanded: root.isGroup && NotificationService.isGroupExpanded(root.group.key)
 
-    // ExpandableGroup.NUM_STACKED_NOTIFICATIONS: the front card plus up to 2
+    // swaync's NUM_STACKED_NOTIFICATIONS: the front card plus up to 2
     // peeking behind it.
     readonly property int peekCount: Math.min(count - 1, 2)
     readonly property int peekOffset: 6
@@ -73,8 +66,8 @@ Item {
             Rectangle {
                 id: peekLayer
                 required property int index
-                // Named depth, not "layer" — that shadows QQuickItem's own
-                // built-in `layer` (layer-effect) property.
+                // Named depth, not "layer": that shadows QQuickItem's own
+                // layer-effect property.
                 readonly property int depth: root.peekCount - index
 
                 anchors.left: parent.left
@@ -84,11 +77,9 @@ Item {
                 y: peekLayer.depth * root.peekOffset
                 height: frontCard.implicitHeight
                 radius: NotificationTheme.cardRadius
-                // NotificationTheme.bg (the front card's own fill) reads as
-                // near-invisible here — it's almost tone-on-tone with the
-                // panel's own bgGlobal behind it. bgHover instead, so the
-                // peeking edges actually read as cards stacked behind the
-                // front one rather than disappearing into the panel.
+                // Not the front card's own fill, which is near tone-on-tone
+                // with the panel behind it: bgHover makes the peeking edges
+                // read as stacked cards rather than disappear into the panel.
                 color: NotificationTheme.bgHover
                 border.width: 1
                 border.color: Qt.rgba(NotificationTheme.text.r, NotificationTheme.text.g, NotificationTheme.text.b, 0.1)
@@ -102,24 +93,20 @@ Item {
             wrapper: root.latest
             floating: false
             selected: root.selected
-            // The real notification's own body/close/action clicks are
-            // inert while collapsed — see NotificationCard.qml's
-            // `interactive` doc comment.
+            // Body/close/action clicks are inert while collapsed — see
+            // NotificationCard.qml's `interactive`.
             interactive: false
         }
 
-        // Click anywhere on the stack expands it — matches
-        // notificationGroup.vala's gesture handler (only reachable here
-        // since isGroup guarantees swaync's MANY state). Declared above the
-        // close-all button below so that button still wins the hit-test.
+        // Click anywhere on the stack to expand it. Declared above the
+        // close-all button so that button still wins the hit-test.
         MouseArea {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
             onClicked: NotificationService.setGroupExpanded(root.group.key, true)
         }
 
-        // Close-all — swaync only reveals this on hover of a collapsed MANY
-        // group (notificationGroup.vala's motion_controller).
+        // Close-all, revealed on hover like swaync's.
         Rectangle {
             width: 18
             height: 18
@@ -167,9 +154,8 @@ Item {
     }
 
     // ---- 2+, expanded: header + every individual card ----
-    // Selection highlight for the whole expanded group — individual rows
-    // inside it are never themselves keyboard-selectable, only the group
-    // row as a whole (see NotificationCenterPanel.qml's focusScope).
+    // Selection highlight for the group as a whole: individual rows inside it
+    // are never keyboard-selectable on their own.
     Rectangle {
         visible: root.isGroup && root.expanded && root.selected
         anchors.left: parent.left

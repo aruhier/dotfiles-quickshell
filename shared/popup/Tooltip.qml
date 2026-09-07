@@ -3,7 +3,9 @@ import QtQuick
 import qs.shared
 import qs.shared.popup
 
-// Small reusable hover tooltip anchored below a bar module.
+// Small hover tooltip anchored below a bar module. No grace-period timer,
+// unlike HoverPopup: it's plain text with nothing to move the cursor onto, so
+// it closes immediately.
 AnchoredPopupWindow {
     id: popup
 
@@ -11,12 +13,9 @@ AnchoredPopupWindow {
     property bool show: false
     property int maxWidth: 480
 
-    // No grace-period timer here (unlike Weather.qml's popup): plain text,
-    // nothing to move the cursor onto, so it should close immediately.
     visible: show && text.length > 0
 
     Rectangle {
-        id: content
         anchors.fill: parent
         color: "#1e1e1e"
         border.color: Theme.accent
@@ -36,8 +35,7 @@ AnchoredPopupWindow {
     }
 
     // Math.ceil, not round/floor: a PopupWindow's surface is integer-pixel,
-    // and rounding label metrics down clips the border's far edge by a
-    // sub-pixel sliver.
+    // and rounding label metrics down clips a sub-pixel sliver off the border.
     implicitWidth: Math.ceil(Math.min(label.implicitWidth, maxWidth) + 20)
     implicitHeight: Math.ceil(label.implicitHeight + 16)
 }

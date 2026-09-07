@@ -8,78 +8,49 @@ import qs.shared
 import qs.shared.animations
 import qs.shared.popup
 
-// Shows an icon per active privacy-sensitive capture: mic (any open
-// audio-capture stream — ideally this would also require the stream to be
-// RUNNING, not just open, but Quickshell's PwNode doesn't expose that state)
-// and screen-share.
+// An icon per active privacy-sensitive capture: mic (any open audio-capture
+// stream — ideally this would also require the stream to be RUNNING, but
+// Quickshell's PwNode doesn't expose that) and screen-share.
 //
-// Not built on PwNodeLinkTracker(node: defaultAudioSource): a hardware
-// capture device can carry idle/internal link groups with no app actually
-// recording, which made the mic icon show active with nothing capturing.
+// Not built on PwNodeLinkTracker(node: defaultAudioSource): a hardware capture
+// device can carry idle/internal link groups with nothing actually recording,
+// which showed the mic icon as active with no app capturing.
 //
-// screenShareActive needs its own PwObjectTracker: a capturing app's own
-// "Stream/Input/Video" client stream isn't one of the media classes
-// Quickshell's node.cpp hardcodes into PwNodeType, so `type` never reflects
-// it — but `properties`/`ready` populate fine once something tracks the
-// node (same as any other Pipewire node Quickshell isn't tracking by
-// default). No dedicated service for this: it's not owned I/O, just a
-// PwObjectTracker + a scan over the already-process-wide Pipewire.nodes —
-// same shape as micActive above, and this Item only exists at all on
-// screens whose layout lists `privacy`, so the tracker only runs where the
-// icon can actually show.
+// No dedicated service: this isn't owned I/O, just a tracker plus a scan over
+// the already-process-wide Pipewire.nodes — and this Item only exists on
+// screens whose layout lists `privacy`, so the tracker runs only where the
+// icon can show.
 Item {
     id: root
 
-    readonly property bool micActive: {
-        var nodes = Pipewire.nodes.values;
-        for (var i = 0; i < nodes.length; i++) {
-            if ((nodes[i].type & PwNodeType.AudioInStream) === PwNodeType.AudioInStream)
-                return true;
-        }
-        return false;
-    }
-
+    // Screen-capture streams need this tracker: an app's own
+    // "Stream/Input/Video" node isn't one of the media classes Quickshell
+    // hardcodes into PwNodeType, so `type` never reflects it — but
+    // `properties`/`ready` populate fine once something tracks the node.
     property PwObjectTracker screenShareTracker: PwObjectTracker {
         objects: Pipewire.nodes.values
     }
 
-    readonly property bool screenShareActive: {
-        var nodes = Pipewire.nodes.values;
-        for (var i = 0; i < nodes.length; i++) {
-            var node = nodes[i];
-            if (node.properties && node.properties["media.class"] === "Stream/Input/Video")
-                return true;
-        }
-        return false;
-    }
-
-    // Plain bool, not read back through `visible` — see Mpd.qml's
-    // `contentVisible` for why (Loader/visible deadlock).
-    readonly property bool contentVisible: micActive || screenShareActive
-    visible: contentVisible
-
     readonly property string micGlyph: "󰍬"
     readonly property string screenGlyph: "󱒃"
 
-    // One row per distinct app currently capturing, merging its mic and
-    // screen-share nodes together (a video-call app doing both shows one
-    // row with both glyphs, not two). Relies on screenShareTracker above
-    // already tracking every node process-wide — an untracked node's
-    // `properties` never populates regardless of media class (see AGENT.md),
-    // so this reads the same tracked nodes rather than needing a tracker of
-    // its own.
+    // One row per app currently capturing, merging its mic and screen-share
+    // nodes (a video-call app doing both is one row with two glyphs, not two
+    // rows). Relies on screenShareTracker above already tracking every node:
+    // an untracked node's `properties` never populates, whatever its media
+    // class. See AGENT.md.
     readonly property var capturingApps: {
-        var nodes = Pipewire.nodes.values;
-        var apps = [];
-        var indexByName = {};
-        for (var i = 0; i < nodes.length; i++) {
-            var node = nodes[i];
-            var isMic = (node.type & PwNodeType.AudioInStream) === PwNodeType.AudioInStream;
-            var props = node.properties || {};
-            var isScreen = props["media.class"] === "Stream/Input/Video";
+        const nodes = Pipewire.nodes.values;
+        const apps = [];
+        const indexByName = {};
+        for (let i = 0; i < nodes.length; i++) {
+            const node = nodes[i];
+            const isMic = (node.type & PwNodeType.AudioInStream) === PwNodeType.AudioInStream;
+            const props = node.properties || {};
+            const isScreen = props["media.class"] === "Stream/Input/Video";
             if (!isMic && !isScreen)
                 continue;
-            var name = props["application.name"] || node.name || "Unknown";
+            const name = props["application.name"] || node.name || "Unknown";
             if (!(name in indexByName)) {
                 indexByName[name] = apps.length;
                 apps.push({
@@ -89,7 +60,7 @@ Item {
                     screen: false
                 });
             }
-            var app = apps[indexByName[name]];
+            const app = apps[indexByName[name]];
             if (isMic)
                 app.mic = true;
             if (isScreen)
@@ -97,14 +68,25 @@ Item {
         }
         return apps;
     }
-    // Unconditional — see Mpd.qml for why gating width on the same property
-    // as `visible` breaks visibility.
+
+    readonly property bool micActive: capturingApps.some(app => app.mic)
+    readonly property bool screenShareActive: capturingApps.some(app => app.screen)
+
+    // Plain bool, not read back through `visible` — see BarModule.qml's
+    // `contentVisible` for why (Loader/visible deadlock).
+    readonly property bool contentVisible: micActive || screenShareActive
+    visible: contentVisible
+
+    // Unconditional — see BarModule.qml for why gating width on the same
+    // property as `visible` breaks visibility.
     implicitWidth: row.implicitWidth
     implicitHeight: Theme.barHeight
     clip: true
 
-    // One icon per active capture kind, each collapsing to 0 width on its
-    // own so e.g. mic-only and mic+screenshare both look right.
+    // Not BarModule: this is a per-capture-kind sub-icon inside the module,
+    // not the module itself. It collapses to zero width on its own so that
+    // mic-only and mic+screenshare both lay out right, while the module's own
+    // width just follows the row.
     component PrivacyIcon: Item {
         id: icon
         required property bool active
@@ -114,10 +96,6 @@ Item {
         implicitHeight: Theme.barHeight
         clip: true
 
-        // Not BarModule: this is a per-capture-kind sub-icon inside the
-        // module, not the module itself — it collapses to zero width on its
-        // own so mic-only and mic+screenshare both lay out right, while the
-        // module's own width just follows the row.
         FrameSpring {
             id: widthSpring
             to: icon.active ? label.implicitWidth + 8 : 0
@@ -153,9 +131,7 @@ Item {
         loader: popupLoader
     }
 
-    // LazyLoader, not Loader: see Clock.qml's popupLoader for why (same
-    // pattern — real GPU-backed window, destroyed once the close grace
-    // period elapses instead of kept alive for the process lifetime).
+    // LazyLoader, not Loader — see Clock.qml's popupLoader.
     LazyLoader {
         id: popupLoader
         active: false
@@ -192,10 +168,9 @@ Item {
                 }
 
                 Repeater {
-                    // Gated on popup.visible, not just root.capturingApps —
-                    // see Weather.qml's hourly Repeater for why (delegates
-                    // destroyed while the popup is closed rather than
-                    // staying resident for the process lifetime).
+                    // Gated on popup.visible, so delegates are destroyed while
+                    // the popup is closed rather than staying resident — see
+                    // Weather.qml's hourly Repeater.
                     model: popup.visible ? root.capturingApps : []
                     delegate: RowLayout {
                         id: appRow

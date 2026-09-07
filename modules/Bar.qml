@@ -7,21 +7,19 @@ import qs.shared
 import qs.modules
 
 // One bar instance per output. Which modules appear where is decided by
-// shell.qml (`layout`, passed in) — this file only knows how to render
+// shell.qml and passed in as `layout`; this file only knows how to render
 // whatever {left, center, right} list of module names it's handed.
 PanelWindow {
     id: barWindow
 
     required property var modelData
     required property var layout
-    screen: modelData
+    screen: barWindow.modelData
 
-    // String -> Component lookup for everything shell.qml's layouts can
-    // place. Workspaces needs this bar's own screen name (workspace
-    // filtering) and NotificationCenter needs this bar's own screen object
-    // (routing the shared notification panel to the clicked screen), so
-    // their Components are bound here rather than being bare module
-    // references.
+    // Name -> Component for everything shell.qml's layouts can place.
+    // Workspaces needs this bar's screen name (workspace filtering) and
+    // NotificationCenter its screen object (routing the shared panel to the
+    // clicked screen), so those are bound here rather than bare references.
     readonly property var moduleComponents: ({
         mpd: mpdComponent,
         submap: submapComponent,
@@ -36,8 +34,8 @@ PanelWindow {
         weather: weatherComponent
     })
 
-    // Layout arrays are plain strings (see shell.qml), so a typo'd module
-    // name would otherwise just silently render nothing via the Loader.
+    // Layout entries are plain strings, so a typo would otherwise just render
+    // nothing via the Loader.
     function componentFor(name) {
         const component = barWindow.moduleComponents[name];
         if (!component)
@@ -53,10 +51,9 @@ PanelWindow {
     Component { id: volumeComponent; Volume {} }
     Component { id: notificationsComponent; NotificationCenter { screen: barWindow.modelData } }
     Component { id: clockComponent; Clock {} }
-    // Tray/Privacy/Weather are the more expensive modules (icon textures,
-    // hover popups, network) — they only get instantiated at all when a
-    // screen's layout actually lists them, e.g. via shell.qml's
-    // `mainScreens`.
+    // Tray/Privacy/Weather are the expensive modules (icon textures, hover
+    // popups, network), so they're only instantiated on screens whose layout
+    // actually lists them.
     Component { id: trayComponent; Tray {} }
     Component { id: privacyComponent; Privacy {} }
     Component { id: weatherComponent; Weather {} }
@@ -83,10 +80,9 @@ PanelWindow {
         color: Theme.barBorder
     }
 
-    // The 22px content area above the border stripe (border is extra
-    // height below it, not an overlay).
+    // The content area above the border stripe (which is extra height below
+    // it, not an overlay).
     Item {
-        id: content
         anchors {
             top: parent.top
             left: parent.left
@@ -94,19 +90,15 @@ PanelWindow {
         }
         height: Theme.barHeight
 
-        // ---- left ----
-        // Flush against the screen edge, rounded only on the inner side —
-        // mirrors .modules-left's one-sided pill. No outer margin here
-        // since the first module's own glyph bearing already lands its ink
-        // at the right spot (unlike the right group, see below) — true for
-        // the default left order (mpd, submap); reorder with care.
+        // No outer margin on the left: the first module's own glyph bearing
+        // already lands its ink at the right spot. True for the default order
+        // (mpd, submap) — reorder with care.
         ModuleGroup {
             edge: Qt.LeftEdge
             model: barWindow.layout.left
             resolveComponent: barWindow.componentFor
         }
 
-        // ---- center ----
         RowLayout {
             anchors.centerIn: parent
             spacing: 10
@@ -117,11 +109,8 @@ PanelWindow {
             }
         }
 
-        // ---- right ----
-        // Mirror of the left group, but the outer edge needs
-        // moduleOuterMargin too: a module ending in a digit/flush glyph
-        // (e.g. Clock) has near-zero right bearing, so it needs the
-        // explicit margin to keep spacing even.
+        // The right group does need an outer margin: a module ending in a
+        // digit or flush glyph (e.g. Clock) has near-zero right bearing.
         ModuleGroup {
             edge: Qt.RightEdge
             model: barWindow.layout.right

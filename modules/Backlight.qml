@@ -3,11 +3,9 @@ import QtQuick
 import qs.services
 import qs.shared
 
-// Screen-brightness indicator. Actual /sys/class/backlight reading lives in
-// services/BacklightService.qml (singleton, one watch/read cycle for the whole
-// process regardless of monitor count); this is just a thin view over that
-// shared state. Hides itself when there's no backlight device (e.g. external
-// monitors).
+// Screen-brightness indicator — a thin view over BacklightService, which owns
+// the actual /sys/class/backlight reading. Hides itself when there's no
+// backlight device (e.g. external monitors only).
 BarModule {
     id: root
 
@@ -27,7 +25,6 @@ BarModule {
         spacing: 6
 
         StyledText {
-            id: label
             anchors.verticalCenter: parent.verticalCenter
             color: Theme.groupText
             text: Math.round(root.percent) + "%"

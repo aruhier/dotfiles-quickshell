@@ -3,19 +3,19 @@
 pragma ComponentBehavior: Bound
 import Quickshell
 import Quickshell.Io
-import Quickshell.Hyprland
 import qs.modules
 import qs.services
+import qs.shared
 import qs.shared.notifications
 
-// One Bar per output, with per-monitor module layout configured below.
+// One Bar per output, with the per-monitor module layout configured below.
 ShellRoot {
     id: root
 
-    // Which modules appear where, per output. Screens named in
-    // `mainScreens` (check names with `hyprctl monitors -j`) get
-    // `mainLayout`; every other screen gets `defaultLayout`. Module names
-    // must match a key in Bar.qml's `moduleComponents`.
+    // Which modules appear where, per output. Screens named in `mainScreens`
+    // (check names with `hyprctl monitors -j`) get `mainLayout`, every other
+    // screen gets `defaultLayout`. Module names must match a key in Bar.qml's
+    // `moduleComponents`.
     readonly property var mainScreens: ["DP-1", "eDP-1"]
 
     readonly property var mainLayout: ({
@@ -34,54 +34,32 @@ ShellRoot {
         return root.mainScreens.indexOf(screenName) !== -1 ? root.mainLayout : root.defaultLayout;
     }
 
-    function screenByName(name) {
-        const screens = Quickshell.screens;
-        for (let i = 0; i < screens.length; i++) {
-            if (screens[i].name === name)
-                return screens[i];
-        }
-        return null;
-    }
+    // Fallback screen for the shared, single-instance windows below (toast
+    // stack, control-center panel) before they have a real output to target.
+    readonly property var mainScreen: Screens.byName(root.mainScreens[0])
 
-    // Resolved ShellScreen for mainScreens[0] — fallback for the shared,
-    // single-instance UI surfaces below (toast stack, control-center panel)
-    // before they have a real screen to target of their own, same
-    // convention Tray/Privacy/Weather already follow for the one shared
-    // "expensive" surface of their subsystem.
-    readonly property var mainScreen: root.screenByName(root.mainScreens[0])
-
-    // The control-center panel is likewise a single shared surface, but
-    // (unlike the toast stack) it's click-triggered from a per-output
-    // indicator — it should open on whichever screen was actually clicked,
-    // not always the main screen. NotificationService.centerScreen tracks
-    // that (set from the clicked bar's own `screen`, not looked up by
-    // name); fall back to the main screen before the first-ever click,
-    // when it's still null.
+    // The control-center panel is a single shared surface, but it's clicked
+    // open from a per-output indicator, so it should appear on whichever
+    // screen was clicked. NotificationService.centerScreen tracks that; fall
+    // back to the main screen before the first-ever click.
     readonly property var centerScreen: NotificationService.centerScreen || root.mainScreen
 
-    // Resolved ShellScreen for whichever output Hyprland currently has
-    // focused — what the IPC handler below targets, since (unlike a bar
-    // indicator's click) an IPC call has no widget/screen of its own to
-    // report. Falls back to the main screen if Hyprland reports a monitor
-    // name this shell doesn't know about.
-    function focusedScreen() {
-        const monitor = Hyprland.focusedMonitor;
-        return (monitor && root.screenByName(monitor.name)) || root.mainScreen;
-    }
-
     // Lets a Hyprland keybind drive the notification panel the same way the
-    // bar indicator's click does (NotificationCenter.qml), e.g.:
+    // bar indicator's click does, e.g.:
     //   bind = SUPER, N, exec, qs ipc call notifications toggle
+    //
+    // An IPC call has no widget of its own to report a screen, so these target
+    // the focused output instead.
     IpcHandler {
         target: "notifications"
 
         function toggle(): void {
-            NotificationService.toggleCenter(root.focusedScreen());
+            NotificationService.toggleCenter(Screens.focused() || root.mainScreen);
         }
 
         function open(): void {
             if (!NotificationService.centerOpen)
-                NotificationService.toggleCenter(root.focusedScreen());
+                NotificationService.toggleCenter(Screens.focused() || root.mainScreen);
         }
 
         function close(): void {
@@ -96,13 +74,12 @@ ShellRoot {
     Variants {
         model: Quickshell.screens
 
-        // `bar.modelData`, not a bare `modelData`: this is a Variants
-        // delegate, and an unqualified model reference in one silently
-        // resolves against whatever ambient context happens to be in scope
-        // rather than the delegate's own property (see AGENT.md — it cost
-        // real debugging time once already, in ModuleLoader). The id makes
-        // it unambiguous, and `pragma ComponentBehavior: Bound` above turns
-        // the ambiguous form into a compile error rather than wrong data.
+        // `bar.modelData`, not a bare `modelData`: an unqualified model
+        // reference in a Variants delegate silently resolves against whatever
+        // ambient context is in scope rather than the delegate's own property
+        // (see AGENT.md — it cost real debugging time in ModuleLoader). The id
+        // makes it unambiguous, and `pragma ComponentBehavior: Bound` turns
+        // the ambiguous form into a compile error.
         Bar {
             id: bar
             layout: root.layoutFor(bar.modelData.name)

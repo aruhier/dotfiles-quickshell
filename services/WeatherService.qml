@@ -3,10 +3,9 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 
-// Shared weather state for the whole process — one geolocation lookup and
-// one Open-Meteo fetch cycle instead of one per monitor/Bar. Weather.qml
-// just reads these properties and calls fetchForecast(); only this
-// singleton owns the XHRs/Timer.
+// Shared weather state: one geolocation lookup and one Open-Meteo fetch cycle
+// for the whole process, rather than one per bar. Weather.qml just reads these
+// properties and calls fetchForecast().
 QtObject {
     id: root
 
@@ -24,7 +23,7 @@ QtObject {
     readonly property bool hasContent: current !== null || errored
 
     function applyForecast(data) {
-        var cur = data.current;
+        const cur = data.current;
         root.current = {
             tempC: cur.temperature_2m,
             feelsC: cur.apparent_temperature,
@@ -34,17 +33,17 @@ QtObject {
             isDay: cur.is_day === 1
         };
 
-        var h = data.hourly;
-        var nowMs = new Date(cur.time).getTime();
-        var startIdx = 0;
-        for (var k = 0; k < h.time.length; k++) {
+        const h = data.hourly;
+        const nowMs = new Date(cur.time).getTime();
+        let startIdx = 0;
+        for (let k = 0; k < h.time.length; k++) {
             if (new Date(h.time[k]).getTime() >= nowMs) {
                 startIdx = k;
                 break;
             }
         }
-        var hrs = [];
-        for (var i = startIdx; i < Math.min(h.time.length, startIdx + 8); i++) {
+        const hrs = [];
+        for (let i = startIdx; i < Math.min(h.time.length, startIdx + 8); i++) {
             hrs.push({
                 time: h.time[i],
                 tempC: h.temperature_2m[i],
@@ -55,9 +54,9 @@ QtObject {
         }
         root.hourly = hrs;
 
-        var d = data.daily;
-        var days = [];
-        for (var j = 0; j < d.time.length; j++) {
+        const d = data.daily;
+        const days = [];
+        for (let j = 0; j < d.time.length; j++) {
             days.push({
                 date: d.time[j],
                 code: d.weather_code[j],
@@ -78,9 +77,9 @@ QtObject {
         }
 
         root.loading = true;
-        var url = "https://api.open-meteo.com/v1/forecast?latitude=" + root.latitude + "&longitude=" + root.longitude + "&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day" + "&hourly=temperature_2m,precipitation_probability,weather_code,is_day" + "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset" + "&timezone=auto&forecast_days=7";
+        const url = "https://api.open-meteo.com/v1/forecast?latitude=" + root.latitude + "&longitude=" + root.longitude + "&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day" + "&hourly=temperature_2m,precipitation_probability,weather_code,is_day" + "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset" + "&timezone=auto&forecast_days=7";
 
-        var xhr = new XMLHttpRequest();
+        const xhr = new XMLHttpRequest();
         xhr.onreadystatechange = function () {
             if (xhr.readyState !== XMLHttpRequest.DONE)
                 return;
@@ -99,9 +98,11 @@ QtObject {
         xhr.send();
     }
 
+    // Coordinates come from QS_WEATHER_LAT/QS_WEATHER_LON if set, otherwise
+    // from an IP geolocation lookup.
     function resolveLocationAndFetch() {
-        var envLat = Quickshell.env("QS_WEATHER_LAT");
-        var envLon = Quickshell.env("QS_WEATHER_LON");
+        const envLat = Quickshell.env("QS_WEATHER_LAT");
+        const envLon = Quickshell.env("QS_WEATHER_LON");
         if (envLat && envLon) {
             root.latitude = parseFloat(envLat);
             root.longitude = parseFloat(envLon);
@@ -109,12 +110,12 @@ QtObject {
             return;
         }
 
-        var xhr = new XMLHttpRequest();
+        const xhr = new XMLHttpRequest();
         xhr.onreadystatechange = function () {
             if (xhr.readyState !== XMLHttpRequest.DONE)
                 return;
             try {
-                var geo = JSON.parse(xhr.responseText);
+                const geo = JSON.parse(xhr.responseText);
                 root.latitude = geo.lat;
                 root.longitude = geo.lon;
                 root.locationName = [geo.city, geo.country].filter(function (s) {
@@ -131,6 +132,7 @@ QtObject {
 
     Component.onCompleted: resolveLocationAndFetch()
 
+    // Refresh every 15 minutes.
     property Timer refreshTimer: Timer {
         interval: 900000
         running: true

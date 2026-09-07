@@ -2,22 +2,18 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
-import Quickshell.Hyprland
 import Quickshell.Services.Notifications
+import qs.shared
 import qs.shared.notifications
 
-// Native notification daemon + state, replacing swaync. Owns the DBus
-// org.freedesktop.Notifications server and every list/timer driving the
-// popup stack (NotificationPopupWindow.qml) and control-center panel
-// (NotificationCenterPanel.qml) — both just read this singleton, per this
-// repo's usual services-own-I/O-and-state split.
+// Native notification daemon and state, replacing swaync. Owns the DBus
+// org.freedesktop.Notifications server and every list and timer driving the
+// popup stack and control-center panel, which both just read this singleton.
 //
-// Deliberately simpler than swaync itself in a few places:
-// - flat history, newest first — no per-app grouping/dedup (swaync doesn't
-//   group by default either).
-// - `dnd` is in-memory only, not GSettings/dconf-backed like swaync's —
-//   depending on swaync's own schema surviving would be a fragile link for
-//   a system meant to replace it outright.
+// Deliberately simpler than swaync in two places: history is flat and
+// newest-first, and `dnd` is in-memory only rather than GSettings-backed —
+// depending on swaync's own schema surviving would be a fragile link for a
+// system meant to replace it.
 QtObject {
     id: root
 
@@ -29,20 +25,15 @@ QtObject {
     // transient ones that never join history).
     property list<NotifWrapper> popups: []
 
-    // Control-center-only view of `notifications`, grouped by app the same
-    // way swaync does (notiModel.vala: name_id = desktop_entry ?? app_name)
-    // — see notificationGroup.vala/expandableGroup.vala vendored under
-    // ~/git/github/SwayNotificationCenter for the reference implementation
-    // NotificationGroupCard.qml mirrors. A group's position follows its
-    // newest member: `notifications` is already newest-first, and this does
-    // one stable pass over it, so a group is created at (and stays at) the
-    // position of the first — i.e. newest — notification seen for that key,
-    // with every older notification for the same app folding into it right
-    // there. That reproduces swaync's "group re-sorts to its latest
-    // notification's time" behavior without needing a separate sort step.
-    // Floating popups never group like this (notificationWindow.vala just
-    // appends each notification to a flat list) — NotificationPopupWindow.qml
-    // deliberately keeps reading `popups` directly.
+    // Control-center-only view of `notifications`, grouped by app the way
+    // swaync does (key = desktop_entry ?? app_name). One stable pass over an
+    // already newest-first list, so a group is created at — and stays at —
+    // the position of its newest member, with older ones for the same app
+    // folding in there. That reproduces swaync's "group re-sorts to its latest
+    // notification's time" without a separate sort step.
+    //
+    // Floating popups never group like this; NotificationPopupWindow.qml
+    // reads `popups` directly.
     readonly property var notificationGroups: {
         const groups = [];
         const byKey = {};
@@ -62,12 +53,10 @@ QtObject {
         return groups;
     }
 
-    // Which grouped rows are expanded in the control center — keyed by
-    // group key, same shape/rationale as `dnd` (UI-only, not persisted).
-    // Lives here rather than as local state on NotificationGroupCard so
-    // NotificationCenterPanel.qml's keyboard handling (Return to
-    // expand/collapse the selected row) can drive it without reaching into
-    // a specific delegate instance.
+    // Which grouped rows are expanded in the control center. UI-only and not
+    // persisted, like `dnd`. Lives here rather than on NotificationGroupCard
+    // so the panel's keyboard handling can toggle the selected row without
+    // reaching into a specific delegate.
     property var expandedGroups: ({})
 
     function isGroupExpanded(key) {
@@ -91,50 +80,24 @@ QtObject {
 
     property bool dnd: false
     property bool centerOpen: false
-    // Which output the panel should appear on — the screen whose bar
-    // indicator was last clicked, not always the same output (see
-    // toggleCenter below). NotificationCenterPanel.qml (via shell.qml)
-    // reads this to pick its `screen`, falling back to the main screen
-    // while null (e.g. before the first-ever click). Holds an actual
-    // ShellScreen, not a name — same shape DankMaterialShell's
-    // PopoutManager uses for its per-output popouts (`triggerScreen`),
-    // compared for this fix.
+    // Which output the panel appears on: the screen whose bar indicator was
+    // last clicked (see toggleCenter). An actual ShellScreen, not a name.
+    // shell.qml reads it, falling back to the main screen while null.
     property var centerScreen: null
 
-    // Which output the toast stack should appear on — captured fresh for
-    // each incoming notification (see onNotification below) from whichever
-    // monitor Hyprland currently has focused, same "capture at trigger
-    // time" shape as centerScreen above (there it's the clicked indicator's
-    // screen; here there's no click to anchor to, so focused-at-arrival is
-    // the nearest equivalent). NotificationPopupWindow.qml (via shell.qml)
-    // reads this, falling back to the main screen while null (before the
-    // first-ever notification, or if Hyprland reports an unknown monitor).
+    // Which output the toast stack appears on, captured from the focused
+    // monitor as each notification arrives (see onNotification). Same
+    // capture-at-trigger-time shape as centerScreen, except a toast has no
+    // click to anchor to. shell.qml falls back to the main screen while null.
     property var popupScreen: null
-
-    function screenByName(name) {
-        const screens = Quickshell.screens;
-        for (let i = 0; i < screens.length; i++) {
-            if (screens[i].name === name)
-                return screens[i];
-        }
-        return null;
-    }
-
-    function focusedScreen() {
-        const monitor = Hyprland.focusedMonitor;
-        return (monitor && root.screenByName(monitor.name)) || null;
-    }
 
     readonly property int count: notifications.length
     readonly property string iconState: dnd ? (count > 0 ? "dnd-notification" : "dnd-none") : (count > 0 ? "notification" : "none")
 
-    // screen: the output whose bar indicator was clicked (each per-output
-    // NotificationCenter.qml passes its own `Bar.screen`). Clicking the
-    // indicator on the screen the panel is already open on toggles it
-    // closed, same as before; clicking a *different* screen's indicator
-    // instead moves the (still-single, shared) panel there and keeps it
-    // open — mirrors how most multi-monitor panels behave rather than just
-    // closing a panel the user is actively pointing at.
+    // screen: the output whose bar indicator was clicked. Clicking the
+    // indicator on the screen the panel is already open on closes it; clicking
+    // a *different* screen's indicator moves the shared panel there and keeps
+    // it open, rather than closing a panel the user is pointing at.
     function toggleCenter(screen) {
         if (root.centerOpen && root.centerScreen === screen) {
             root.centerOpen = false;
@@ -148,23 +111,19 @@ QtObject {
         root.centerOpen = false;
     }
 
-    // swaync hides its toast stack for as long as the control center is up
-    // (notificationWindow is closed by controlCenter's own open path): the
-    // panel already lists every notification a toast would show, so leaving
-    // popups floating on top of it just renders the same notification twice
-    // — and, since the stack shares the panel's top-right corner, covers the
-    // panel's first card while doing it. Called from onCenterOpenChanged
-    // below rather than from toggleCenter() so *every* path that opens the
-    // panel clears the stack, not just the bar indicator's click.
+    // swaync hides its toast stack while the control center is up: the panel
+    // already lists every notification a toast would show, and the stack
+    // shares the panel's top-right corner so it covers the first card too.
+    // Called from onCenterOpenChanged rather than toggleCenter(), so every
+    // path that opens the panel clears the stack.
     function clearPopups() {
         const toClear = root.popups.slice();
         root.popups = [];
         for (const w of toClear) {
             w.timer.stop();
-            // Same cleanup the popup timer's own onTriggered does: a
-            // transient notification never enters `notifications`, so once
-            // its popup is gone nothing references it any more and it has
-            // to be dismissed for real to get destroyed.
+            // Same cleanup the popup timer's onTriggered does: a transient
+            // notification never enters `notifications`, so once its popup is
+            // gone nothing references it and it must be dismissed for real.
             if (root.notifications.indexOf(w) === -1 && w.notification)
                 w.notification.dismiss();
         }
@@ -176,15 +135,15 @@ QtObject {
     }
 
     function clearAll() {
-        // Snapshot first: dismiss() below mutates `notifications` via the
-        // Retainable onDropped handler as we go.
+        // Snapshot first: dismiss() mutates `notifications` via the Retainable
+        // onDropped handler as we go.
         const toDismiss = root.notifications.slice();
         for (const w of toDismiss) {
             if (w.notification)
                 w.notification.dismiss();
         }
-        // swaync's hide-on-clear: only the bulk clear-all path auto-closes
-        // the panel, not one-by-one dismissal.
+        // swaync's hide-on-clear: only the bulk path auto-closes the panel,
+        // not one-by-one dismissal.
         root.centerOpen = false;
     }
 
@@ -193,19 +152,17 @@ QtObject {
             wrapper.notification.dismiss();
     }
 
-    // Group close-all — swaync's NotificationGroup.request_dismiss_all_notifications.
     // Snapshot first for the same reason clearAll() does: dismiss() mutates
-    // `notifications` (and thus recomputes notificationGroups, including
-    // this same `group` object) as we go.
+    // `notifications`, which recomputes notificationGroups — including this
+    // same `group` object.
     function dismissGroup(group) {
         const toDismiss = group.items.slice();
         for (const w of toDismiss)
             root.dismiss(w);
     }
 
-    // config.json's notification-visibility overrides forcing these two
-    // apps' notifications to be treated as transient (popup-only, never
-    // kept in history).
+    // swaync's notification-visibility overrides: these two apps are treated
+    // as transient, i.e. popup-only and never kept in history.
     function isForcedTransient(appName) {
         return appName === "blueman" || appName === "NetworkManager Applet";
     }
@@ -221,8 +178,7 @@ QtObject {
         readonly property string body: notification ? notification.body : ""
         readonly property string appName: notification ? notification.appName : ""
         readonly property string appIcon: notification ? notification.appIcon : ""
-        // swaync's notiModel.vala: name_id = desktop_entry ?? app_name — the
-        // key notificationGroups (above) groups control-center rows by.
+        // The key notificationGroups above groups control-center rows by.
         readonly property string groupKey: notification ? (notification.desktopEntry || notification.appName) : ""
         readonly property string image: notification ? notification.image : ""
         readonly property int urgency: notification ? notification.urgency : NotificationUrgency.Normal
@@ -257,11 +213,10 @@ QtObject {
             repeat: false
             onTriggered: {
                 root.popups = root.popups.filter(w => w !== wrapper);
-                // Transient notifications aren't kept in history — once
-                // their popup times out there's nothing left referencing
-                // them, so dismiss for real (drives cleanup via Retainable
-                // below). Non-transient ones just leave the popup stack and
-                // stay in history until the user dismisses/clears them.
+                // Transient notifications aren't kept in history, so once
+                // their popup times out nothing references them and they must
+                // be dismissed for real (cleanup runs via Retainable below).
+                // Non-transient ones just leave the stack.
                 if (root.notifications.indexOf(wrapper) === -1 && wrapper.notification)
                     wrapper.notification.dismiss();
             }
@@ -302,7 +257,7 @@ QtObject {
 
             // `as NotifWrapper`: createObject() is statically typed QObject,
             // so every wrapper.<field> read below is unverifiable without the
-            // cast — and NotifWrapper is right there as a named type.
+            // cast.
             const wrapper = root.notifComponent.createObject(root, {
                 "notification": notif
             }) as NotifWrapper;
@@ -315,18 +270,17 @@ QtObject {
                 root.notifications = [wrapper, ...root.notifications];
 
             // No toast while the panel is open, for the same reason
-            // clearPopups() above empties the stack when it opens — the
-            // notification is already visible in the panel's list, which
-            // this line has just prepended it to.
+            // clearPopups() empties the stack: the notification is already
+            // visible in the list this just prepended it to.
             if (!root.dnd && !root.centerOpen) {
-                root.popupScreen = root.focusedScreen();
+                root.popupScreen = Screens.focused();
                 root.popups = [...root.popups, wrapper];
                 if (wrapper.timer.interval > 0)
                     wrapper.timer.start();
             } else if (transient) {
-                // Suppressed popup + not in history = nothing left holding
-                // this one, and no popup timer will ever fire to clean it
-                // up. Dismiss now so Retainable drops it.
+                // Suppressed popup and not in history: nothing holds this
+                // one and no popup timer will fire to clean it up, so dismiss
+                // now and let Retainable drop it.
                 notif.dismiss();
             }
         }

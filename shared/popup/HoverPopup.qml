@@ -3,22 +3,16 @@ import QtQuick
 import qs.shared
 import qs.shared.popup
 
-// Base type for a hover-triggered popup anchored below a bar module. Adds
-// the background chrome, the show/hide grace timer, and PopupCoordinator
-// registration on top of AnchoredPopupWindow's shared anchor math, so every
-// popup built on this gets close() — and mutual exclusion with other
-// popups — for free instead of by copy-paste convention (see
-// Clock.qml/Weather.qml history). A module supplies its own content as
-// default children and drives visibility by calling show()/requestHide()
-// from its own hover MouseArea; it still sets implicitWidth/implicitHeight
-// itself, since content sizing is genuinely per-module.
+// Base type for a hover-triggered popup below a bar module: adds the
+// background chrome, the close grace timer and PopupCoordinator registration
+// on top of AnchoredPopupWindow's anchor math, so every popup gets close() and
+// mutual exclusion for free. A module supplies content as default children,
+// drives visibility with show()/requestHide() from its own hover MouseArea,
+// and still sets implicitWidth/implicitHeight itself.
 //
-// shared/Tooltip.qml only shares the AnchoredPopupWindow base, not this
-// type: that popup is driven by a declarative `show` boolean from many call
-// sites and closes with no grace period at all (nothing to move the cursor
-// onto) — a different enough contract that forcing it onto this
-// show()/requestHide()/coordinator API would be a behavior change, not a
-// refactor.
+// Tooltip.qml shares only AnchoredPopupWindow, not this: it's driven by a
+// declarative `show` bool and closes with no grace period, a different enough
+// contract that forcing it onto this API would be a behavior change.
 AnchoredPopupWindow {
     id: popup
 
@@ -29,10 +23,9 @@ AnchoredPopupWindow {
     default property alias content: contentItem.data
 
     property bool _open: false
-    // Tracks only the popup's own surface. Any renewed hover anywhere
-    // (module or popup) calls show(), which stops hideTimer outright — so
-    // by the time hideTimer actually fires, checking this alone is enough
-    // to know nothing is hovering any more.
+    // Only the popup's own surface. Any renewed hover, on the module or the
+    // popup, calls show() and stops hideTimer — so by the time hideTimer
+    // fires, this alone tells us nothing is hovered any more.
     property bool _popupHovered: false
 
     function show() {
@@ -45,8 +38,8 @@ AnchoredPopupWindow {
         hideTimer.restart();
     }
 
-    // Called by PopupCoordinator on the previously-active popup when a
-    // different one takes over — closes immediately, no grace period.
+    // Called by PopupCoordinator on the previously-active popup when another
+    // takes over: closes immediately, no grace period.
     function close() {
         hideTimer.stop();
         _open = false;

@@ -7,10 +7,9 @@ import qs.shared
 import qs.shared.popup
 import "../shared/WeatherIcons.js" as WeatherIcons
 
-// Native weather widget: bar icon+temperature plus its own popup (current +
-// hourly/daily forecast). The Open-Meteo fetch/geolocation/refresh-timer
-// lives in services/WeatherService.qml (singleton, one fetch cycle for the
-// whole process); this is just a view over that shared state.
+// Bar icon and temperature, plus a hover popup with current conditions and
+// the hourly/daily forecast. A view over WeatherService, which owns the
+// geolocation, the Open-Meteo fetch and the refresh timer.
 BarModule {
     id: root
 
@@ -26,8 +25,8 @@ BarModule {
     contentVisible: hasContent
     contentWidth: hasContent ? content.implicitWidth : 0
 
-    // Icon vertical nudge / size bias — see Mpd.qml. Only the bar glyph
-    // uses this; popup forecast icons use their own hardcoded sizes.
+    // Icon vertical nudge / size bias — see Mpd.qml. Bar glyph only; the
+    // popup's forecast icons set their own sizes.
     readonly property real iconVerticalOffset: 0.5
     readonly property real iconSizeRatio: 0.9
 
@@ -69,7 +68,6 @@ BarModule {
         }
 
         StyledText {
-            id: label
             anchors.verticalCenter: parent.verticalCenter
             visible: root.current !== null
             color: Theme.groupText
@@ -82,9 +80,7 @@ BarModule {
         onClicked: WeatherService.fetchForecast()
     }
 
-    // LazyLoader, not Loader: see Clock.qml's popupLoader for why (same
-    // pattern — real GPU-backed window, destroyed once the close grace
-    // period elapses instead of kept alive for the process lifetime).
+    // LazyLoader, not Loader — see Clock.qml's popupLoader.
     LazyLoader {
         id: popupLoader
         active: false
@@ -185,20 +181,18 @@ BarModule {
                     spacing: 4
 
                     Repeater {
-                        // Gated on popup.visible (not just root.hourly) so the
-                        // delegate items are destroyed while the popup is
-                        // closed, mirroring Clock.qml's calendar-grid pattern,
-                        // rather than staying resident for as long as
-                        // WeatherService has data (i.e. always).
+                        // Gated on popup.visible, not just root.hourly, so
+                        // delegates are destroyed while the popup is closed
+                        // instead of staying resident for as long as
+                        // WeatherService has data — i.e. always.
                         model: popup.visible ? root.hourly : []
                         delegate: ColumnLayout {
                             id: hourCell
                             required property var modelData
 
                             // maximumWidth must be overridden or fillWidth
-                            // does nothing: QtQuick.Layouts auto-clamps a
-                            // nested Layout's maximumWidth to its own
-                            // implicitWidth by default.
+                            // does nothing: QtQuick.Layouts clamps a nested
+                            // Layout's maximumWidth to its implicitWidth.
                             Layout.fillWidth: true
                             Layout.maximumWidth: Number.POSITIVE_INFINITY
                             spacing: 3

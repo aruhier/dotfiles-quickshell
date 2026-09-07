@@ -3,12 +3,10 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell.Io
 
-// Shared mpd state for the whole process — one `mpc idleloop` subscription
-// instead of one per monitor/Bar, and instead of polling on a fixed timer.
-// `mpc idleloop <subsystem>` blocks on mpd's `idle` command and only prints
-// when that subsystem changes; refresh() re-reads status/current on demand.
-// Mpd.qml just reads these properties; only this singleton owns the
-// Processes/Timer.
+// Shared mpd state: one `mpc idleloop` subscription for the whole process
+// rather than one per bar, and no polling timer — idleloop blocks on mpd's
+// `idle` command and only prints when the subsystem changes. refresh()
+// re-reads status and current track on demand.
 QtObject {
     id: root
 
@@ -26,12 +24,12 @@ QtObject {
             root.playbackState = "disconnected";
             return;
         }
-        // The [state] line only appears when a song is loaded, so find it
-        // by content rather than a fixed line index.
-        var lines = text.split("\n");
-        var hasVolumeLine = false;
-        var stateLine = null;
-        for (var i = 0; i < lines.length; i++) {
+        // The [state] line only appears when a song is loaded, so find it by
+        // content rather than a fixed line index.
+        const lines = text.split("\n");
+        let hasVolumeLine = false;
+        let stateLine = null;
+        for (let i = 0; i < lines.length; i++) {
             if (lines[i].indexOf("volume:") === 0)
                 hasVolumeLine = true;
             if (lines[i].indexOf("[") === 0)
@@ -75,15 +73,15 @@ QtObject {
         stdout: StdioCollector {
             id: currentCollector
             onStreamFinished: {
-                var parts = currentCollector.text.replace(/\n$/, "").split("\t");
+                const parts = currentCollector.text.replace(/\n$/, "").split("\t");
                 root.artist = parts[0] || "";
                 root.title = parts[1] || "";
             }
         }
     }
 
-    // Long-lived subscription; restricted to "player" since that's the only
-    // subsystem this module displays.
+    // Long-lived subscription, restricted to "player": the only subsystem
+    // this module displays.
     property Process idleProc: Process {
         id: idleProc
         command: ["mpc", "idleloop", "player"]
@@ -95,8 +93,8 @@ QtObject {
         onExited: restartTimer.start()
     }
 
-    // idleloop exits if mpd isn't running or drops the connection —
-    // reconnect after a delay and re-sync state.
+    // idleloop exits if mpd isn't running or drops the connection; reconnect
+    // after a delay and re-sync.
     property Timer restartTimer: Timer {
         id: restartTimer
         interval: 5000

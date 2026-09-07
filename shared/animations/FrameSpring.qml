@@ -3,55 +3,29 @@ import QtQuick
 import qs.shared
 import qs.shared.animations
 
-// A spring-physics value driven by FrameAnimation (ticks once per actual
-// rendered frame, tied to the window's real vsync/frame-swap cadence)
-// instead of Behavior/SpringAnimation, which rides Qt Quick's shared
-// QUnifiedTimer GUI-thread clock — that clock ticks at a fixed ~60Hz
-// regardless of the output's real refresh rate, so a Behavior-based spring
-// on a high refresh-rate screen (this machine's DP-1 runs 240Hz) visibly
-// stutters even though the compositor could show far smoother motion. See
-// AGENT.md's "Spring/Behavior animations are capped near 60Hz" section for
-// how that was empirically confirmed (QSG_RENDER_TIMING=1 showed a steady
-// ~16ms cadence on the notification panel's window regardless of the
-// output's real rate, unaffected by QSG_FIXED_ANIMATION_STEP). Modeled on
-// DankMaterialShell's Common/SpringMotion.qml, which uses this exact
-// FrameAnimation-driven approach.
+// A spring-physics value driven by FrameAnimation, which ticks once per real
+// rendered frame. Qt's own Behavior/SpringAnimation rides the shared
+// QUnifiedTimer instead, fixed at ~60Hz regardless of the output's refresh
+// rate — visibly stuttery on a 240Hz screen. See AGENT.md's "capped near
+// 60Hz" section. (Modelled on DankMaterialShell's Common/SpringMotion.qml.)
 //
-// Bind the consuming property to `.value`, and say where the spring should
-// go with `to:` — see that property below. `to` is the declarative wrapper
-// over the underlying imperative API (snapTo()/retarget()), which is still
-// there for springs that genuinely have no single resting expression (entry
-// animations, direction-dependent slides).
-//
-// stiffness/damping/mass default to Hyprland's own spring config, unlike
-// Theme.qml's springSpring/springDamping — those are tuned for Qt's
-// SpringAnimation, which (per Theme.qml's comment) does NOT share
-// Hyprland's unit convention despite the same underlying mass-spring-damper
-// ODE shape. This type implements that ODE directly, so Hyprland's actual
-// physical constants are the correct values to start from here.
+// Usage: bind the consuming property to `.value` and set `to`. The imperative
+// snapTo()/retarget() API stays available for springs with no single resting
+// expression (entry animations, direction-dependent slides).
 QtObject {
     id: root
 
-    // Set to a SpringGroup for a spring that's one of several coupled values
-    // that all need to move by the *exact same* dt each tick to stay
-    // visually locked together (e.g. Workspaces.qml's sliding selection
-    // indicator and the delegate it tracks). The group then owns the one
-    // FrameAnimation that advances all of its springs, and this spring runs
-    // no driver of its own. Left null, each FrameSpring owns an independent
-    // FrameAnimation, and independent instances measure their own elapsed
-    // time separately; on a very high refresh-rate output that per-instance
-    // timing skew (confirmed empirically: two standalone springs chasing the
-    // same target reported values differing in the 2nd decimal place at the
-    // "same" moment) is small in absolute terms but enough, compounded
-    // across several coupled springs, to read as visible wobble between
-    // parts that are supposed to move as one. See AGENT.md's Workspaces.qml
-    // section.
+    // Set to a SpringGroup when this spring must stay visually locked to
+    // others (e.g. Workspaces.qml's selection indicator and the delegate it
+    // tracks). The group then owns the single FrameAnimation advancing all of
+    // them by the identical dt; independent drivers measure elapsed time
+    // separately, and that drift reads as wobble between parts meant to move
+    // as one.
     property SpringGroup group: null
     onGroupChanged: if (group)
         group.add(root)
-    // Must unregister: the group can't detect this on its own, since a
-    // destroyed QObject is not null from JS, it's a wrapper that throws on
-    // access. See SpringGroup.remove().
+    // The group cannot detect this itself: a destroyed QObject isn't null from
+    // JS, it's a wrapper that throws on access. See SpringGroup.remove().
     Component.onDestruction: if (group)
         group.remove(root)
 
@@ -59,10 +33,8 @@ QtObject {
     property real damping: Theme.frameSpringDamping
     property real mass: Theme.frameSpringMass
     property real epsilon: Theme.springEpsilon
-    // Caps the per-tick integration step so a stall (e.g. a compositor
-    // hiccup) can't fling the spring through a huge single step; large
-    // frame gaps are instead integrated over several smaller sub-steps
-    // below.
+    // Caps the per-tick step so a compositor hiccup can't fling the spring
+    // through one huge integration step; long gaps are sub-stepped instead.
     property real maximumFrameTime: 1 / 30
     property real integrationStep: 1 / 240
 
@@ -71,22 +43,16 @@ QtObject {
     property real velocity: 0
     property bool running: false
 
-    // Optional declarative target. Bind it and the spring wires itself up:
-    // it snaps to the initial value on creation and retargets on every later
-    // change, so a consumer needs one line (`to: root.someWidth`) instead of
-    // the three-step ritual this type otherwise requires (bind `.value`, snap
-    // in Component.onCompleted, retarget from an onXChanged handler) — three
-    // steps of which two fail *silently* when forgotten: no initial snap and
-    // the value animates in from 0 on every reload, no retarget and it
-    // freezes at its startup value forever.
+    // Declarative target: snaps to it on creation and retargets on every
+    // later change, replacing the three-step manual ritual (bind `.value`,
+    // snap in Component.onCompleted, retarget from onXChanged) — two steps of
+    // which fail *silently* when forgotten, animating in from 0 on every
+    // reload or freezing at the startup value forever.
     //
-    // NaN, not 0, is the "unset" sentinel: a spring driven imperatively (an
-    // entry animation that snaps somewhere off-screen and eases to 0, a
-    // press that has no single resting expression) must not have a resting
-    // target of 0 forced on it. Those leave `to` alone and keep calling
-    // snapTo()/retarget() directly; the two handlers below then do nothing.
-    // A call site's own Component.onCompleted does not shadow this one —
-    // both run, base first.
+    // NaN is the "unset" sentinel, not 0: an imperatively-driven spring must
+    // not have a resting target of 0 forced on it. Those leave `to` alone and
+    // both handlers below do nothing. A call site's own Component.onCompleted
+    // doesn't shadow this one — both run, base first.
     property real to: NaN
     onToChanged: if (!isNaN(to))
         retarget(to)
@@ -98,7 +64,7 @@ QtObject {
     }
 
     // Jumps straight to a value with no animation — for initial setup, not
-    // for use mid-animation.
+    // mid-animation.
     function snapTo(v) {
         target = v;
         value = v;
@@ -137,9 +103,9 @@ QtObject {
     }
 
     // Gated on `running`, which advance() clears the moment the spring
-    // settles — a FrameAnimation left running re-renders and swaps a buffer
-    // every frame for as long as it lives, whatever it's animating. A
-    // grouped spring is driven by its SpringGroup instead; see that file.
+    // settles: a live FrameAnimation re-renders and swaps a buffer every
+    // frame for as long as it exists, animating or not. A grouped spring is
+    // driven by its SpringGroup instead.
     property FrameAnimation driver: FrameAnimation {
         running: !root.group && root.running
         onTriggered: root.advance(frameTime)

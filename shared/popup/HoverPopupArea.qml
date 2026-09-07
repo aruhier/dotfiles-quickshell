@@ -1,11 +1,9 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 
-// Hover MouseArea that opens a lazily-loaded HoverPopup: activates `loader`
-// and calls show()/requestHide() on the loaded item. Shared by Clock.qml and
-// Weather.qml, which both wire a LazyLoader-backed HoverPopup this same way
-// (Weather also attaches its own onClicked on top, which works fine since
-// this is still a plain MouseArea underneath).
+// Hover MouseArea driving a lazily-loaded HoverPopup: activates `loader` and
+// calls show()/requestHide() on the loaded item. Still a plain MouseArea, so a
+// call site can attach its own onClicked on top (Weather.qml does).
 MouseArea {
     id: area
 
