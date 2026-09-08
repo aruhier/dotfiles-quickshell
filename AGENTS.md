@@ -69,7 +69,8 @@ shared/popup/         everything to do with anchored hover popups:
                          anchor-below-module positioning math, shared by
                          HoverPopup.qml and Tooltip.qml
   HoverPopupArea.qml     hover MouseArea that opens a LazyLoader-backed
-                         HoverPopup; shared by Clock.qml/Weather.qml
+                         HoverPopup after a `showDelay` dwell (1s); shared by
+                         Clock.qml/Weather.qml
   PopupCoordinator.qml   pragma-Singleton — only one hover popup open at a
                          time process-wide
 shared/notifications/ the notification daemon's UI — see the dated section

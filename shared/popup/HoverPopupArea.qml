@@ -9,15 +9,37 @@ MouseArea {
 
     required property var loader
 
+    // Grace before a hover opens the popup, so a cursor merely crossing the
+    // bar neither flashes popups open nor pays for building them: the loader
+    // stays inactive until the timer fires.
+    property int showDelay: 500
+
     anchors.fill: parent
     hoverEnabled: true
     cursorShape: Qt.PointingHandCursor
     onContainsMouseChanged: {
         if (containsMouse) {
+            // Coming back from the popup's own surface: it is already open and
+            // its hideTimer is running, so cancel that now rather than after
+            // another showDelay — by then the popup would have closed under a
+            // cursor that never left the module.
+            if (area.loader.item && area.loader.item._open)
+                area.loader.item.show();
+            else
+                showTimer.restart();
+        } else {
+            showTimer.stop();
+            if (area.loader.item)
+                area.loader.item.requestHide();
+        }
+    }
+
+    Timer {
+        id: showTimer
+        interval: area.showDelay
+        onTriggered: {
             area.loader.active = true;
             area.loader.item.show();
-        } else if (area.loader.item) {
-            area.loader.item.requestHide();
         }
     }
 }
