@@ -1,7 +1,9 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import Quickshell
 import qs.services
 import qs.shared
+import qs.shared.popup
 
 // Notification-center indicator and toggle. The daemon, popup stack and
 // control-center panel live in NotificationService and shared/notifications/;
@@ -47,6 +49,7 @@ BarModule {
     }
 
     MouseArea {
+        id: hover
         anchors.fill: parent
         cursorShape: Qt.PointingHandCursor
         acceptedButtons: Qt.LeftButton | Qt.RightButton
@@ -55,6 +58,17 @@ BarModule {
                 NotificationService.toggleCenter(root.screen);
             else
                 NotificationService.dnd = !NotificationService.dnd;
+        }
+        hoverEnabled: true
+    }
+
+    LazyLoader {
+        active: hover.containsMouse
+
+        Tooltip {
+            anchorItem: root
+            show: hover.containsMouse
+            text: NotificationService.notifications.length + " notifications"
         }
     }
 }
