@@ -61,16 +61,16 @@ shared/popup/         everything to do with anchored hover popups:
   HoverPopup.qml         base type for a hover-triggered popup (grace-period
                          close, PopupCoordinator registration) — Clock's
                          calendar and Weather's forecast are built on this
-  Tooltip.qml            reusable hover tooltip; declarative `show`, no
-                         grace period (see its header comment for why it's
-                         not built on HoverPopup.qml despite sharing
-                         AnchoredPopupWindow)
+  Tooltip.qml            reusable hover tooltip; declarative `show` gated by
+                         a `showDelay` dwell (500ms), no close grace period
+                         (see its header comment for why it's not built on
+                         HoverPopup.qml despite sharing AnchoredPopupWindow)
   AnchoredPopupWindow.qml base PopupWindow type owning just the
                          anchor-below-module positioning math, shared by
                          HoverPopup.qml and Tooltip.qml
   HoverPopupArea.qml     hover MouseArea that opens a LazyLoader-backed
-                         HoverPopup after a `showDelay` dwell (1s); shared by
-                         Clock.qml/Weather.qml
+                         HoverPopup after a `showDelay` dwell (500ms);
+                         shared by Clock.qml/Weather.qml
   PopupCoordinator.qml   pragma-Singleton — only one hover popup open at a
                          time process-wide
 shared/notifications/ the notification daemon's UI — see the dated section
