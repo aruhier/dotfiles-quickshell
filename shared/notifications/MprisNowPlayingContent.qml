@@ -59,6 +59,7 @@ RowLayout {
 
         RowLayout {
             spacing: 12
+            Layout.alignment: Qt.AlignHCenter
 
             PressableIcon {
                 text: "󰒝"
