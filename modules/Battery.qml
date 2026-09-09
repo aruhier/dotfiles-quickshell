@@ -38,9 +38,16 @@ BarModule {
     readonly property bool charging: deviceState === UPowerDeviceState.Charging
     readonly property bool full: deviceState === UPowerDeviceState.FullyCharged
     // waybar's "Plugged": on the adapter but not charging. The steady state
-    // on this machine, which stops at the battery's 80% charge-end threshold
-    // (UPower reports PendingCharge for that).
-    readonly property bool plugged: !charging && !full && !UPower.onBattery
+    // on this machine, which stops at the battery's 80% charge-end threshold.
+    //
+    // Read off the battery's own state — upower reports PendingCharge for a
+    // hold like that — and NOT off `!UPower.onBattery`: the daemon's global
+    // OnBattery property is false on this machine even while the battery
+    // discharges, because its qcom-battmgr-usb line-power device sits at
+    // `online: yes` with nothing plugged in (sysfs says `online: 0` for the
+    // same supply, so it's the daemon disagreeing with the kernel, not the
+    // hardware). That showed the plug icon on battery power.
+    readonly property bool plugged: deviceState === UPowerDeviceState.PendingCharge
 
     // waybar's `states` config: thresholds ascending, first one the capacity
     // is <= wins.

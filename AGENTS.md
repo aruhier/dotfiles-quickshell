@@ -1018,6 +1018,16 @@ rendering every frame, none at all when truly idle.
   → plug glyph, everything else including `Full` → `{capacity}%` + level icon.
   Level icons are indexed `capacity / (100 / size)` clamped to the last entry
   (`ALabel::getIcon`): 0-19, 20-39, 40-59, 60-79, 80-100.
+- **Don't trust `UPower.onBattery` on this machine (2026-09-10).** The daemon
+  reports `OnBattery: false` while the battery is plainly discharging: its
+  `line_power_qcom_battmgr_usb` device sits at `online: yes` even with
+  nothing plugged in, while sysfs says `online: 0` for that same supply — the
+  daemon disagreeing with the kernel, not the hardware. `plugged` was
+  `!charging && !full && !UPower.onBattery`, so the module showed the plug
+  glyph on battery power. It now reads the battery's own
+  `UPowerDeviceState.PendingCharge` instead, which is what "on the adapter,
+  not charging" already means here. Prefer the device state over the global
+  for anything else too.
 
 ## BacklightService reads sysfs directly; no more `sh -c cat` polling (2026-09-05)
 
