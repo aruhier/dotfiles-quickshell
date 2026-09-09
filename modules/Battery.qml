@@ -234,7 +234,7 @@ BarModule {
         Tooltip {
             anchorItem: root
             show: hover.containsMouse && root.contentVisible
-            text: root.detailText === "" ? root.estimateText : root.estimateText + "<br>" + root.detailText
+            text: root.detailText === "" ? root.estimateText : root.estimateText + "<br><br>" + root.detailText
         }
     }
 }
