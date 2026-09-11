@@ -32,6 +32,12 @@ QtObject {
     // the dark label text gains contrast rather than losing it. Qt.darker()
     // factor.
     readonly property real workspaceHoverDarken: 1.15
+    // Workspace hover preview (shared/popup/WorkspacePreviewPopup.qml): the
+    // mock-up's width, height follows the monitor's aspect ratio. The
+    // "desktop" behind the window thumbnails, lighter than popupBg so the
+    // preview reads as a screen inside the chrome.
+    readonly property int workspacePreviewWidth: 560
+    readonly property color workspacePreviewBg: barBg
 
     // Lightened from waybar's #f53c3c, which it only ever used as a
     // background: as text on groupBg that lands at 2.7:1. This reads red at

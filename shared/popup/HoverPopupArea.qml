@@ -14,6 +14,19 @@ MouseArea {
     // stays inactive until the timer fires.
     property int showDelay: 500
 
+    // False when there is nothing to show (Workspaces: an empty workspace):
+    // hover then never activates the loader at all, instead of building a
+    // popup that stays invisible and lingers until its next hover.
+    property bool popupEnabled: true
+
+    // For a click that makes the popup moot (Workspaces: switching to the
+    // previewed workspace): drops a pending open and closes an open one.
+    function cancel() {
+        showTimer.stop();
+        if (area.loader.item)
+            area.loader.item.close();
+    }
+
     anchors.fill: parent
     hoverEnabled: true
     cursorShape: Qt.PointingHandCursor
@@ -38,6 +51,8 @@ MouseArea {
         id: showTimer
         interval: area.showDelay
         onTriggered: {
+            if (!area.popupEnabled)
+                return;
             area.loader.active = true;
             area.loader.item.show();
         }

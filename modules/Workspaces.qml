@@ -1,15 +1,18 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import Quickshell.Hyprland
 import qs.shared
 import qs.shared.animations
+import qs.shared.popup
 
 // Workspace pill row: every workspace on every monitor, shown on every bar.
 // Colors: has windows = workspaceBg, empty = workspaceEmptyBg, system-focused
 // = accent (drawn by the sliding `selection` indicator), urgent =
 // workspaceUrgent. A workspace active on its own monitor but not
-// system-focused is bolded with a blended background instead.
+// system-focused is bolded with a blended background instead. Hovering a pill
+// shows a live preview of that workspace (WorkspacePreviewPopup).
 Rectangle {
     id: root
 
@@ -114,12 +117,34 @@ Rectangle {
                 readonly property bool hovered: mouseArea.containsMouse
                 color: hovered ? Qt.darker(stateColor, Theme.workspaceHoverDarken) : stateColor
 
-                MouseArea {
+                // Hover opens a live preview of the workspace (after the usual
+                // dwell); a click switches to it, at which point the preview
+                // is redundant, so it's dropped along with any pending open.
+                HoverPopupArea {
                     id: mouseArea
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: wsDelegate.modelData.activate()
+                    loader: previewLoader
+                    popupEnabled: wsDelegate.windows > 0
+                    onClicked: {
+                        cancel();
+                        wsDelegate.modelData.activate();
+                    }
+                }
+
+                // LazyLoader, not Loader — see Clock.qml's popupLoader. Torn
+                // down on close for the same reason, and because each
+                // ScreencopyView inside keeps a capture running while alive.
+                LazyLoader {
+                    id: previewLoader
+                    active: false
+
+                    WorkspacePreviewPopup {
+                        anchorItem: wsDelegate
+                        workspace: wsDelegate.modelData
+                        onVisibleChanged: {
+                            if (!visible)
+                                previewLoader.active = false;
+                        }
+                    }
                 }
             }
         }

@@ -38,11 +38,16 @@ AnchoredPopupWindow {
         hideTimer.restart();
     }
 
-    // Called by PopupCoordinator on the previously-active popup when another
-    // takes over: closes immediately, no grace period.
+    // Closes immediately, no grace period. Called by PopupCoordinator on the
+    // previously-active popup when another takes over, and by
+    // HoverPopupArea.cancel(). Deactivates too: a popup closed this way can be
+    // torn down by its LazyLoader right after, and a coordinator still
+    // pointing at it would later call close() on a destroyed object. (During
+    // a takeover the coordinator overwrites activeOwner right after anyway.)
     function close() {
         hideTimer.stop();
         _open = false;
+        PopupCoordinator.deactivate(popup);
     }
 
     Timer {
