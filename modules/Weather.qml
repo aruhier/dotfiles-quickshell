@@ -325,11 +325,9 @@ BarModule {
                         id: refreshButton
                         text: WeatherIcons.glyph("refresh")
                         font.pixelSize: 13
-                        // Accent on hover, like a notification card's close
-                        // button; full opacity while loading so the spin
-                        // reads as active even with the cursor elsewhere.
-                        trackHover: true
-                        color: hovered && interactive ? Theme.accent : Theme.text
+                        // Full opacity while loading so the spin reads as
+                        // active even with the cursor elsewhere.
+                        color: Theme.text
                         opacity: root.loading || hovered ? 1.0 : 0.7
                         interactive: !root.loading
                         onActivated: WeatherService.refresh()

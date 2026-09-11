@@ -14,10 +14,12 @@ Rectangle {
     property int diameter: 18
     // Shares a literal with Theme.popupBg by coincidence, not by meaning.
     property color restColor: "black"
-    property color hoverColor: "#1e1e1e"
+    // Accent-lit on hover like every other clickable — see AGENTS.md's
+    // PressableIcon rule; the chip's fill is what lights up here, so the
+    // glyph goes dark for contrast against it.
+    property color hoverColor: Theme.accent
     property color glyphColor: NotificationTheme.text
-    // Defaults to no change on hover, which is what the group's buttons do.
-    property color glyphHoverColor: button.glyphColor
+    property color glyphHoverColor: "black"
     // Proportional to the chip; the card's button overrides it.
     property int glyphSize: Math.round(button.diameter * 0.55)
     property bool interactive: true

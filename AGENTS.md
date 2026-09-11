@@ -179,6 +179,23 @@ the flush screen edge may need re-tuning those margins for that edge.
   at ~65 call sites; it now lives in those two types instead. A bare `Text {}`
   in this repo is a bug.
 
+- **Anything clickable that's a glyph or a text label is a
+  `shared/PressableIcon.qml`, never a `StyledText` + `MouseArea` pair.** It
+  owns the shared feel: press-shrink (`PressSpring`), `Theme.accent` on
+  hover (blue-green, same as a notification card's close button), pointer
+  cursor, and the `interactive` gate that suppresses all three. A site sets
+  `text`/`color`/`font.pixelSize` as on any `StyledText` and reacts to
+  `onActivated`; `hitPadding` widens the hit area for tiny glyphs (the
+  calendar's `‹`/`›`). The hover colour is laid over the site's own `color`
+  binding with a `Binding { when: … }`, so a toggle that binds `color` to
+  its state (MPRIS shuffle/loop) keeps working. Sites: the MPRIS transport
+  row, the control-center header, the group card's button, the weather
+  refresh, the calendar's month arrows and title. The notification ✕ chips
+  are `CloseButton`, not `PressableIcon` (they have a filled circle), but
+  follow the same rule by default: accent fill on hover, glyph goes black
+  for contrast. A hand-rolled click target misses the hover colour
+  silently — that's how the calendar header fell out of line.
+
 - **`font.family` can't take a CSS-style comma fallback string.** QML only
   accepts one family; Qt fuzzy-resolves a joined string down to just the
   icon font, leaving Latin text falling back to some other, narrower font.
@@ -208,11 +225,16 @@ the flush screen edge may need re-tuning those margins for that edge.
   and only fail at edge modules with no neighbor to hide behind.
 
 - **A hover popup that should stay open when the cursor moves onto it
-  needs a grace-period timer**, not a plain `anchorHover.containsMouse ||
-  popupHover.containsMouse` OR — the popup is a separate surface a few px
-  away, so a plain OR closes it before the cursor arrives. Fixed with a
-  ~200ms `Timer` that only starts once both report `containsMouse: false`.
-  Used independently in both `Tooltip.qml` and `Weather.qml`'s popup.
+  needs a grace-period timer**, not a plain `anchorHover || popupHover` OR —
+  the popup is a separate surface a few px away, so a plain OR closes it
+  before the cursor arrives. `HoverPopup.qml` derives one `hovered` bool from
+  the module's `anchorHovered` (written by `HoverPopupArea`) and its own
+  surface `HoverHandler`, and a ~200ms `Timer` closes it only if `hovered`
+  is still false when it fires. Both halves are `HoverHandler`s, not
+  `hoverEnabled` MouseAreas: Qt keeps delivering hover to an accepting
+  item's *ancestors* but stops at items *behind* it, so a hover MouseArea
+  laid behind the content lost its hover — and closed the popup — the moment
+  a `PressableIcon` sat inside the content.
 
 - **`Layout.fillWidth: true` on a `Repeater` delegate that's itself a
   `Layout`** (e.g. `Weather.qml`'s hourly columns) does nothing unless

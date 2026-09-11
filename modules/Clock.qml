@@ -157,40 +157,29 @@ BarModule {
                     Layout.fillWidth: true
                     spacing: 8
 
-                    StyledText {
+                    PressableIcon {
                         text: "‹"
                         font.pixelSize: 16
-                        MouseArea {
-                            anchors.fill: parent
-                            anchors.margins: -6
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: popup.shiftMonth(-1)
-                        }
+                        hitPadding: 6
+                        onActivated: popup.shiftMonth(-1)
                     }
 
-                    StyledText {
+                    // Click: back to today.
+                    PressableIcon {
                         Layout.fillWidth: true
                         horizontalAlignment: Text.AlignHCenter
                         text: Qt.formatDate(new Date(popup.viewYear, popup.viewMonth, 1), "MMMM yyyy")
                         font.pixelSize: 14
                         font.bold: true
                         color: Theme.textBright
-                        MouseArea {
-                            anchors.fill: parent
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: popup.goToday()
-                        }
+                        onActivated: popup.goToday()
                     }
 
-                    StyledText {
+                    PressableIcon {
                         text: "›"
                         font.pixelSize: 16
-                        MouseArea {
-                            anchors.fill: parent
-                            anchors.margins: -6
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: popup.shiftMonth(1)
-                        }
+                        hitPadding: 6
+                        onActivated: popup.shiftMonth(1)
                     }
                 }
 

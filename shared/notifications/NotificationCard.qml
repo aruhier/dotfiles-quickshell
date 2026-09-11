@@ -301,11 +301,9 @@ Item {
         anchors.right: parent.right
         anchors.margins: 6
         diameter: 24
-        // Bigger and accent-lit, unlike the group's close-all: this is the
-        // card's own affordance, not a secondary bulk action.
+        // Bigger than the group's close-all, with a lighter rest fill: this
+        // is the card's own affordance, not a secondary bulk action.
         restColor: NotificationTheme.bgHover
-        hoverColor: Theme.accent
-        glyphHoverColor: "black"
         // A pixel under the ratio, tuned before this was shared.
         glyphSize: 12
         interactive: card.interactive

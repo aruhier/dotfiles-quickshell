@@ -3,8 +3,10 @@ import QtQuick
 import qs.shared
 import qs.shared.animations
 
-// A glyph that answers clicks and shrinks while held, so every pressable icon
-// shares one feel. Set text/color/font.pixelSize as on any StyledText.
+// A glyph that answers clicks, shrinks while held and turns accent-coloured
+// under the cursor, so every pressable icon shares one feel. Set
+// text/color/font.pixelSize as on any StyledText; `color` is the rest colour,
+// the hover colour is applied over it.
 //
 // StyledText, not Icon: call sites set their own pixelSize and palette, both
 // of which Icon owns.
@@ -15,14 +17,25 @@ StyledText {
     id: button
 
     property bool interactive: true
-    // Opt-in: hover tracking is off by default so the existing sites keep
-    // their exact behaviour; a site that wants a hover colour sets this and
-    // reads `hovered`.
-    property bool trackHover: false
+    property color hoverColor: Theme.accent
+    // Extra clickable/hoverable margin around the glyph, for small ones like
+    // the calendar's month arrows.
+    property int hitPadding: 0
     readonly property bool hovered: hover.hovered
     signal activated
 
     scale: press.value
+
+    // A Binding with `when`, not a `color:` expression here: call sites bind
+    // `color` themselves (an MPRIS toggle lights up when active), and a
+    // binding in this file would just be overridden by theirs. `when` lays
+    // the hover colour over whatever they bound and restores it after.
+    Binding {
+        target: button
+        property: "color"
+        value: button.hoverColor
+        when: button.hovered && button.interactive
+    }
 
     PressSpring {
         id: press
@@ -32,6 +45,7 @@ StyledText {
     MouseArea {
         id: area
         anchors.fill: parent
+        anchors.margins: -button.hitPadding
         enabled: button.interactive
         cursorShape: Qt.PointingHandCursor
         onClicked: button.activated()
@@ -44,6 +58,6 @@ StyledText {
     // is non-blocking and leaves the parent's hover intact.
     HoverHandler {
         id: hover
-        enabled: button.trackHover
+        margin: button.hitPadding
     }
 }
