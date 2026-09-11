@@ -20,6 +20,11 @@ Item {
     // Keyboard selection in the control-center list. Floating popups never
     // set this — they have no keyboard focus to select with.
     property bool selected: false
+    // Lifts the body's line cap so the whole message is readable. Follows
+    // `selected` by default; NotificationGroupCard.qml overrides it for the
+    // rows of an expanded group, which are never selected individually but
+    // should all open up when the group is.
+    property bool showFullBody: selected
 
     // swaync's `.notification-default-action` padding stacked on
     // `.notification-content`'s, which the reference screenshot bears out.
@@ -208,7 +213,12 @@ Item {
                     lineHeight: 1.1
                     lineHeightMode: Text.ProportionalHeight
                     wrapMode: Text.WordWrap
-                    maximumLineCount: 5
+                    // Capped at rest so one long message can't dominate the
+                    // list or the toast stack; the cap lifts on a selected
+                    // control-center row (see showFullBody). Text has no
+                    // "unlimited" value short of resetting the property, so a
+                    // count no real body reaches stands in for it.
+                    maximumLineCount: card.showFullBody ? 1000 : 5
                     elide: Text.ElideRight
                 }
             }

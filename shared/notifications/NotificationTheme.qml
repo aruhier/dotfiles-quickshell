@@ -74,16 +74,15 @@ QtObject {
     readonly property int controlCenterWidth: 500
     // swaync's control-center-margin-top/bottom.
     readonly property int controlCenterMarginV: 50
-    // Popup stack width: narrow for an ordinary toast, growing up to a
-    // control-center card's width when the content needs it (see
-    // NotificationCard.qml's naturalWidth) rather than always reserving the
-    // wider size. NotificationPopupWindow.qml clamps to this range.
-    readonly property int notificationMinWidth: 380
-    // A control-center card's total side inset (panelPadding + listPadding)
-    // subtracted, so a popup at its widest matches a card exactly. Popups have
-    // no side margins of their own, so this has to be baked in rather than
-    // reusing controlCenterWidth directly.
-    readonly property int notificationMaxWidth: controlCenterWidth - (panelPadding + listPadding) * 2
+    // Popup stack width: narrow for an ordinary toast, growing when the
+    // content needs it (see NotificationCard.qml's naturalWidth) rather than
+    // always reserving the wider size. NotificationPopupWindow.qml clamps to
+    // this range. Independent of the control center's sizing on purpose: a
+    // toast and a panel row are different surfaces, and an earlier attempt to
+    // derive the max from a control-center card's width left only 36px of
+    // headroom over the minimum, so the growth was barely visible.
+    readonly property int popupMinWidth: 380
+    readonly property int popupMaxWidth: 500
 
     // Bumped up from swaync's own 64/12: the art read as too small at the
     // literal config value once seen live.

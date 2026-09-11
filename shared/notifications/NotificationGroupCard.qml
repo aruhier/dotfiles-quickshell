@@ -189,6 +189,9 @@ Item {
                 Layout.fillWidth: true
                 wrapper: groupItemCard.modelData
                 floating: false
+                // Rows aren't selectable on their own (see the ring below),
+                // so selecting the group opens up every row's body.
+                showFullBody: root.selected
             }
         }
     }

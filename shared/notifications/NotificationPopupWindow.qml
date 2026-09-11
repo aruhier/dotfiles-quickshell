@@ -41,7 +41,7 @@ PanelWindow {
 
     // Widest shown popup's naturalWidth (see NotificationCard.qml), clamped
     // to the min/max: most toasts sit at the minimum, while a long summary or
-    // wide action labels push the stack out to a control-center card's width.
+    // wide action labels push the stack out towards popupMaxWidth.
     readonly property real maxNaturalWidth: {
         let w = 0;
         for (let i = 0; i < popupRepeater.count; i++) {
@@ -52,7 +52,7 @@ PanelWindow {
         return w;
     }
 
-    implicitWidth: Math.min(Math.max(maxNaturalWidth, NotificationTheme.notificationMinWidth), NotificationTheme.notificationMaxWidth)
+    implicitWidth: Math.min(Math.max(maxNaturalWidth, NotificationTheme.popupMinWidth), NotificationTheme.popupMaxWidth)
     implicitHeight: column.implicitHeight
 
     // One entry per popup on screen: a superset of NotificationService.popups
