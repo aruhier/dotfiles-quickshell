@@ -110,10 +110,14 @@ Rectangle {
 
                 // The focused fill is drawn by the shared `selection`
                 // indicator below, not here.
-                color: wsDelegate.modelData.urgent ? Theme.workspaceUrgent : activeNotFocused ? Theme.workspaceActiveBg : windows > 0 ? Theme.workspaceBg : Theme.workspaceEmptyBg
+                readonly property color stateColor: wsDelegate.modelData.urgent ? Theme.workspaceUrgent : activeNotFocused ? Theme.workspaceActiveBg : windows > 0 ? Theme.workspaceBg : Theme.workspaceEmptyBg
+                readonly property bool hovered: mouseArea.containsMouse
+                color: hovered ? Qt.darker(stateColor, Theme.workspaceHoverDarken) : stateColor
 
                 MouseArea {
+                    id: mouseArea
                     anchors.fill: parent
+                    hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: wsDelegate.modelData.activate()
                 }
@@ -127,7 +131,9 @@ Rectangle {
     Rectangle {
         id: selection
         visible: root.focusedDelegate !== null
-        color: Theme.accent
+        // Painted over the focused delegate, so it has to mirror that
+        // delegate's hover itself.
+        color: root.focusedDelegate && root.focusedDelegate.hovered ? Qt.darker(Theme.accent, Theme.workspaceHoverDarken) : Theme.accent
         antialiasing: false
 
         // The focused delegate's offset *within* row, sprung on its own. This

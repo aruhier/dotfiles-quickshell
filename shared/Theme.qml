@@ -27,6 +27,11 @@ QtObject {
     // A workspace active on its own monitor but not system-focused: between
     // workspaceBg and accent. See Workspaces.qml.
     readonly property color workspaceActiveBg: Qt.tint(workspaceBg, Qt.rgba(accent.r, accent.g, accent.b, 0.5))
+    // Hover is a relative darken of whatever the pill already is, not a
+    // flat color: every state above stays distinguishable while hovered, and
+    // the dark label text gains contrast rather than losing it. Qt.darker()
+    // factor.
+    readonly property real workspaceHoverDarken: 1.15
 
     // Lightened from waybar's #f53c3c, which it only ever used as a
     // background: as text on groupBg that lands at 2.7:1. This reads red at
