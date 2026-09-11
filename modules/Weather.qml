@@ -77,7 +77,7 @@ BarModule {
 
     HoverPopupArea {
         loader: popupLoader
-        onClicked: WeatherService.fetchForecast()
+        onClicked: WeatherService.refresh()
     }
 
     // LazyLoader, not Loader — see Clock.qml's popupLoader.
@@ -286,13 +286,15 @@ BarModule {
                 }
 
                 // ---- footer ----
+                // Not gated on daily.length like the sections above: when the
+                // fetch failed before ever succeeding this is the whole popup,
+                // and the refresh button is the way out of that state.
                 RowLayout {
                     Layout.fillWidth: true
-                    visible: root.daily.length > 0
                     spacing: 10
 
                     StyledText {
-                        text: root.locationName || "Current location"
+                        text: root.errored && !root.current ? "Weather unavailable" : (root.locationName || "Current location")
                         font.pixelSize: 10
                         color: Theme.text
                         opacity: 0.7
@@ -312,6 +314,55 @@ BarModule {
                         font.pixelSize: 10
                         color: Theme.text
                         opacity: 0.7
+                    }
+
+                    // Spins while a request is in flight. Always completes
+                    // the turn it's on rather than stopping dead at whatever
+                    // angle the response landed: a fetch usually finishes in
+                    // well under one turn, and a click that produced no
+                    // visible spin would look like it did nothing again.
+                    PressableIcon {
+                        id: refreshButton
+                        text: WeatherIcons.glyph("refresh")
+                        font.pixelSize: 13
+                        // Accent on hover, like a notification card's close
+                        // button; full opacity while loading so the spin
+                        // reads as active even with the cursor elsewhere.
+                        trackHover: true
+                        color: hovered && interactive ? Theme.accent : Theme.text
+                        opacity: root.loading || hovered ? 1.0 : 0.7
+                        interactive: !root.loading
+                        onActivated: WeatherService.refresh()
+
+                        NumberAnimation {
+                            id: spin
+                            target: refreshButton
+                            property: "rotation"
+                            from: 0
+                            to: 360
+                            duration: 700
+                            onFinished: {
+                                if (root.loading)
+                                    spin.restart();
+                                else
+                                    refreshButton.rotation = 0;
+                            }
+                        }
+
+                        // `loading` can already be true when the popup opens
+                        // (bar-icon click, timer), so it's a binding-like
+                        // handler plus an initial check, not just onActivated.
+                        Connections {
+                            target: root
+                            function onLoadingChanged() {
+                                if (root.loading && !spin.running)
+                                    spin.start();
+                            }
+                        }
+                        Component.onCompleted: {
+                            if (root.loading)
+                                spin.start();
+                        }
                     }
                 }
             }

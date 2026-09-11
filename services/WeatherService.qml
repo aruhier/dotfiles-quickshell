@@ -5,7 +5,7 @@ import Quickshell
 
 // Shared weather state: one geolocation lookup and one Open-Meteo fetch cycle
 // for the whole process, rather than one per bar. Weather.qml just reads these
-// properties and calls fetchForecast().
+// properties and calls refresh().
 QtObject {
     id: root
 
@@ -70,6 +70,19 @@ QtObject {
         root.daily = days;
     }
 
+    // Entry point for both the timer and the bar click. Geolocation is
+    // retried here rather than only at startup: if the initial IP lookup
+    // failed (bar launched before the network came up), the coordinates stay
+    // NaN and a plain fetchForecast() would just re-flag the error forever.
+    function refresh() {
+        if (root.loading)
+            return;
+        if (isNaN(root.latitude) || isNaN(root.longitude))
+            root.resolveLocationAndFetch();
+        else
+            root.fetchForecast();
+    }
+
     function fetchForecast() {
         if (isNaN(root.latitude) || isNaN(root.longitude)) {
             root.errored = true;
@@ -110,19 +123,27 @@ QtObject {
             return;
         }
 
+        root.loading = true;
         const xhr = new XMLHttpRequest();
         xhr.onreadystatechange = function () {
             if (xhr.readyState !== XMLHttpRequest.DONE)
                 return;
+            root.loading = false;
             try {
+                if (xhr.status !== 200)
+                    throw new Error("http " + xhr.status);
                 const geo = JSON.parse(xhr.responseText);
+                if (typeof geo.lat !== "number" || typeof geo.lon !== "number")
+                    throw new Error("no coordinates");
                 root.latitude = geo.lat;
                 root.longitude = geo.lon;
                 root.locationName = [geo.city, geo.country].filter(function (s) {
                     return !!s;
                 }).join(", ");
             } catch (e) {
-            // fall through with NaN coords; fetchForecast() will mark errored
+                // Coords stay NaN; the next refresh() retries the lookup.
+                root.errored = true;
+                return;
             }
             root.fetchForecast();
         };
@@ -130,13 +151,13 @@ QtObject {
         xhr.send();
     }
 
-    Component.onCompleted: resolveLocationAndFetch()
+    Component.onCompleted: refresh()
 
     // Refresh every 15 minutes.
     property Timer refreshTimer: Timer {
         interval: 900000
         running: true
         repeat: true
-        onTriggered: root.fetchForecast()
+        onTriggered: root.refresh()
     }
 }

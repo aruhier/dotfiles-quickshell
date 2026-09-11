@@ -38,7 +38,8 @@ var GLYPHS = {
     sunrise: 0xe343,
     sunset: 0xf059a,
     precipLow: 0xee8e,
-    precipHigh: 0xf043
+    precipHigh: 0xf043,
+    refresh: 0xf0450
 };
 
 function iconFor(code, isDay) {

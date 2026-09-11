@@ -15,6 +15,11 @@ StyledText {
     id: button
 
     property bool interactive: true
+    // Opt-in: hover tracking is off by default so the existing sites keep
+    // their exact behaviour; a site that wants a hover colour sets this and
+    // reads `hovered`.
+    property bool trackHover: false
+    readonly property bool hovered: hover.hovered
     signal activated
 
     scale: press.value
@@ -30,5 +35,15 @@ StyledText {
         enabled: button.interactive
         cursorShape: Qt.PointingHandCursor
         onClicked: button.activated()
+    }
+
+    // A HoverHandler, not `hoverEnabled` on the MouseArea above: MouseArea
+    // hover is exclusive, so enabling it here would steal the hover from an
+    // enclosing hover-tracked surface — a HoverPopup's own MouseArea would see
+    // containsMouse drop and close the popup under the cursor. HoverHandler
+    // is non-blocking and leaves the parent's hover intact.
+    HoverHandler {
+        id: hover
+        enabled: button.trackHover
     }
 }

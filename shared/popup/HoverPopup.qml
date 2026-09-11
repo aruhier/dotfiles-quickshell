@@ -70,12 +70,16 @@ AnchoredPopupWindow {
         border.width: 1
         radius: popup.cornerRadius
 
-        MouseArea {
-            anchors.fill: parent
-            hoverEnabled: true
-            onContainsMouseChanged: {
-                popup._popupHovered = containsMouse;
-                if (containsMouse)
+        // A HoverHandler on the surface itself, not a hover MouseArea laid
+        // behind contentItem: Qt keeps delivering hover to an accepting item's
+        // ancestors but stops at items behind it, so a hover-tracked child in
+        // the content (Weather's refresh button) would have left a sibling
+        // MouseArea un-hovered and closed the popup under the cursor. Same
+        // shape as NotificationCard's whole-card handler over its CloseButton.
+        HoverHandler {
+            onHoveredChanged: {
+                popup._popupHovered = hovered;
+                if (hovered)
                     popup.show();
                 else
                     popup.requestHide();
