@@ -225,7 +225,7 @@ BarModule {
     }
 
     // Hover tracked by hand rather than via HoverPopupArea: that type drives
-    // HoverPopup's show()/requestHide() API, and Tooltip is the other kind of
+    // HoverPopup's `anchorHovered` property, and Tooltip is the other kind of
     // popup (declarative `show`, no grace period). Same wiring as Tray.qml.
     MouseArea {
         id: hover

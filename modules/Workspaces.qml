@@ -114,7 +114,7 @@ Rectangle {
                 // The focused fill is drawn by the shared `selection`
                 // indicator below, not here.
                 readonly property color stateColor: wsDelegate.modelData.urgent ? Theme.workspaceUrgent : activeNotFocused ? Theme.workspaceActiveBg : windows > 0 ? Theme.workspaceBg : Theme.workspaceEmptyBg
-                readonly property bool hovered: mouseArea.containsMouse
+                readonly property bool hovered: mouseArea.hovered
                 color: hovered ? Qt.darker(stateColor, Theme.workspaceHoverDarken) : stateColor
 
                 // Hover opens a live preview of the workspace (after the usual

@@ -7,8 +7,8 @@ import qs.shared.popup
 // background chrome, the close grace timer and PopupCoordinator registration
 // on top of AnchoredPopupWindow's anchor math, so every popup gets close() and
 // mutual exclusion for free. A module supplies content as default children,
-// drives visibility with show()/requestHide() from its own hover MouseArea,
-// and still sets implicitWidth/implicitHeight itself.
+// its HoverPopupArea sets `anchorHovered`, and it still sets
+// implicitWidth/implicitHeight itself.
 //
 // Tooltip.qml shares only AnchoredPopupWindow, not this: it's driven by a
 // declarative `show` bool and closes with no grace period, a different enough
@@ -22,20 +22,25 @@ AnchoredPopupWindow {
 
     default property alias content: contentItem.data
 
+    // Written by HoverPopupArea; the module's side of the hover.
+    property bool anchorHovered: false
+
+    // The one fact the open/close logic runs on: is the cursor anywhere that
+    // should keep this popup up. Derived, not stored, so there is no copy of
+    // the hover state to fall out of sync and no dependence on the order in
+    // which the module and the surface report their halves.
+    readonly property bool hovered: anchorHovered || surface.hovered
+
     property bool _open: false
-    // Only the popup's own surface. Any renewed hover, on the module or the
-    // popup, calls show() and stops hideTimer — so by the time hideTimer
-    // fires, this alone tells us nothing is hovered any more.
-    property bool _popupHovered: false
 
-    function show() {
-        hideTimer.stop();
-        PopupCoordinator.activate(popup);
-        _open = true;
-    }
-
-    function requestHide() {
-        hideTimer.restart();
+    onHoveredChanged: {
+        if (hovered) {
+            hideTimer.stop();
+            PopupCoordinator.activate(popup);
+            _open = true;
+        } else {
+            hideTimer.restart();
+        }
     }
 
     // Closes immediately, no grace period. Called by PopupCoordinator on the
@@ -50,14 +55,14 @@ AnchoredPopupWindow {
         PopupCoordinator.deactivate(popup);
     }
 
+    // Grace for the cursor to cross the gap between module and popup (or
+    // back) without the popup closing under it.
     Timer {
         id: hideTimer
         interval: popup.hideDelay
         onTriggered: {
-            if (!popup._popupHovered) {
-                popup._open = false;
-                PopupCoordinator.deactivate(popup);
-            }
+            if (!popup.hovered)
+                popup.close();
         }
     }
 
@@ -77,13 +82,7 @@ AnchoredPopupWindow {
         // MouseArea un-hovered and closed the popup under the cursor. Same
         // shape as NotificationCard's whole-card handler over its CloseButton.
         HoverHandler {
-            onHoveredChanged: {
-                popup._popupHovered = hovered;
-                if (hovered)
-                    popup.show();
-                else
-                    popup.requestHide();
-            }
+            id: surface
         }
 
         Item {

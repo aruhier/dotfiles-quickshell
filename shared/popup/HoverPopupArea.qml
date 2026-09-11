@@ -1,9 +1,10 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 
-// Hover MouseArea driving a lazily-loaded HoverPopup: activates `loader` and
-// calls show()/requestHide() on the loaded item. Still a plain MouseArea, so a
-// call site can attach its own onClicked on top (Weather.qml does).
+// Hover area driving a lazily-loaded HoverPopup: activates `loader` after a
+// dwell and mirrors its own hover into the loaded item's `anchorHovered`. Still
+// a plain MouseArea, so a call site can attach its own onClicked on top
+// (Weather.qml does).
 MouseArea {
     id: area
 
@@ -19,6 +20,10 @@ MouseArea {
     // popup that stays invisible and lingers until its next hover.
     property bool popupEnabled: true
 
+    // Read this rather than containsMouse, which stays false here: hover is
+    // tracked by the HoverHandler below, not the MouseArea.
+    readonly property bool hovered: hover.hovered
+
     // For a click that makes the popup moot (Workspaces: switching to the
     // previewed workspace): drops a pending open and closes an open one.
     function cancel() {
@@ -28,22 +33,28 @@ MouseArea {
     }
 
     anchors.fill: parent
-    hoverEnabled: true
     cursorShape: Qt.PointingHandCursor
-    onContainsMouseChanged: {
-        if (containsMouse) {
-            // Coming back from the popup's own surface: it is already open and
-            // its hideTimer is running, so cancel that now rather than after
-            // another showDelay — by then the popup would have closed under a
-            // cursor that never left the module.
-            if (area.loader.item && area.loader.item._open)
-                area.loader.item.show();
-            else
-                showTimer.restart();
-        } else {
-            showTimer.stop();
-            if (area.loader.item)
-                area.loader.item.requestHide();
+
+    // Hover via a HoverHandler rather than `hoverEnabled` on the MouseArea, for
+    // the same reason as HoverPopup's surface: it then doesn't matter where in
+    // a module's z-order this sits, or whether the module's content grows a
+    // hover-tracking child of its own.
+    HoverHandler {
+        id: hover
+        onHoveredChanged: {
+            if (hovered) {
+                // Already built (cursor coming back from the popup surface):
+                // no dwell, just report the hover so the popup's grace timer
+                // stops. Otherwise dwell first; the timer builds it.
+                if (area.loader.item)
+                    area.loader.item.anchorHovered = true;
+                else
+                    showTimer.restart();
+            } else {
+                showTimer.stop();
+                if (area.loader.item)
+                    area.loader.item.anchorHovered = false;
+            }
         }
     }
 
@@ -54,7 +65,7 @@ MouseArea {
             if (!area.popupEnabled)
                 return;
             area.loader.active = true;
-            area.loader.item.show();
+            area.loader.item.anchorHovered = true;
         }
     }
 }
