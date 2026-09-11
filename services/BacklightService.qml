@@ -19,9 +19,10 @@ QtObject {
     readonly property bool available: device !== "" && maxRaw > 0
     readonly property real linear: maxRaw > 0 ? Math.max(0, Math.min(1, raw / maxRaw)) : 0
 
-    // percent = (raw / maxRaw) ^ (1 / exponent). Steeper than waybar's
-    // default 2.0, i.e. finer control at the dark end.
-    property real exponent: 2.75
+    // percent = (raw / maxRaw) ^ (1 / exponent). 4 is what `brightnessctl -e`
+    // uses when given no K, so a "+10%" there and a 10-point move here are
+    // the same raw change; keep them in sync if either side changes.
+    property real exponent: 4
 
     // One wheel notch, in perceptual units (0..1).
     property real step: 0.05
