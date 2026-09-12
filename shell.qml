@@ -6,6 +6,12 @@
 // process-wide. The simple driver has neither the guess nor the cap. Takes
 // effect at process start only, not on reload. See AGENTS.md for the measurements.
 //@ pragma Env QSG_USE_SIMPLE_ANIMATION_DRIVER=1
+// Vulkan RHI instead of the default OpenGL. Measured on this machine (3
+// screens, 6 layer-shell windows): 168-171MB RSS vs 256-258MB on OpenGL, three
+// reps each — the GL backend's per-window cost is what scales badly. Changes
+// nothing about animation rates (same broken-vsync trip, same 62/s spring cap),
+// and ScreencopyView's dmabuf import works on both. See AGENTS.md.
+//@ pragma Env QSG_RHI_BACKEND=vulkan
 pragma ComponentBehavior: Bound
 import Quickshell
 import Quickshell.Io

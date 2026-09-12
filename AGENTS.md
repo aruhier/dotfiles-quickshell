@@ -1262,9 +1262,10 @@ output, so if it ever gains a way to leave those alone, revisit.
   here — Quickshell instantiates `pragma Singleton` lazily, so a service whose
   module isn't in any screen's layout never starts in the first place.
 - **`//@ pragma Env` for Qt tunables.** DMS pins `QSG_RENDER_LOOP=threaded` and
-  friends in its `shell.qml`. Nothing here currently depends on an env var, and
-  setting one speculatively is a behaviour change that can't be justified from
-  evidence — but `shell.qml` is the right home if that ever changes.
+  friends in its `shell.qml`. ~~Nothing here currently depends on an env var~~ —
+  **outdated**: `shell.qml` now pins `QSG_USE_SIMPLE_ANIMATION_DRIVER=1` and
+  `QSG_RHI_BACKEND=vulkan`, each with measurements in the dated sections below.
+  The principle still stands though — neither was set speculatively.
   `//@ pragma AppId` *was* added.
 
 ## Privacy.qml: media-class classification, camera vs. screencast (2026-09-08)
@@ -1501,3 +1502,73 @@ process keeps its old file offset). And per-frame instrumentation needs to know
 what it is counting: a `console.warn` in `FrameSpring`'s `onValueChanged` fires
 once per *integration sub-step* (4 per frame at 16ms, ~1-2 at 4ms), not once
 per frame, which makes 60Hz look like 250Hz.
+
+## Vulkan RHI backend: a third less memory, and it changes nothing else (2026-09-12)
+
+User asked whether `QSG_RHI_BACKEND=vulkan` (which people recommend for
+Quickshell online) is worth it, and specifically whether it would help the RSS
+on this 3-screen machine. It does, and that is the *only* thing it changes.
+
+**Memory, the reason to do it.** Synthetic harness, 6 layer-shell windows
+across all 3 screens (a full-width bar plus a 400x300 popup per screen), RSS
+sampled at t=7s, three reps per backend:
+
+| backend | RSS |
+|---|---|
+| opengl | 258 / 256 / 257 MB |
+| vulkan | 168 / 169 / 171 MB |
+
+~88MB, ~34%. The cost is **per-window**, which is why it matters here: scaling
+the same harness from 1 window to 6 cost OpenGL ~12.6MB/window and Vulkan
+~3-8MB/window. The real shell (12 `Creating QRhi` windows) came up at **280MB
+on Vulkan against 346MB on OpenGL** — directionally the same, but note that
+346MB reading was a long-uptime process and 280MB was fresh, so the controlled
+three-rep table above is the real evidence, not that pair.
+
+CPU was slightly lower too (22-25 vs 28-29 ticks over 5s of continuous
+animation), but that is close enough to noise to not claim.
+
+**It does NOT replace `QSG_USE_SIMPLE_ANIMATION_DRIVER=1`.** The obvious hope
+was that the Vulkan backend would report a sane vsync interval and stop the
+broken-vsync heuristic from tripping. It does not — the heuristic fires
+identically, because the root cause is Quickshell not setting the real
+`QScreen` on layer-shell windows, which has nothing to do with the RHI backend:
+
+```
+opengl: broken vsync throttling (3.142857 < 8.340144)
+vulkan: broken vsync throttling (4.000000 < 8.340144)
+```
+
+**It does NOT make `FrameSpring` redundant either.** Same harness as the
+section above (500px travel, counting property updates/s on DP-1 @240Hz), now
+crossed with the backend:
+
+| | opengl | vulkan |
+|---|---|---|
+| `NumberAnimation`, default driver | 60/s | 60/s |
+| `NumberAnimation`, simple driver | 240/s | 237/s |
+| `SpringAnimation`, default driver | 60/s | 60/s |
+| `SpringAnimation`, simple driver | **62/s** | **62/s** |
+
+The spring cap is inside `QQuickSpringAnimation`'s own fixed timestep and the
+backend cannot see it, let alone move it. Both existing fixes stay.
+
+**`ScreencopyView` works on Vulkan** — this was the one real risk, since the
+dmabuf import is backend-specific (the binary calls `eglCreateImage` for the GL
+path and `QVulkanDeviceFunctions::vkCreateImage` for the Vulkan one, so
+Quickshell 0.3.1 implements both). Verified with a live `captureSource:
+Quickshell.screens[0]`: `hasContent=true` and a correct 1440x2560 `sourceSize`
+on both backends. RADV advertises `VK_EXT_external_memory_dma_buf` and
+`VK_EXT_image_drm_format_modifier`, which is what that path needs.
+
+**Caveats.** `radv is not a conformant Vulkan implementation, testing use only`
+is printed at every startup and is normal/harmless. Vulkan recreates the
+swapchain on every window resize (`Creating recycled swapchain of 3 buffers`),
+which OpenGL has no equivalent step for — worth remembering if the adaptively
+sized notification popups ever look janky. Presentation mode is FIFO (vsync).
+And the 3-image swapchain means a *very* large window would cost more on Vulkan
+than GL's 2 buffers; nothing here is near that size.
+
+This supersedes the "`//@ pragma Env` for Qt tunables / nothing here currently
+depends on an env var" bullet under **Considered and not done** — `shell.qml`
+now pins two.
