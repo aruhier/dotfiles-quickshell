@@ -57,12 +57,15 @@ Item {
         onHoveredChanged: card.hovered = hovered
     }
 
-    // How wide this card needs to be to show its header (summary + time) and
-    // action labels unelided — read by NotificationPopupWindow.qml to grow the
-    // popup stack past its minimum. Ignores body text on purpose: that wraps,
-    // so a long paragraph should fill more lines rather than stretch the toast,
-    // unlike a single-line summary or action label, which would get clipped.
+    // How wide this card needs to be to show its header (summary + time), body
+    // and action labels unwrapped and unelided — read by
+    // NotificationPopupWindow.qml to grow the popup stack past its minimum.
+    // The result is clamped to popupMaxWidth there, so a body longer than that
+    // simply pegs the toast at its maximum and wraps from there.
     readonly property real headerNaturalWidth: summaryText.implicitWidth + (timeText.visible ? headerRow.spacing + timeText.implicitWidth : 0)
+    // A wrapping Text reports its *unwrapped* width as implicitWidth, which is
+    // exactly the width at which the body would need no wrapping at all.
+    readonly property real bodyNaturalWidth: bodyText.visible ? bodyText.implicitWidth : 0
     readonly property real actionsNaturalWidth: {
         if (!actionsRow.visible)
             return 0;
@@ -77,7 +80,8 @@ Item {
         }
         return widest * actionsRepeater.count + actionsRow.spacing * Math.max(0, actionsRepeater.count - 1) + card.actionsMargin * 2;
     }
-    readonly property real naturalWidth: Math.max(card.padding * 2 + card.iconSize + card.iconHorizontalPadding * 2 + contentRow.spacing + headerNaturalWidth, actionsNaturalWidth)
+    // The text column has to fit whichever of its two rows is wider.
+    readonly property real naturalWidth: Math.max(card.padding * 2 + card.iconSize + card.iconHorizontalPadding * 2 + contentRow.spacing + Math.max(headerNaturalWidth, bodyNaturalWidth), actionsNaturalWidth)
 
     // actionsRow is inset from the card's edges, so it needs a top and a
     // matching bottom gap on top of its own height. When hidden, the card
@@ -202,6 +206,7 @@ Item {
                 }
 
                 StyledText {
+                    id: bodyText
                     Layout.fillWidth: true
                     visible: card.wrapper.body !== ""
                     text: card.wrapper.body
