@@ -19,8 +19,11 @@ PanelWindow {
         top: true
         right: true
     }
-    margins.top: Theme.barHeight + 10
-    margins.right: 10
+    // Snapped to the device pixel grid, like the control center's margins: an
+    // off-grid margin puts the stack on a fraction of a device pixel and every
+    // glyph in it renders smeared. See NotificationCenterPanel.qml.
+    margins.top: Screens.snap(Theme.barHeight + 10, popupWindow.screen)
+    margins.right: Screens.snap(10, popupWindow.screen)
 
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
@@ -46,7 +49,11 @@ PanelWindow {
         return w;
     }
 
-    implicitWidth: Math.min(Math.max(maxNaturalWidth, NotificationTheme.popupMinWidth), NotificationTheme.popupMaxWidth)
+    // Snapped for the same reason as the margins: the window is
+    // right-anchored, so its width is what decides where the left edge — and
+    // with it every card's text — lands on the device pixel grid.
+    // maxNaturalWidth is a measured implicitWidth, so it is rarely integral.
+    implicitWidth: Screens.snap(Math.min(Math.max(maxNaturalWidth, NotificationTheme.popupMinWidth), NotificationTheme.popupMaxWidth), popupWindow.screen)
     implicitHeight: column.implicitHeight
 
     // One entry per popup on screen: a superset of NotificationService.popups

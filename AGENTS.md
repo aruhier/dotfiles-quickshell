@@ -236,6 +236,34 @@ reasoning is long, points at the section here that carries it.
   site. Measurements and the FreeType-level alternative that was rejected:
   the 2026-09-12 section at the end.
 
+- **A `MultiEffect` source item holds a background plate, never the content.**
+  A source item is rendered into a layer texture and that texture is drawn
+  with linear filtering, so as soon as it lands on a fraction of a device
+  pixel — routine at fractional scale, and unavoidable while it is being
+  animated — everything inside it is resampled. Ordinary text is immune (Qt
+  rounds glyph positions, even under an off-grid ancestor); text inside a
+  layer is not. `NotificationCard.qml` had this right by accident and the
+  control center had it wrong: it fed `source: panel` with the whole panel,
+  which is what made it read blurry on the 1.25 output. Both now layer an
+  empty `Rectangle` and keep the content as a sibling drawn after the effect.
+  Measurements: the 2026-09-12 section at the end.
+
+- **Offsets that place a bordered surface go through `Screens.snap()`.** A 1px
+  border off the device pixel grid draws as two half-lit columns instead of
+  one solid one, and at scale 1.25 a logical coordinate only lands on a whole
+  device pixel when it is a multiple of 4 (3 at 1.333, 5 at 1.6 — no constant
+  covers every output, hence a per-scale helper). `Screens.scaleFor()` reads
+  the real scale from Hyprland: `ShellScreen.devicePixelRatio` is the integer
+  `wl_output` scale, 2 on a 1.25 output, and Qt exposes the fractional one
+  nowhere. This is polish for borders only — it is not what fixes text.
+  `scaleFor()` is compositor-specific, but adds no portability debt:
+  `shared/Screens.qml` was already the Hyprland seam (`focused()` reads
+  `Hyprland.focusedMonitor`, and the import is file-scope), so a port to Niri
+  rewrites two functions in one file instead of one. Verified to degrade
+  rather than break: `Hyprland.monitorFor()` returns null for a screen it does
+  not know — no throw — so `scaleFor()` gives 1, `snap()` becomes the identity
+  on whole numbers, and the layout is exactly what this repo shipped before.
+
 - **`StyledText` asks for `Font.PreferVerticalHinting`; don't "upgrade" it to
   full.** Qt Quick's native text path loads glyphs *unhinted* unless an item
   states a preference — fontconfig's system-wide `hintslight` reaches waybar
@@ -1729,6 +1757,12 @@ than blending across two. `Workspaces.qml`'s label `x`/`y` (unrounded, unlike
 the selection pill's `Math.round`) therefore costs at most a pixel of
 centring, never sharpness. Left alone.
 
+> Confirmed and bounded on 2026-09-12: it also holds when the *ancestor* is
+> off-grid, which is the case that actually comes up — a container half a
+> device pixel out renders its text as sharply as one on the grid. The single
+> exception is an item inside a layer (a `MultiEffect` source), whose texture
+> is filtered rather than re-rasterised. See the section at the end.
+
 **3. Subpixel antialiasing — rejected, and not reachable anyway.** The bar
 renders pure greyscale AA today: across the glyph edges of a bar label the
 per-channel alpha spread is 0.017 median, 0.02 max, i.e. every edge pixel is a
@@ -1746,3 +1780,90 @@ three would fringe, and Qt has no per-screen control.
 through plain `font.weight`, which on Inter Variable snaps to the named
 instances as measured above. Nothing to borrow here.
 
+
+## The control center was blurry on DP-1 because its content lived in a layer (2026-09-12)
+
+Reported as "the notification panel is at the wrong resolution on DP-1 — it
+looks like it takes DP-2's resolution". It does not. The surface is on the
+right output, at the right size, rendered at DP-1's native resolution:
+
+| suspected | measured |
+|---|---|
+| wrong output / stale `screen` | layer surface reports `DP-1 3072x1728`, correct for 3840÷1.25; reassigning `screen` mid-session keeps it |
+| content scaled for another screen | panel title ink 154x20 px on DP-1 against 123x16 on DP-2 — exactly 1.25x |
+| surface rendered small and upscaled | `WAYLAND_DEBUG=1`: `wp_fractional_scale_v1.preferred_scale(150)` (=1.25) and `create_immed(… 3840, 2160 …)`, i.e. buffers at native resolution, `wp_viewport.set_destination(3072, 1728)`. Quickshell is using fractional scaling; only `devicePixelRatio` looks integer, see below |
+| the vulkan RHI backend | same render under the GL default |
+| a degraded long-running instance | a freshly launched copy renders the panel pixel-identical to the live one (`compare -metric AE` = 0) |
+
+**The cause: layer textures are filtered, glyphs are not.** Qt rounds a text
+item's position to whole device pixels, so unlayered text is sharp wherever it
+sits. A `MultiEffect` source item is different — it is rendered into a texture
+and that texture is drawn with linear filtering, so a fractional destination
+resamples everything inside it. Three identical labels on DP-1, the offset put
+on their *container*, scored by how much of the glyph ink lands in fully
+covered pixels:
+
+| container offset | plain container | `MultiEffect` source |
+|---|---|---|
+| on-grid | 1645 full / 1229 midtone | 1728 full / 1101 midtone |
+| ½ device pixel off | 1689 / 1179 | **1124 / 1757** |
+
+Only the layered row collapses. `NotificationCenterPanel.qml` used
+`source: panel` with the entire panel as the source, purely to get a drop
+shadow, so all of its text was inside that texture — and the panel's resting
+overscan (`rightMargin: -2`, with `controlCenterMarginV: 50`) put its left
+edge at device x 3217.5. `NotificationCard.qml` had always layered just a
+background `Rectangle`, which is why the cards never showed this.
+
+**Fix 1, the one that matters: the content moved out of the source.** `panel`
+is now an empty background plate; the `MouseArea` and `ColumnLayout` are a
+sibling `Item` drawn after the `MultiEffect`. Panel title, same crop:
+
+| | full (≥230) | midtone (90..200) |
+|---|---|---|
+| layered, off-grid (the bug) | 261 | 869 |
+| layered, snapped to the grid | 598 | 404 |
+| unlayered, still off-grid | 610 | 394 |
+
+Unlayered and *unsnapped* already beats layered-and-snapped, and needs to know
+nothing about the output's scale — so it holds at 1.333 or 1.6 just as well.
+
+**Fix 2, polish: `Screens.snap()` for the borders.** Geometry is still
+antialiased honestly, so with the content out of the layer the panel's own 1px
+border was still split when off-grid. One scanline across it:
+
+```
+off-grid (edge 3217.5):  47  61  54  41   ← two half-lit columns
+snapped  (edge 3217.0):  46  74  41  41   ← one, full intensity
+```
+
+and the card outline inside the list, via `listPadding`:
+
+```
+off-grid (edge 3272.5):  36  92 142 143  95  48
+snapped  (edge 3270.0):  37 143 143 143  48  48
+```
+
+`Screens.snap(length, screen)` rounds a logical length so `length * scale` is
+whole. It cannot use `ShellScreen.devicePixelRatio`: that is the integer
+`wl_output` scale Hyprland advertises for legacy clients — **2** on this 1.25
+output — while the surface is rendered through `wp_fractional_scale_v1` at
+1.25. Qt exposes the fractional value to QML nowhere, so `Screens.scaleFor()`
+takes it from `Hyprland.monitorFor(screen).scale`. A rounder constant was tried
+first and rejected: the multiple that stays on the grid is the denominator of
+the scale (4 at 1.25, 3 at 1.333, 5 at 1.6), so no single constant covers the
+outputs a config might meet.
+
+Applied to the panel's margins, width and overscan, to `panelPadding` /
+`listPadding` / `listCardMargin` at their call sites, and to the toast stack's
+margins and `implicitWidth` (right-anchored, so the width places the left
+edge). The theme keeps the designed numbers; only the call sites snap.
+
+**Considered and not done.** Disabling the protocol
+(`QT_WAYLAND_DISABLED_INTERFACES=wp_fractional_scale_manager_v1`) drops Qt back
+to the integer output scale and recovers part of the sharpness on its own
+(52.15 mean gradient against the off-grid 50.38), because the compositor then
+downsamples a 2x render rather than filtering a misaligned texture. Rejected:
+it makes Qt render every surface at 6144x3456 for a 3840-wide output, and it
+treats the symptom. `QT_WAYLAND_DISABLE_FRACTIONAL_SCALE`, tried first, is not
+a Qt variable at all — 6.11's `libQt6WaylandClient` has no such string.

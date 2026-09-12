@@ -159,16 +159,25 @@ PanelWindow {
         // visibility. The resting -2 is deliberate overscan: at fractional
         // scale a 0 margin left the last physical column transparent, since
         // only this Rectangle paints. The extra 2px are square and clipped.
+        //
+        // Every offset that places this Rectangle goes through
+        // `Screens.snap()`, width included — right-anchored, so margin *and*
+        // width decide where the left edge lands. That is for this
+        // Rectangle's own 1px border: off the device pixel grid it draws as
+        // two half-lit columns instead of one solid one. The panel's *text*
+        // does not depend on it (Qt rounds glyph positions); what text needed
+        // was getting out of the shadow's layer, below.
         Rectangle {
             id: panel
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            anchors.margins: NotificationTheme.controlCenterMarginV
+            anchors.margins: Screens.snap(NotificationTheme.controlCenterMarginV, panelWindow.screen)
             anchors.rightMargin: rightMarginSpring.value
-            width: NotificationTheme.controlCenterWidth
+            width: Screens.snap(NotificationTheme.controlCenterWidth, panelWindow.screen)
 
-            readonly property real restingRightMargin: -2
+            readonly property real restingRightMargin: Screens.snap(-2, panelWindow.screen)
+            // Off-screen, so it only has to clear the edge, not land on it.
             readonly property real closedRightMargin: -panel.width - 2
 
             // Retargeted imperatively from the Connections handler above.
@@ -192,6 +201,33 @@ PanelWindow {
             bottomLeftRadius: NotificationTheme.controlCenterRadius
             topRightRadius: 0
             bottomRightRadius: 0
+        }
+
+        // Drop shadow, the same MultiEffect-as-source pattern as
+        // NotificationCard.qml's: `panel` is the source and so paints only
+        // through here, never directly.
+        MultiEffect {
+            anchors.fill: panel
+            source: panel
+            shadowEnabled: true
+            shadowColor: "black"
+            shadowOpacity: 0.4
+            shadowHorizontalOffset: 0
+            shadowVerticalOffset: 1
+            shadowBlur: 0.4
+        }
+
+        // Everything the panel *shows* lives here, a sibling of the shadow's
+        // source rather than a child of it, so `panel` stays an empty
+        // background plate. A source item is rendered into a layer texture and
+        // that texture is drawn with linear filtering, so whenever the item
+        // lands on a fraction of a device pixel — routine at fractional scale
+        // — the whole subtree inside it is resampled. Qt rounds glyph
+        // positions for ordinary items, so unlayered text is immune at any
+        // offset; text *inside* a layer is not, and this panel used to put its
+        // entire contents in one. Measured: AGENTS.md.
+        Item {
+            anchors.fill: panel
 
             // Keeps clicks inside the panel off the outer close-catcher.
             MouseArea {
@@ -200,7 +236,7 @@ PanelWindow {
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: NotificationTheme.panelPadding
+                anchors.margins: Screens.snap(NotificationTheme.panelPadding, panelWindow.screen)
                 spacing: NotificationTheme.panelSpacing
 
                 // ---- header ----
@@ -291,11 +327,15 @@ PanelWindow {
                         // panelPadding, so cards sit further in than the labels
                         // above. Each row carries listCardMargin top and
                         // bottom, hence the doubled spacing between them.
-                        spacing: NotificationTheme.listCardMargin * 2
-                        leftMargin: NotificationTheme.listPadding
-                        rightMargin: NotificationTheme.listPadding
-                        topMargin: NotificationTheme.listCardMargin
-                        bottomMargin: NotificationTheme.listCardMargin
+                        // Snapped for the same reason as the panel's own
+                        // margins: these place each card's 1px outline, which
+                        // splits across two columns when it lands off the
+                        // device pixel grid.
+                        spacing: Screens.snap(NotificationTheme.listCardMargin * 2, panelWindow.screen)
+                        leftMargin: Screens.snap(NotificationTheme.listPadding, panelWindow.screen)
+                        rightMargin: Screens.snap(NotificationTheme.listPadding, panelWindow.screen)
+                        topMargin: Screens.snap(NotificationTheme.listCardMargin, panelWindow.screen)
+                        bottomMargin: Screens.snap(NotificationTheme.listCardMargin, panelWindow.screen)
                         model: NotificationService.notificationGroups
 
                         delegate: NotificationGroupCard {
@@ -442,19 +482,6 @@ PanelWindow {
                     }
                 }
             }
-        }
-
-        // Drop shadow, the same MultiEffect-as-source pattern as
-        // NotificationCard.qml's.
-        MultiEffect {
-            anchors.fill: panel
-            source: panel
-            shadowEnabled: true
-            shadowColor: "black"
-            shadowOpacity: 0.4
-            shadowHorizontalOffset: 0
-            shadowVerticalOffset: 1
-            shadowBlur: 0.4
         }
     }
 }

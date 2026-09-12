@@ -6,6 +6,16 @@ import Quickshell.Hyprland
 
 // Resolves a monitor name (from config, or from Hyprland) to the ShellScreen
 // a window's `screen` property wants.
+//
+// This file is the compositor seam: `byName()` is generic, `focused()` and
+// `scaleFor()` are the two functions a port to another compositor has to
+// rewrite. Both degrade safely rather than breaking a layout — `focused()`
+// returns null, which every call site already treats as "no opinion", and
+// `scaleFor()` returns 1, which makes `snap()` the identity on whole numbers.
+// A shell running unsnapped is exactly what this repo shipped before
+// 2026-09-12: thin borders soften on a fractionally scaled output, nothing
+// else. Text does not depend on any of this — see the MultiEffect rule in
+// AGENTS.md.
 QtObject {
     function byName(name) {
         const screens = Quickshell.screens;
@@ -20,5 +30,38 @@ QtObject {
     function focused() {
         const monitor = Hyprland.focusedMonitor;
         return monitor ? byName(monitor.name) : null;
+    }
+
+    // The output's real scale, which is not `ShellScreen.devicePixelRatio`:
+    // that reports the integer `wl_output` scale Hyprland advertises for
+    // legacy clients (2 on a 1.25 output), while the surface is rendered
+    // through `wp_fractional_scale_v1` at the fractional value.
+    //
+    // Hyprland is asked because nothing else here knows. Quickshell's
+    // ShellScreen carries name/model/serial, x/y/width/height,
+    // physical/logicalPixelDensity, devicePixelRatio and orientation, and none
+    // of them yield 1.25 — the two densities are Qt's DPI figures and their
+    // ratio is 1.167, not the scale — and Qt exposes the fractional surface
+    // scale to QML nowhere. 1 when the monitor is unknown, which only
+    // under-corrects.
+    function scaleFor(screen) {
+        if (!screen)
+            return 1;
+        const monitor = Hyprland.monitorFor(screen);
+        return monitor && monitor.scale > 0 ? monitor.scale : 1;
+    }
+
+    // Rounds a logical length so it lands on a whole device pixel. Anything
+    // that offsets a whole subtree needs this: below an off-grid container
+    // every glyph stem and 1px border renders blended across two physical
+    // columns at half intensity. See AGENTS.md.
+    //
+    // Per-scale and not a rounder constant on purpose — the multiple that
+    // stays on the grid is the denominator of the scale (4 at 1.25, 3 at
+    // 1.333, 5 at 1.6), so no single constant covers the outputs a config
+    // might meet.
+    function snap(length, screen) {
+        const scale = scaleFor(screen);
+        return Math.round(length * scale) / scale;
     }
 }

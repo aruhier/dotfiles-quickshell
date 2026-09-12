@@ -34,6 +34,8 @@ QtObject {
     readonly property int panelSpacing: 32
     // Extra inset *inside* the list widget, on top of panelPadding: a card's
     // left edge lands 42px from the panel edge, against the labels' 16px.
+    // Sizes here are the design intent; the call sites run the ones that move
+    // a whole subtree through `Screens.snap()` for the device pixel grid.
     readonly property int listPadding: 26
     // Each row's top and bottom inset, so stacked cards sit twice this apart.
     readonly property int listCardMargin: 14
