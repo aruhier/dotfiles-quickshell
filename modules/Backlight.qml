@@ -34,7 +34,7 @@ BarModule {
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
             sizeRatio: root.iconSizeRatio
-            text: root.percent < 50 ? "󰃞" : "󰃠"
+            text: BacklightService.icon
         }
     }
 

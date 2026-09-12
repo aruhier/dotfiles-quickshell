@@ -39,8 +39,9 @@ modules/*.qml         one file per bar module — thin views, no owned
                       Almost all of them are `BarModule`s (see below)
 services/*.qml        pragma-Singleton types holding state + the actual
                       subprocess/network I/O for anything system-wide
-                      (BacklightService, MpdService, MprisService,
-                      NotificationService, WeatherService) — one
+                      (AudioService, BacklightService, LockKeysService,
+                      MpdService, MprisService, NotificationService,
+                      OsdService, WeatherService) — one
                       watch/subscription/fetch cycle for the whole process
                       regardless of monitor count
 shared/Theme.qml      pragma-Singleton palette + metrics — shared
@@ -79,6 +80,10 @@ shared/popup/         everything to do with anchored hover popups:
                          section below for what makes this work
   PopupCoordinator.qml   pragma-Singleton — only one hover popup open at a
                          time process-wide
+shared/osd/OsdWindow.qml the on-screen display: one shared bottom-centre
+                      pill for volume/backlight/lock keys, driven by the `osd`
+                      IPC handler in shell.qml. Replaces swayosd — see the
+                      dated section below
 shared/notifications/ the notification daemon's UI — see the dated section
                       below for why this is a separate subsystem from
                       shared/popup/ rather than built on it
@@ -1867,3 +1872,171 @@ downsamples a 2x render rather than filtering a misaligned texture. Rejected:
 it makes Qt render every surface at 6144x3456 for a 3840-wide output, and it
 treats the symptom. `QT_WAYLAND_DISABLE_FRACTIONAL_SCALE`, tried first, is not
 a Qt variable at all — 6.11's `libQt6WaylandClient` has no such string.
+
+## Native OSD, replacing swayosd (2026-09-12)
+
+`swayosd-server` + `swayosd-libinput-backend` are gone. `shared/osd/OsdWindow.qml`
+is a single bottom-centre pill on the focused output — glyph, level track,
+percentage for volume/backlight; glyph and a word for a lock key — held for
+1000ms, swayosd's own default. The dotfiles side changed with it: the volume
+binds no longer call `swayosd-client`, the brightness binds no longer call
+`brightnessctl`, and three new non-consuming lock-key binds were added.
+
+**It is painted as a notification surface, not as a bar pill.** Metrics live in
+`Theme.qml` with the rest of the shell's, but every colour comes from
+`NotificationTheme.qml` — `bgFloating` plate, `borderSubtle` edge,
+`text`/`textDisabled` labels, `bgSelected` fill. The plate takes that hue at
+its own alpha (`Theme.osdOpacity`, 0.94) rather than `bgFloating`'s 0.875: a
+toast is read at leisure, the OSD lands over whatever is on screen, and raising
+`bgFloating` would move the toasts with it. It floats over the desktop the
+way a toast does, so it belongs to that palette; the split is called out at
+both ends. That plate carries real alpha, so `quickshell-osd` needs the same
+`blur` layerrule the control centre has, plus `no_anim` — the window springs
+itself in and out, and Hyprland fading it too double-animates.
+
+**Vertical position is a fraction of the output's height, not a fixed margin**,
+so it lands in the same place on a 1440 and a 2160 panel. swayosd did the same:
+`osd_window.rs:114` is `margin_bottom = mon_height * (1.0 - top_margin)` with
+`top_margin` defaulting to `0.85`, i.e. 15% off the bottom. `Theme.osdBottomEdgeFraction`
+is 0.07 — deliberately lower than swayosd sat, by request.
+
+Three services back it. `AudioService` took the default-sink state, the icon
+ternary, the `PwObjectTracker` and the write clamp out of `Volume.qml`, which is
+now a thin view like `Backlight.qml` is over `BacklightService`; the OSD and the
+bar module read the same `pct`/`muted`/`icon`. `BacklightService` gained
+`icon` and `bumpPercent()` (perceptual points, the unit `brightnessctl -e s ±N%`
+moved in, so the keys behave as they did). `OsdService` holds only what is
+showing and where.
+
+**Everything is keybind-driven, deliberately.** The alternative is a daemon
+holding evdev open, which is what both prior arts do: swayosd runs a
+*root* libinput backend, and DankMaterialShell runs a Go helper that needs the
+user in the `input` group (`dms setup` runs `usermod -a -G input`; it prints
+"Caps Lock OSD will be unavailable" when that fails, and it only covers Caps
+Lock, not Num/Scroll). This machine's user *is* in `input`, so an `evtest`
+reader was possible — and rejected: it is one long-lived subprocess per
+keyboard plus hotplug handling, waking on every event, against this repo's
+"no owned subprocesses" rule and its idle-CPU budget. A keybind costs nothing
+until pressed.
+
+### Three Quickshell behaviours this ran into, all measured
+
+**LED class attributes raise no inotify event.** An inotify watch on all ten
+`/sys/class/leds/*{caps,num}lock/brightness` nodes, with `IN_ALL_EVENTS`, saw
+**zero** events across a run in which the keys were demonstrably pressed
+(swayosd's layer opened three times in Hyprland's event socket over the same
+window). The kernel never `sysfs_notify()`s them. So unlike
+`/sys/class/backlight` — which does, and which `BacklightService` therefore
+watches — there is nothing to subscribe to here, and the state can only be
+read on demand.
+
+**`FileView` loads synchronously exactly once.** `blockLoading: true` blocks
+the *initial* load and nothing after it. Both obvious shapes silently return
+stale text:
+
+| shape | result |
+|---|---|
+| one FileView, `path` re-pointed per node, then `reload()` + `text()` | every read returns the **first** file's content |
+| one FileView on a fixed path, file changed underneath, `reload()` + `text()` | returns the **pre-change** content |
+
+Proven with two files holding `0` and `1`: alternating between them returned
+`"0\n"` four times. This is why `BacklightService` reads through `onLoaded`
+rather than inline — the pattern was already right there, and it is the only
+one that works. `LockKeysService` therefore shells out to
+`cat /sys/class/leds/*::<key>/brightness`: async, so the OSD is shown from the
+`refreshed(key)` signal rather than beside the `refresh()` call, and the glob
+makes hotplug and multi-keyboard setups free. A fork per lock keypress is not
+the polling `sh -c cat` this repo removed from BacklightService;
+swayosd-client was a whole process spawn per keypress too.
+
+**A QML singleton is built on first use, and the first use here is a
+keypress.** The first `LockKeysService` design enumerated the LED nodes with a
+`FolderListModel`, which takes ~500ms to reach `Ready`. Since nothing touched
+the singleton until the IPC call, it was *created* by that call, its listing
+was empty, and every lock read came back `false` — a Num Lock that was
+demonstrably on reported "off". Any singleton whose state depends on an async
+load, and which is only ever reached from a one-shot event, has this bug. The
+`cat` design has no such state and sidesteps it.
+
+### A fixed grey on a translucent plate loses its contrast over a bright window
+
+Reported as the volume track being nearly invisible with the OSD over a white
+window. The plate carries real alpha and is blurred, so what it *renders* as
+follows whatever is behind it, while `bgButton` (`#404040`) is absolute. Same
+pixels, two backdrops:
+
+| backdrop | plate | track | Δ |
+|---|---|---|---|
+| dark desktop `(45,53,59)` | 43 | 64 | **+20** |
+| white window `(255,255,255)` | 69 | 64 | **−5** |
+
+The plate travels 43 → 69 and crosses the fixed track on the way. Predictable
+from the numbers: over backdrop *B* the plate resolves to `0.144 + 0.125·B`,
+which is 0.167 (43) over that desktop and 0.269 (69) over white — both match
+the measurement.
+
+**Fixed by specifying the track as a tint over the plate instead of a colour**
+— `NotificationTheme.bgOverlay`, white at 10%. Its delta is then `0.10·(1 − plate)`,
+which barely moves across the range, and 0.10 was picked so the dark case keeps
+the appearance `bgButton` already had. Measured after: **+21** over the desktop
+(64 → 65, i.e. unchanged), **+19** over white (64 → 88). The teal fill needed
+nothing — it is opaque and reads on both.
+
+Rejected: making the plate opaque (that is the blur, and the blur is the look),
+and an outline on the track (treats the symptom, and an absolute outline colour
+has the identical problem).
+
+The plate's alpha was later raised on its own account, 0.875 → 0.94, which
+narrows its travel from 43..69 to **43..55** and so damps this effect at the
+source. It is not a substitute for `bgOverlay` — a fixed grey still drifts
+against the plate across that range — but the two compound: Δ is now +22 over
+the desktop and +20 over white.
+
+**`bgButton` still has this latent** at its one remaining call site,
+`NotificationCard.qml`'s action chips — cards are translucent too. Left alone
+because nobody has reported it; `bgOverlay` is the fix if they do.
+
+### xkb unlocks a lock key on *release*, so the read has to wait it out
+
+Reported as "it always shows Caps Lock on". Measured against Hyprland's event
+socket, with a 0.5ms poll on the LED nodes:
+
+| press | LED flips | OSD opens | |
+|---|---|---|---|
+| turning caps **on** | 4.459s | 4.474s | LED 15ms **before** — read is correct |
+| turning caps **off** | 6.914s | 6.800s | LED 114ms **after** — read is stale |
+
+xkb *locks* on key press but *unlocks* on key release, so the second press of
+a pair doesn't reach the LED until the key comes back up. The 114ms is just
+how long the key was held; there is no fixed delay to compensate with. A bind
+reaches this process ~12ms after the key (`hyprctl dispatch exec` → process
+running is ~4ms, `qs ipc call` round trip ~8ms), so a press-bound read lands
+squarely inside that window.
+
+**Binding on release instead does not work**: `release = true` on all three
+lock binds produced LED transitions with *no* `openlayer>>quickshell-osd`
+event at all — Hyprland never fires them. Reverted to press.
+
+The fix needs no timing guess: **a lock key always toggles**, so a read that
+comes back equal to the value from before the press is provably early.
+`LockKeysService` re-reads every 30ms until the value changes, giving up after
+1000ms (which is also what keeps a keyboard with no LED node from waiting
+forever). Verified: after the change, the LED flip precedes the OSD open on
+every press in both directions — 16.413→16.449, 43.050→43.074, 46.202→46.239.
+
+That comparison needs a trustworthy "before", which is why the service primes
+all three locks with silent reads in `Component.onCompleted` — otherwise the
+first press of a session has nothing to be early against. The priming is
+observable: an IPC call that toggles nothing takes the full 1000ms budget to
+show, where an unprimed key shows immediately. A lock key pressed in the ~50ms
+before priming lands still takes its first read as final.
+
+### Two smaller traps in shell.qml
+
+`ShellRoot` takes **no attached objects**: `Component.onCompleted` on it is not
+a lint error but a load-time one — `Non-existent attached object` — which takes
+the whole config down. And `Connections` resolves under `import QtQuick`, not
+`import QtQml`; qmllint accepts the latter, the runtime rejects it with
+`Connections is not a type`. Both failures leave the running shell on its last
+good config, so a change that "did nothing" is worth checking against
+`qs log -i <id>` before it is worth debugging.

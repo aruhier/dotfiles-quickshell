@@ -61,6 +61,28 @@ QtObject {
         return iconFontSize * (ratio === undefined ? 1.0 : ratio);
     }
 
+    // On-screen display: a pill on the focused output, near the bottom, for
+    // volume/backlight/lock-key keybinds. Metrics only — its *colours* come
+    // from shared/notifications/NotificationTheme.qml, because the OSD is the
+    // same kind of floating surface as a toast rather than a bar pill.
+    // osdRadius is half osdHeight, i.e. a stadium; keep them in step.
+    readonly property int osdWidth: 420
+    readonly property int osdHeight: 66
+    readonly property int osdRadius: 33
+    readonly property int osdPadding: 21
+    readonly property int osdTrackHeight: 9
+    readonly property int osdIconSize: 29
+    // The plate's alpha. NotificationTheme.bgFloating's hue with an opacity of
+    // this shell's own: a toast is read at leisure, while the OSD lands over
+    // whatever happens to be on screen, so it leans less on the blur. Raising
+    // bgFloating itself would move the toasts with it.
+    readonly property real osdOpacity: 0.89
+    // A share of the output's height, not a fixed margin, so it lands in the
+    // same place on a 1440 and a 2160 panel. swayosd worked the same way —
+    // `margin_bottom = height * (1 - top_margin)`, default 0.85, so 0.15. This
+    // sits deliberately lower than that.
+    readonly property real osdBottomEdgeFraction: 0.07
+
     readonly property int barHeight: 22
     // Bottom border stripe: real extra height below the content area, not an
     // overlay.

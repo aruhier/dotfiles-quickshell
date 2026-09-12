@@ -14,6 +14,12 @@ QtObject {
     readonly property color bgHover: "#4b4b4b"
     // Action-button chip fill: above the card, below its hover state.
     readonly property color bgButton: "#404040"
+    // A tint applied *over* whichever surface it sits on, rather than an
+    // absolute colour. Every plate here is translucent, so its rendered
+    // luminance follows the window behind it — a fixed grey holds its contrast
+    // over a dark backdrop and loses it over a bright one. Measurements:
+    // AGENTS.md. 0.10 reproduces bgButton's appearance on the dark case.
+    readonly property color bgOverlay: Qt.rgba(1, 1, 1, 0.10)
     // Theme.qml's bar accent, so the selection belongs to the same shell.
     readonly property color bgSelected: "#6AA099"
     readonly property color borderColor: "#070707"

@@ -10,12 +10,14 @@
 // See AGENTS.md.
 //@ pragma Env QSG_RHI_BACKEND=vulkan
 pragma ComponentBehavior: Bound
+import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.modules
 import qs.services
 import qs.shared
 import qs.shared.notifications
+import qs.shared.osd
 
 // One Bar per output, with the per-monitor module layout configured below.
 ShellRoot {
@@ -74,6 +76,53 @@ ShellRoot {
         }
     }
 
+    // Replaces swayosd: the keybinds call in here instead of swayosd-client,
+    // and this owns the change as well as the display, e.g.
+    //   bind  = , XF86AudioRaiseVolume, exec, qs ipc call osd volume +5
+    //   bindn = , Caps_Lock,            exec, qs ipc call osd lock capslock
+    // Lock keys only report — the compositor has already toggled them by the
+    // time this runs, which is exactly why the bind must be non-consuming.
+    IpcHandler {
+        target: "osd"
+
+        function volume(delta: string): void {
+            if (!AudioService.ready)
+                return;
+            AudioService.bumpPct(parseInt(delta) || 0);
+            OsdService.show("volume");
+        }
+
+        function mute(): void {
+            if (!AudioService.ready)
+                return;
+            AudioService.toggleMute();
+            OsdService.show("volume");
+        }
+
+        // Silent on a machine with no backlight, rather than flashing an OSD
+        // stuck at 0% — this config runs on outputs that have none.
+        function brightness(delta: string): void {
+            if (!BacklightService.available)
+                return;
+            BacklightService.bumpPercent(parseInt(delta) || 0);
+            OsdService.show("brightness");
+        }
+
+        // key: "capslock" | "numlock" | "scrolllock". Shown only once the
+        // read has landed — the state is what the OSD is for, so a frame of
+        // the previous one would be worse than the millisecond's wait.
+        function lock(key: string): void {
+            LockKeysService.refresh(key);
+        }
+    }
+
+    Connections {
+        target: LockKeysService
+        function onRefreshed(key: string): void {
+            OsdService.show(key);
+        }
+    }
+
     Variants {
         model: Quickshell.screens
 
@@ -93,5 +142,9 @@ ShellRoot {
 
     NotificationCenterPanel {
         screen: root.centerScreen
+    }
+
+    OsdWindow {
+        screen: OsdService.screen || root.mainScreen
     }
 }

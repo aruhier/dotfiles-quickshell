@@ -13,6 +13,7 @@ QtObject {
 
     // Perceptual position of the backlight, 0..100 — see `exponent`.
     readonly property real percent: available ? Math.pow(linear, 1.0 / exponent) * 100 : 0
+    readonly property string icon: percent < 50 ? "󰃞" : "󰃠"
     readonly property bool available: device !== "" && maxRaw > 0
     readonly property real linear: maxRaw > 0 ? Math.max(0, Math.min(1, raw / maxRaw)) : 0
 
@@ -40,14 +41,25 @@ QtObject {
 
     // Move `steps` wheel notches up (positive) or down (negative).
     function bump(steps) {
+        nudge(steps * step);
+    }
+
+    // Move `points` perceptual points (0..100), the unit `brightnessctl -e s
+    // ±N%` moved in — so the keybinds behave exactly as they did.
+    function bumpPercent(points) {
+        nudge(points / 100);
+    }
+
+    // `delta` in perceptual units (0..1).
+    function nudge(delta) {
         if (!available)
             return;
-        const target = Math.max(0, Math.min(1, Math.pow(linear, 1.0 / exponent) + steps * step));
+        const target = Math.max(0, Math.min(1, Math.pow(linear, 1.0 / exponent) + delta));
         let next = Math.round(maxRaw * Math.pow(target, exponent));
         // At the dark end a perceptual step can be worth under one raw unit,
         // and rounding would swallow it, leaving the wheel dead.
         if (next === raw)
-            next = raw + (steps > 0 ? 1 : -1);
+            next = raw + (delta > 0 ? 1 : -1);
         setRaw(next);
     }
 

@@ -1,24 +1,19 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
-import Quickshell.Services.Pipewire
+import qs.services
 import qs.shared
 
-// Volume indicator (backed by pipewire-pulse).
+// Volume indicator — a thin view over AudioService, which owns the default
+// sink and the writes.
 BarModule {
     id: root
 
-    readonly property var sink: Pipewire.defaultAudioSink
-    readonly property bool muted: sink && sink.ready && sink.audio ? sink.audio.muted : false
-    readonly property real volume: sink && sink.ready && sink.audio ? sink.audio.volume : 0
-    readonly property int pct: Math.round(volume * 100)
+    readonly property bool muted: AudioService.muted
+    readonly property int pct: AudioService.pct
 
-    // One wheel notch.
-    readonly property real step: 0.05
-
-    PwObjectTracker {
-        objects: root.sink ? [root.sink] : []
-    }
+    // One wheel notch, in percentage points.
+    readonly property int step: 5
 
     contentWidth: content.implicitWidth
 
@@ -35,12 +30,12 @@ BarModule {
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
             sizeRatio: root.iconSizeRatio
-            // Muted replaces the whole format: icon only, no percent.
-            text: root.muted ? "󰝟" : root.pct < 33 ? "󰕿" : root.pct < 66 ? "󰖀" : "󰕾"
+            text: AudioService.icon
         }
 
         StyledText {
             anchors.verticalCenter: parent.verticalCenter
+            // Muted replaces the whole format: icon only, no percent.
             visible: !root.muted
             color: Theme.groupText
             text: root.pct + "%"
@@ -52,10 +47,7 @@ BarModule {
         cursorShape: Qt.PointingHandCursor
         onClicked: Quickshell.execDetached(["pavucontrol"])
         onWheel: (event) => {
-            if (!root.sink || !root.sink.audio)
-                return;
-            const next = root.sink.audio.volume + (event.angleDelta.y > 0 ? root.step : -root.step);
-            root.sink.audio.volume = Math.max(0, Math.min(1, next));
+            AudioService.bumpPct(event.angleDelta.y > 0 ? root.step : -root.step);
         }
     }
 }
