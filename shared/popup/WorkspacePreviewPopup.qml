@@ -99,7 +99,7 @@ HoverPopup {
                 anchors.centerIn: parent
                 text: popup.workspace.name
                 font.pixelSize: 14
-                font.bold: true
+                bold: true
                 color: Theme.accentText
             }
         }

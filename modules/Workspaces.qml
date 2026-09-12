@@ -63,6 +63,14 @@ Rectangle {
         id: wsMetrics
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSize
+        // Mirrors StyledText's default weight axis: FontMetrics measures the
+        // face it is given, so leaving this at Regular would size the pills
+        // off a slightly narrower font than the labels actually draw with.
+        font.variableAxes: ({ "wght": Theme.fontWeight })
+        // Hinting changes advance widths, so a metric taken without it would
+        // size the pills off a different string width than the labels draw
+        // with. Both of these mirror StyledText.
+        font.hintingPreference: Font.PreferVerticalHinting
     }
 
     // `selection` and the label Repeater are deliberately siblings of `row`,
@@ -232,7 +240,7 @@ Rectangle {
             y: bgItem ? row.y + bgItem.y + (bgItem.height - implicitHeight) / 2 : 0
             text: wsLabel.modelData.name
             color: wsLabel.modelData.focused ? Theme.accentText : Theme.workspaceEmptyText
-            font.bold: wsLabel.modelData.focused || (bgItem && bgItem.activeOnThisScreen)
+            bold: wsLabel.modelData.focused || (bgItem && bgItem.activeOnThisScreen)
         }
     }
 

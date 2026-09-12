@@ -174,10 +174,12 @@ the flush screen edge may need re-tuning those margins for that edge.
 
 - **Use `shared/StyledText.qml` / `shared/Icon.qml`, never a bare `Text {}`.**
   The default SDF renderer shows visible chromatic fringing on this machine,
-  so every text item needs `renderType: Text.NativeRendering`, and there is no
-  global setting for it. That used to be a rule spelled out here and repeated
-  at ~65 call sites; it now lives in those two types instead. A bare `Text {}`
-  in this repo is a bug.
+  so every text item needs `renderType: Text.NativeRendering`. That used to be
+  a rule spelled out here and repeated at ~65 call sites; it now lives in those
+  two types instead. A bare `Text {}` in this repo is a bug. (Quickshell
+  documents a global `//@ pragma NativeTextRendering` as of 0.3.1, which would
+  cover the render type alone — the family, size, weight axis and hinting
+  preference still need the shared type, so it isn't used.)
 
 - **Anything clickable that's a glyph or a text label is a
   `shared/PressableIcon.qml`, never a `StyledText` + `MouseArea` pair.** It
@@ -204,6 +206,28 @@ the flush screen edge may need re-tuning those margins for that edge.
   (`font.families`, the correct fix, isn't registered on this Qt build's
   Text type — retry if that ever changes). Set in `StyledText.qml`, so no
   call site repeats it.
+
+- **Weight is `StyledText`'s `bold`/`wght`, never `font.bold`, `font.weight`
+  or `font.styleName`.** fontconfig exposes InterVariable.ttf as nine named
+  instances (wght 100..900 in hundreds) and Qt matches against those, so
+  by-number requests land on a face nobody designed — `font.weight: 450` and
+  `font.weight: 500` render pixel-identical to Regular, and `font.bold` never
+  reaches the Bold instance at all (Qt synthesises it off the 400 outline).
+  `StyledText` sets `font.variableAxes` instead, defaulting to wght 450, and
+  that axis silently overrides both `font.bold` and `font.styleName` at a call
+  site. Measurements and the FreeType-level alternative that was rejected:
+  the 2026-09-12 section at the end.
+
+- **`StyledText` asks for `Font.PreferVerticalHinting`; don't "upgrade" it to
+  full.** Qt Quick's native text path loads glyphs *unhinted* unless an item
+  states a preference — fontconfig's system-wide `hintslight` reaches waybar
+  and GTK, never a `QQuickText` — so without this the bar was the one surface
+  on the desktop rendering unhinted. `PreferFullHinting` is measurably crisper
+  and was tried on the live bar for exactly that reason; it mangles Inter at
+  12px and was reverted the same day. Both measurements and the artifact list
+  are in the 2026-09-12 section at the end. Any `FontMetrics` measuring the
+  same face needs the same preference, or its advances don't match what gets
+  drawn (`Workspaces.qml`).
 
 - **`Workspaces.qml`'s button width needs a GTK-chrome allowance.**
   Formula: `Math.round(Math.max(label.implicitWidth + 18, 34))`, tuned
@@ -1572,3 +1596,135 @@ than GL's 2 buffers; nothing here is near that size.
 This supersedes the "`//@ pragma Env` for Qt tunables / nothing here currently
 depends on an env var" bullet under **Considered and not done** — `shell.qml`
 now pins two.
+
+## Text weight goes through Inter's `wght` axis, not `font.bold` (2026-09-12)
+
+Started from a question about `FREETYPE_PROPERTIES='cff:no-stem-darkening=0
+autofitter:no-stem-darkening=0'`, carried over from the waybar config, where
+it is set in `~/.config/sway_gaming/scripts/start.sh`. Two findings before any
+change: it never reached this shell (`qs` runs from systemd, PPID 1, and
+`/proc/<pid>/environ` has no `FREETYPE_PROPERTIES`), and half of it could not
+have done anything if it had — the `cff:` driver only touches PostScript
+outlines, while every font here is TrueType `glyf` (InterVariable.ttf,
+SymbolsNerdFont-Regular.ttf, Hack-Regular.ttf).
+
+The `autofitter:` half *would* apply: InterVariable has no `fpgm`/`prep`/`cvt`,
+so with `/etc/fonts/conf.d/10-hinting-slight.conf` the autohinter runs on every
+glyph. Not taken, because FreeType's own docs say stem darkening only
+compensates correctly "when using linear alpha blending and gamma correction …
+When not using [them], glyphs will appear heavy and fuzzy!" Qt blends text in
+sRGB. It is a rasterizer-level fake embolden, and process-wide.
+
+**What was done instead.** Inter is variable — axes `opsz` 14..32 (pinned at
+14 in every named instance, and `Theme.fontSize` 12 is already below the
+minimum) and `wght` 100..900. `StyledText` now sets
+`font.variableAxes: ({ "wght": wght })`, `wght` defaulting to `Theme.fontWeight`
+(450) and `bold` mapping to `Theme.fontWeightBold` (700).
+
+Measured at pixelSize 12, ink = summed coverage over a grabbed render of the
+same string, advance = grab width:
+
+| | advance | ink |
+|---|---|---|
+| plain (wght 400) | 126px | 320 |
+| `font.weight: 450` | 126px | 320 |
+| `font.weight: 500` | 126px | 320 |
+| axis `wght: 450` | 127px | 351 |
+| `font.bold: true` | 126px | 472 |
+| `font.styleName: "Bold"` | 130px | 486 |
+| axis `wght: 700` | 130px | 479 |
+| `font.styleName: "ExtraBold"` | 132px | 544.5 |
+| axis `wght: 800` | 132px | 544.8 |
+
+So: by-number weight requests snap to a named instance and 450/500 both come
+back as Regular; `font.bold` keeps Regular's advances while adding ink, i.e.
+Qt synthesises it rather than loading the Bold instance the `styleName` row
+reaches; and the axis reproduces the named instances exactly (800 vs
+ExtraBold: 132px/544.8 against 132px/544.5).
+
+**Two traps this creates**, both silent, which is why the style note is a rule
+and not a preference:
+
+- An axis set on `StyledText` overrides a site's `font.bold` *and*
+  `font.styleName`. `font.bold: true` over the 450 axis re-synthesises bold
+  from the 450 outline (127px, ink 504 — heavier and smeared than either real
+  face), and `font.styleName: "ExtraBold"` over it renders at 450 (ink 345).
+  `NotificationCard`'s action label used that styleName and is now `wght: 800`.
+- Binding the axis to `font.weight` (`({ "wght": font.weight })`, so sites
+  could keep using `font.bold`) resolves to the right values but logs a
+  binding loop at every text site — writing `variableAxes` notifies the whole
+  `font` group, which re-evaluates the binding. Hence the separate
+  `bold`/`wght` properties, which don't read back into `font`.
+
+`Workspaces.qml`'s `FontMetrics` carries the same axis, or pill widths would be
+sized off a slightly narrower face than the labels draw with (`advanceWidth`
+does honour `variableAxes`: "browser" is 46.27px at 400, 46.61px at 450,
+48.30px at 700).
+
+## Text is unhinted unless an item says so (2026-09-12)
+
+Follow-up to the weight work above: text still read blurry on the two 1440p
+screens (HDMI-A-1 and DP-2, both scale 1, 109ppi) while the 4K at 1.25 looked
+fine. Three candidate causes, measured rather than guessed.
+
+**1. Hinting — this was the real one.** `fc-match -v "Inter Variable"` reports
+`hintstyle: 1` (hintslight) and `hinting: True`, but Qt Quick's native text
+path ignores it: an item with no `font.hintingPreference` renders identically
+to one asking for `Font.PreferNoHinting` — same ink, same lit-pixel count, to
+the decimal. The system-wide setting that shapes waybar and GTK never applied
+to this bar at all.
+
+A/B'd on the live bar by editing `StyledText`, letting it hot-reload and
+grabbing the same clock label each time (`grim -g "2300,0 260x28"`), scored as
+the share of the label's ink landing in fully covered pixels:
+
+| | solid share |
+|---|---|
+| no preference (= `PreferNoHinting`) | 53.5% |
+| `PreferVerticalHinting` | 55.6% |
+| `PreferFullHinting` | 61.5% |
+| `PreferFullHinting`, `Icon` opted out | 62.5% |
+
+(Same window, so the rows are comparable; absolute values shift with the label
+under the crop.)
+
+**Full hinting was then reverted.** The numbers say it wins and the pixels say
+it doesn't: at 12px the autohinter's full mode visibly mangles Inter, which is
+drawn for unhinted rendering. Reported as "more artifacts than before" within
+minutes of it going live, and confirmed at 9x on the same label — advances
+round to whole pixels so letter spacing goes uneven, `p` grows a hard 1px
+descender spur, `S` and `5` go blocky, and Nerd Font glyphs lose thin strokes
+outright (the notification bell loses both motion arcs, which is what the
+`Icon.qml` opt-out existed to work around).
+
+Settled on `PreferVerticalHinting`: +2 points of solid share, every glyph still
+the shape it was drawn as, no opt-out needed anywhere — `Icon`'s glyphs render
+fine under it, bell arcs intact — and it matches what fontconfig already asks
+for system-wide. The lesson worth keeping: a sharpness metric ranks full
+hinting first, and looking at it at 9x settles the question the other way.
+Measure to find the lever, look at the pixels to decide.
+
+**2. Fractional item positions — not a factor.** Qt rounds a text item's
+position to whole device pixels before rasterising: the same label at `x: 0`
+and `x: 0.37` grabs byte-identical, and `x: 0.5` shifts a whole pixel rather
+than blending across two. `Workspaces.qml`'s label `x`/`y` (unrounded, unlike
+the selection pill's `Math.round`) therefore costs at most a pixel of
+centring, never sharpness. Left alone.
+
+**3. Subpixel antialiasing — rejected, and not reachable anyway.** The bar
+renders pure greyscale AA today: across the glyph edges of a bar label the
+per-channel alpha spread is 0.017 median, 0.02 max, i.e. every edge pixel is a
+flat blend of foreground and background. fontconfig has no `rgba` set, and
+there is no per-item Qt equivalent to turn on. Setting it globally would be
+wrong here regardless: HDMI-A-1 runs `transform=3` (subpixels vertical, not
+horizontal) and DP-1 is a QD-OLED with a non-stripe layout, so two screens of
+three would fringe, and Qt has no per-screen control.
+
+**What DankMaterialShell does** (asked during this work): nothing — no
+`hintingPreference`, no `variableAxes` anywhere in the tree, and its
+`DankCommon.StyledText` defaults `renderType` to `Text.QtRendering`
+(distance-field), where hinting has no meaning at all. It exposes render type
+(Qt/Native/Curve) and `renderTypeQuality` as user settings and takes weight
+through plain `font.weight`, which on Inter Variable snaps to the named
+instances as measured above. Nothing to borrow here.
+

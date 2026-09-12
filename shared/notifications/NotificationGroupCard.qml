@@ -159,7 +159,7 @@ Item {
                 Layout.fillWidth: true
                 text: root.latest.appName
                 color: NotificationTheme.text
-                font.bold: true
+                bold: true
                 font.pixelSize: NotificationTheme.fontSize
                 elide: Text.ElideRight
             }

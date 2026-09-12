@@ -119,7 +119,7 @@ BarModule {
                         StyledText {
                             text: root.current ? root.displayTemp(root.current.tempC) : ""
                             font.pixelSize: 26
-                            font.bold: true
+                            bold: true
                             color: Theme.textBright
                         }
                         StyledText {
@@ -271,7 +271,7 @@ BarModule {
                             StyledText {
                                 text: root.displayTemp(dayRow.modelData.maxC)
                                 font.pixelSize: 12
-                                font.bold: true
+                                bold: true
                                 color: Theme.textBright
                             }
                         }

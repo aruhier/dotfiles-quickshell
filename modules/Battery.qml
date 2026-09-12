@@ -185,9 +185,10 @@ BarModule {
         StyledText {
             anchors.verticalCenter: parent.verticalCenter
             // Bold on the label only: the Nerd Font fallback has no bold face,
-            // so Qt would synthesize a smeared one. `font.weight`, not
-            // `font.bold` — Inter is variable and Qt picks its axis by number.
-            font.weight: root.criticalBlink ? Font.Bold : Font.Normal
+            // so Qt would synthesize a smeared one. StyledText's `bold`, which
+            // drives Inter's wght axis — `font.weight` lands on a named
+            // instance and `font.bold` synthesizes. See StyledText.qml.
+            bold: root.criticalBlink
             color: root.textColor
             text: root.percent + "%"
         }

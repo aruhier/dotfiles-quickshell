@@ -182,7 +182,7 @@ Item {
                         Layout.fillWidth: true
                         text: card.wrapper.summary
                         color: NotificationTheme.text
-                        font.bold: true
+                        bold: true
                         font.pixelSize: NotificationTheme.fontSize
                         elide: Text.ElideRight
                     }
@@ -196,7 +196,7 @@ Item {
                         color: NotificationTheme.text
                         // `.time` reuses --font-size-summary and is bold, the
                         // same as `.summary` beside it.
-                        font.bold: true
+                        bold: true
                         font.pixelSize: NotificationTheme.fontSize
                     }
                 }
@@ -282,11 +282,13 @@ Item {
                     color: NotificationTheme.text
                     // ExtraBold, not plain bold: swaync's labels render
                     // through GTK's bold face, heavier than Inter Variable at
-                    // 700 (measured: 5.6px stroke against 3.9px here). By
-                    // styleName rather than font.weight, since Qt won't pick a
-                    // face past 700 off this variable font by weight alone but
-                    // does honour the named instance fontconfig exposes.
-                    font.styleName: "ExtraBold"
+                    // 700 (measured: 5.6px stroke against 3.9px here). Straight
+                    // on the wght axis — `font.styleName` used to be the only
+                    // way to reach a face past 700, but StyledText now sets an
+                    // axis, which overrides styleName (the label would silently
+                    // render at 450). 800 matches the ExtraBold instance it
+                    // named, to the pixel.
+                    wght: 800
                     font.pixelSize: NotificationTheme.fontSizeAction
                 }
 

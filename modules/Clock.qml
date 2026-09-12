@@ -170,7 +170,7 @@ BarModule {
                         horizontalAlignment: Text.AlignHCenter
                         text: Qt.formatDate(new Date(popup.viewYear, popup.viewMonth, 1), "MMMM yyyy")
                         font.pixelSize: 14
-                        font.bold: true
+                        bold: true
                         color: Theme.textBright
                         onActivated: popup.goToday()
                     }

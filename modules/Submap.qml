@@ -31,7 +31,7 @@ BarModule {
             anchors.centerIn: parent
             text: root.submap
             font.italic: true
-            font.bold: true
+            bold: true
             color: Theme.accentText
         }
     }

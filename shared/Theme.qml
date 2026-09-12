@@ -50,6 +50,11 @@ QtObject {
     // codepoints come from Qt's automatic per-glyph fallback.
     readonly property string fontFamily: "Inter Variable"
     readonly property int fontSize: 12
+    // Inter's wght axis, not a QFont weight — see StyledText.qml for why a
+    // by-number `font.weight` can't express 450 on this font. Read by
+    // StyledText and by any FontMetrics that has to measure the same face.
+    readonly property int fontWeight: 450
+    readonly property int fontWeightBold: 700
     // Nerd Font glyphs render smaller than Latin text at the same pixelSize,
     // so icons size off this instead. Tuned by eye.
     readonly property int iconFontSize: 15

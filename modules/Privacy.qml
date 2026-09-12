@@ -191,7 +191,7 @@ Item {
                     Layout.fillWidth: true
                     text: "Currently capturing"
                     font.pixelSize: 12
-                    font.bold: true
+                    bold: true
                     color: Theme.textBright
                 }
 

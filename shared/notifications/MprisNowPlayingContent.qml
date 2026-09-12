@@ -45,7 +45,7 @@ RowLayout {
             text: root.player ? root.player.trackTitle : ""
             color: NotificationTheme.text
             font.pixelSize: NotificationTheme.mprisTitleFontSize
-            font.bold: true
+            bold: true
             elide: Text.ElideRight
         }
 
