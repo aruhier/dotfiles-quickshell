@@ -1,4 +1,4 @@
-# AGENT.md
+# AGENTS.md
 
 Notes for whoever works on this repo next. This is a Quickshell status bar
 with a fixed visual identity (dark bar, teal accent, pill-shaped module

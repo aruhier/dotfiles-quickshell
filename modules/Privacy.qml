@@ -58,7 +58,7 @@ Item {
     // nodes (a video-call app doing both is one row with two glyphs, not two
     // rows). Relies on screenShareTracker above already tracking every node:
     // an untracked node's `properties` never populates, whatever its media
-    // class. See AGENT.md.
+    // class. See AGENTS.md.
     readonly property var capturingApps: {
         const nodes = Pipewire.nodes.values;
         const apps = [];

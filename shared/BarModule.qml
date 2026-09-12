@@ -29,7 +29,7 @@ Item {
     // `visible` mirrors its item's `visible` deadlocks permanently the first
     // time it goes false, because Qt Quick cascades a false ancestor `visible`
     // into the child's getter and the binding can never observe a return to
-    // true. ModuleLoader reads this instead. See AGENT.md.
+    // true. ModuleLoader reads this instead. See AGENTS.md.
     property bool contentVisible: true
     visible: contentVisible
 

@@ -83,7 +83,7 @@ ShellRoot {
         // `bar.modelData`, not a bare `modelData`: an unqualified model
         // reference in a Variants delegate silently resolves against whatever
         // ambient context is in scope rather than the delegate's own property
-        // (see AGENT.md — it cost real debugging time in ModuleLoader). The id
+        // (see AGENTS.md — it cost real debugging time in ModuleLoader). The id
         // makes it unambiguous, and `pragma ComponentBehavior: Bound` turns
         // the ambiguous form into a compile error.
         Bar {

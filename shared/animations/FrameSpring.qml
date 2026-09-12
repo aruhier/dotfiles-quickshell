@@ -6,7 +6,7 @@ import qs.shared.animations
 // A spring-physics value driven by FrameAnimation, which ticks once per real
 // rendered frame. Qt's own Behavior/SpringAnimation rides the shared
 // QUnifiedTimer instead, fixed at ~60Hz regardless of the output's refresh
-// rate — visibly stuttery on a 240Hz screen. See AGENT.md's "capped near
+// rate — visibly stuttery on a 240Hz screen. See AGENTS.md's "capped near
 // 60Hz" section. (Modelled on DankMaterialShell's Common/SpringMotion.qml.)
 //
 // Usage: bind the consuming property to `.value` and set `to`. The imperative
