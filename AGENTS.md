@@ -1465,6 +1465,27 @@ full kill and relaunch (use the PID recorded at launch, or match `comm == qs`
 plus the config path from `/proc`; `pkill -f 'qs -p'` still self-matches the
 invoking shell, per the earlier note).
 
+**No, this does not make `FrameSpring` redundant — measured 2026-09-12.** The
+obvious follow-up question is whether the pragma lets us drop FrameSpring and go
+back to `Behavior { SpringAnimation {} }`. It does not: the two fixes remove
+*different* 60Hz caps. Same harness, one process per driver, a 500px travel on a
+plain Rectangle's `x`, counting property updates:
+
+| | default driver | with the pragma |
+|---|---|---|
+| `Behavior { SpringAnimation }` | 62 updates/s | **62 updates/s** |
+| `Behavior { NumberAnimation { duration: 500 } }` | 63/s (480ms wall) | **241/s** (503ms wall) |
+| `FrameSpring` | ~60 frames/s | **~240 frames/s** |
+
+`NumberAnimation` tracks the driver, so every duration-based animation in the
+shell (the DND toggle, the mpris slide's siblings) got faster and more accurate
+for free. `SpringAnimation` does not move at all: ~62 updates/s with a driver
+ticking at 240Hz, in the same process and run where `NumberAnimation` managed
+241/s. That isolates the cap inside `QQuickSpringAnimation` itself — it
+integrates on its own fixed timestep no matter how often it is ticked — which is
+exactly what FrameSpring was written to escape. Dropping FrameSpring would put
+every spring in the shell back at 60Hz while everything around it ran at 240Hz.
+
 **Leftover, not fixed here:** the root cause is upstream — Quickshell not
 setting the real `QScreen` on its layer-shell windows. With that fixed Qt would
 compute 4.17ms, the heuristic would never trip, and the default driver would be
