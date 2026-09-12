@@ -3,28 +3,25 @@ import QtQuick
 import qs.shared
 import qs.shared.animations
 
-// A spring-physics value driven by FrameAnimation, which ticks once per real
-// rendered frame. Qt's own Behavior/SpringAnimation rides the shared
-// QUnifiedTimer instead, fixed at ~60Hz regardless of the output's refresh
-// rate — visibly stuttery on a 240Hz screen. See AGENTS.md's "capped near
-// 60Hz" section. (Modelled on DankMaterialShell's Common/SpringMotion.qml.)
+// A spring-physics value driven by FrameAnimation, ticking once per rendered
+// frame. Qt's own Behavior/SpringAnimation rides a shared timer fixed near
+// 60Hz whatever the output does, which is visibly stuttery at 240Hz; see
+// AGENTS.md's "capped near 60Hz" section.
 //
 // Usage: bind the consuming property to `.value` and set `to`. The imperative
-// snapTo()/retarget() API stays available for springs with no single resting
-// expression (entry animations, direction-dependent slides).
+// snapTo()/retarget() API stays for springs with no single resting expression
+// (entry animations, direction-dependent slides).
 QtObject {
     id: root
 
-    // Set to a SpringGroup when this spring must stay visually locked to
-    // others (e.g. Workspaces.qml's selection indicator and the delegate it
-    // tracks). The group then owns the single FrameAnimation advancing all of
-    // them by the identical dt; independent drivers measure elapsed time
-    // separately, and that drift reads as wobble between parts meant to move
-    // as one.
+    // Set when this spring must stay locked to others (Workspaces.qml's
+    // selection indicator and its delegate). The group's single FrameAnimation
+    // advances them all by the identical dt; independent drivers drift, and
+    // that reads as wobble between parts meant to move as one.
     property SpringGroup group: null
     onGroupChanged: if (group)
         group.add(root)
-    // The group cannot detect this itself: a destroyed QObject isn't null from
+    // The group can't detect this itself: a destroyed QObject isn't null from
     // JS, it's a wrapper that throws on access. See SpringGroup.remove().
     Component.onDestruction: if (group)
         group.remove(root)
@@ -33,8 +30,8 @@ QtObject {
     property real damping: Theme.frameSpringDamping
     property real mass: Theme.frameSpringMass
     property real epsilon: Theme.springEpsilon
-    // Caps the per-tick step so a compositor hiccup can't fling the spring
-    // through one huge integration step; long gaps are sub-stepped instead.
+    // Caps the per-tick step so a compositor hiccup can't fling the spring in
+    // one huge integration step; long gaps are sub-stepped instead.
     property real maximumFrameTime: 1 / 30
     property real integrationStep: 1 / 240
 
@@ -43,16 +40,14 @@ QtObject {
     property real velocity: 0
     property bool running: false
 
-    // Declarative target: snaps to it on creation and retargets on every
-    // later change, replacing the three-step manual ritual (bind `.value`,
-    // snap in Component.onCompleted, retarget from onXChanged) — two steps of
-    // which fail *silently* when forgotten, animating in from 0 on every
-    // reload or freezing at the startup value forever.
+    // Declarative target: snaps on creation, retargets on every later change.
+    // The manual equivalent (snap in Component.onCompleted, retarget from
+    // onXChanged) fails silently when half-done — animating in from 0 on every
+    // reload, or frozen at the startup value.
     //
-    // NaN is the "unset" sentinel, not 0: an imperatively-driven spring must
-    // not have a resting target of 0 forced on it. Those leave `to` alone and
-    // both handlers below do nothing. A call site's own Component.onCompleted
-    // doesn't shadow this one — both run, base first.
+    // NaN, not 0, is the unset sentinel: an imperatively-driven spring must not
+    // be forced to rest at 0. Those leave `to` alone and both handlers below do
+    // nothing. A call site's own Component.onCompleted doesn't shadow this one.
     property real to: NaN
     onToChanged: if (!isNaN(to))
         retarget(to)
@@ -63,8 +58,7 @@ QtObject {
         return Math.abs(target - value) <= epsilon && Math.abs(velocity) <= epsilon;
     }
 
-    // Jumps straight to a value with no animation — for initial setup, not
-    // mid-animation.
+    // For initial setup, not mid-animation.
     function snapTo(v) {
         target = v;
         value = v;
@@ -102,10 +96,9 @@ QtObject {
         }
     }
 
-    // Gated on `running`, which advance() clears the moment the spring
-    // settles: a live FrameAnimation re-renders and swaps a buffer every
-    // frame for as long as it exists, animating or not. A grouped spring is
-    // driven by its SpringGroup instead.
+    // Gated on `running`: a live FrameAnimation re-renders and swaps a buffer
+    // every frame for as long as it exists, animating or not. A grouped spring
+    // is driven by its SpringGroup instead.
     property FrameAnimation driver: FrameAnimation {
         running: !root.group && root.running
         onTriggered: root.advance(frameTime)

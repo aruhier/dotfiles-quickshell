@@ -4,8 +4,8 @@ import QtQuick.Layouts
 import qs.shared
 
 // Flush pill-shaped module group for the bar's left/right ends: rounded on the
-// side facing center, square against the screen edge. The center group isn't
-// one of these — it's a floating RowLayout (see Bar.qml).
+// side facing center, square against the screen edge. The center group is a
+// floating RowLayout instead, in Bar.qml.
 Rectangle {
     id: group
 
@@ -13,13 +13,11 @@ Rectangle {
     required property var resolveComponent
     // Qt.LeftEdge or Qt.RightEdge: which screen edge this group sits against.
     required property int edge
-    // Extra margin on the flush (outer) edge, on top of Theme.groupEdgePadding
-    // on the inner one. Left and right need different values because a
-    // module's own glyph bearing can already cover some of it — see Bar.qml.
+    // Extra margin on the flush edge, on top of Theme.groupEdgePadding on the
+    // inner one. Left and right differ — see Bar.qml.
     property real outerMargin: 0
 
-    // Half the bar height, so the center-facing corners round into a full
-    // semicircle rather than a partial curve.
+    // Half the bar height, so the corners round into a full semicircle.
     readonly property real innerRadius: height / 2
 
     color: Theme.groupBg

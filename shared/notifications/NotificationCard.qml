@@ -17,61 +17,45 @@ Item {
 
     required property var wrapper
     property bool floating: false
-    // Keyboard selection in the control-center list. Floating popups never
-    // set this — they have no keyboard focus to select with.
+    // Keyboard selection in the control-center list; never set on popups.
     property bool selected: false
-    // Lifts the body's line cap so the whole message is readable. Follows
-    // `selected` by default; NotificationGroupCard.qml overrides it for the
-    // rows of an expanded group, which are never selected individually but
-    // should all open up when the group is.
+    // Lifts the body's line cap. Follows `selected`, but an expanded group
+    // overrides it for rows that are never selected individually.
     property bool showFullBody: selected
 
-    // swaync's `.notification-default-action` padding stacked on
-    // `.notification-content`'s, which the reference screenshot bears out.
     property int padding: 10
-    // swaync's --notification-icon-size.
     property int iconSize: 64
-    // Breathing room either side of the icon, on top of mainColumn's padding
-    // and the row's spacing.
+    // On top of mainColumn's padding and the row's spacing.
     property int iconHorizontalPadding: 4
-    // Inset of the action-button row from the card's edges: swaync's
-    // `.notification-alt-actions` padding plus each button's own margin.
+    // Inset of the action row from the card's edges.
     property int actionsMargin: 8
-    // The gap above the row is bigger than its side and bottom inset: swaync
-    // stacks `.notification-content`'s bottom padding on the action row's.
+    // Deliberately bigger than the side inset, to separate the actions from
+    // the message above them.
     property int actionsTopMargin: 16
 
-    // False when this card is the front layer of a collapsed group stack:
-    // swaync's group gesture swallows clicks on a collapsed group before they
-    // reach the notification, so body/close/action clicks are inert and only
-    // the group's own click-to-expand and close-all stay live. Real cards
-    // (toasts, control-center rows, expanded-group rows) leave this true.
+    // False for the front layer of a collapsed group stack: a click there
+    // belongs to the group (expand / close-all), not to this notification.
     property bool interactive: true
 
-    // swaync only reveals the close button on hover of the whole
-    // notification, in both contexts. A whole-card HoverHandler, not just the
-    // MouseArea over mainColumn, since the actions row should reveal it too.
+    // Whole-card hover, not just mainColumn's, so the actions row reveals the
+    // close button too. Drives the close button's opacity.
     property bool hovered: false
 
     HoverHandler {
         onHoveredChanged: card.hovered = hovered
     }
 
-    // How wide this card needs to be to show its header (summary + time), body
-    // and action labels unwrapped and unelided — read by
-    // NotificationPopupWindow.qml to grow the popup stack past its minimum.
-    // The result is clamped to popupMaxWidth there, so a body longer than that
-    // simply pegs the toast at its maximum and wraps from there.
+    // Width needed to show header, body and actions unwrapped, read by
+    // NotificationPopupWindow.qml to grow the stack (clamped to popupMaxWidth
+    // there, so an over-long body just pegs the toast at its maximum).
     readonly property real headerNaturalWidth: summaryText.implicitWidth + (timeText.visible ? headerRow.spacing + timeText.implicitWidth : 0)
-    // A wrapping Text reports its *unwrapped* width as implicitWidth, which is
-    // exactly the width at which the body would need no wrapping at all.
+    // A wrapping Text reports its *unwrapped* width as implicitWidth.
     readonly property real bodyNaturalWidth: bodyText.visible ? bodyText.implicitWidth : 0
     readonly property real actionsNaturalWidth: {
         if (!actionsRow.visible)
             return 0;
-        // Widest label times the button count: every button renders at the
-        // same width (see actionButton's Layout.preferredWidth), so the longest
-        // label decides how wide they all are. Plus the row's own inset.
+        // Every button renders at the same width (see actionButton's
+        // Layout.preferredWidth), so the widest label decides all of them.
         let widest = 0;
         for (let i = 0; i < actionsRepeater.count; i++) {
             const item = actionsRepeater.itemAt(i);
@@ -83,19 +67,16 @@ Item {
     // The text column has to fit whichever of its two rows is wider.
     readonly property real naturalWidth: Math.max(card.padding * 2 + card.iconSize + card.iconHorizontalPadding * 2 + contentRow.spacing + Math.max(headerNaturalWidth, bodyNaturalWidth), actionsNaturalWidth)
 
-    // actionsRow is inset from the card's edges, so it needs a top and a
-    // matching bottom gap on top of its own height. When hidden, the card
-    // falls back to plain `padding` on the bottom, like the top.
+    // actionsRow is inset, so it adds a top and matching bottom gap; hidden,
+    // the bottom falls back to plain `padding`.
     implicitHeight: padding + mainColumn.implicitHeight + (actionsRow.visible ? actionsTopMargin + actionsRow.height + actionsMargin : padding)
 
-    // A property rather than inlined at each site, since the selection-border
-    // overlay has to match the background's shape.
+    // Shared so the selection-border overlay matches the background's shape.
     readonly property int radius: NotificationTheme.cardRadius
 
-    // The card's fill, split out from `card` (an Item, not a Rectangle) so it
-    // can be a MultiEffect source for swaync's `.notification` box-shadow. An
-    // Item used as a MultiEffect `source` is automatically excluded from normal
-    // scene painting, so this never double-renders.
+    // Split out from `card` so it can be the MultiEffect source for the drop
+    // shadow. A source Item is excluded from normal scene painting, so this
+    // never double-renders.
     Rectangle {
         id: background
         anchors.fill: parent
@@ -114,12 +95,9 @@ Item {
         shadowBlur: 0.4
     }
 
-    // Body click invokes the default action if the sender declared one.
-    // Floating popups also dismiss on any body click: a toast is transient and
-    // click-to-acknowledge is the usual convention, whereas control-center
-    // rows are a list being browsed and only dismiss via the close button or
-    // Delete key. Covers the whole card — actionsRow and the close button are
-    // declared later in the tree, so they still win the hit-test.
+    // Body click invokes the default action; a floating toast also dismisses,
+    // a control-center row doesn't (it's a list being browsed). Covers the
+    // whole card — later siblings still win the hit-test.
     MouseArea {
         anchors.fill: parent
         enabled: card.interactive && (card.floating || card.wrapper.defaultAction !== null)
@@ -150,9 +128,7 @@ Item {
                 Layout.preferredHeight: card.iconSize
                 Layout.leftMargin: card.iconHorizontalPadding
                 Layout.rightMargin: card.iconHorizontalPadding
-                // Centered against the whole text column, matching swaync's
-                // GTK box. This row holds all of the card's content, so
-                // centering within it achieves that.
+                // Centered against the whole text column.
                 Layout.alignment: Qt.AlignVCenter
 
                 Image {
@@ -172,8 +148,6 @@ Item {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                // Summary text box bottom to body text box top, measured off
-                // the reference screenshot.
                 spacing: 3
 
                 RowLayout {
@@ -193,13 +167,12 @@ Item {
 
                     StyledText {
                         id: timeText
-                        // swaync only sets the time on control-center
-                        // entries; a toast's label is never populated.
+                        // Control-center rows only: a toast is current by
+                        // definition, so its time says nothing.
                         visible: !card.floating
                         text: card.wrapper.timeStr
                         color: NotificationTheme.text
-                        // `.time` reuses --font-size-summary and is bold, the
-                        // same as `.summary` beside it.
+                        // Matches the summary beside it.
                         bold: true
                         font.pixelSize: NotificationTheme.fontSize
                     }
@@ -212,17 +185,14 @@ Item {
                     text: card.wrapper.body
                     color: NotificationTheme.text
                     font.pixelSize: NotificationTheme.fontSizeBody
-                    // Pango leads Inter more generously than Qt: ~21.25px
-                    // against Qt's ~19.4px at this size, so wrapped bodies
-                    // would otherwise read visibly tighter than swaync's.
+                    // Qt leads Inter tightly (~19.4px at this size); wrapped
+                    // bodies need the extra air to stay readable.
                     lineHeight: 1.1
                     lineHeightMode: Text.ProportionalHeight
                     wrapMode: Text.WordWrap
-                    // Capped at rest so one long message can't dominate the
-                    // list or the toast stack; the cap lifts on a selected
-                    // control-center row (see showFullBody). Text has no
-                    // "unlimited" value short of resetting the property, so a
-                    // count no real body reaches stands in for it.
+                    // Capped so one long message can't dominate the list; the
+                    // cap lifts on selection. Text has no "unlimited" value, so
+                    // 1000 stands in for it.
                     maximumLineCount: card.showFullBody ? 1000 : 5
                     elide: Text.ElideRight
                 }
@@ -230,9 +200,8 @@ Item {
         }
     }
 
-    // Individually rounded button chips inset from the card's edges, matching
-    // swaync: each action is its own bordered rectangle with a visible fill at
-    // rest, not a flush full-width bar split by a hairline.
+    // Individually rounded chips, not a flush full-width bar split by a
+    // hairline, so each action reads as its own button.
     RowLayout {
         id: actionsRow
         anchors.left: parent.left
@@ -242,7 +211,6 @@ Item {
         anchors.leftMargin: card.actionsMargin
         anchors.rightMargin: card.actionsMargin
         visible: card.wrapper.otherActions.length > 0
-        // Two adjacent buttons' own `.notification-action` margins.
         spacing: 8
 
         Repeater {
@@ -255,20 +223,16 @@ Item {
                 required property int index
 
                 Layout.fillWidth: true
-                // Equal preferred widths, so the row splits evenly and every
-                // button ends up the same width whatever its label — swaync's
-                // are equal too. Without this, fillWidth would only share the
-                // *leftover* space and size each button around its own label.
+                // Equal preferred widths so the row splits evenly; fillWidth
+                // alone would only share the leftover space and size each
+                // button around its own label.
                 Layout.preferredWidth: 1
-                // A GTK button's height around its label, measured off the
-                // reference screenshot.
                 Layout.preferredHeight: 36
-                // Not used for layout (the Layout.preferred* above win), only
-                // read by card.naturalWidth as this button's unsquished
-                // minimum.
+                // Not used for layout — read by card.naturalWidth as this
+                // button's unsquished minimum.
                 implicitWidth: actionLabel.implicitWidth + 16
-                // swaync's `.text-button` radius: tighter than the card's own,
-                // which is what makes these read as buttons rather than pills.
+                // Tighter than the card's radius, so these read as buttons
+                // rather than pills.
                 radius: 6
                 color: actionArea.containsMouse ? NotificationTheme.bgHover : NotificationTheme.bgButton
                 border.width: 1
@@ -285,14 +249,10 @@ Item {
                     anchors.centerIn: parent
                     text: actionButton.modelData.text
                     color: NotificationTheme.text
-                    // ExtraBold, not plain bold: swaync's labels render
-                    // through GTK's bold face, heavier than Inter Variable at
-                    // 700 (measured: 5.6px stroke against 3.9px here). Straight
-                    // on the wght axis — `font.styleName` used to be the only
-                    // way to reach a face past 700, but StyledText now sets an
-                    // axis, which overrides styleName (the label would silently
-                    // render at 450). 800 matches the ExtraBold instance it
-                    // named, to the pixel.
+                    // Heavier than `bold` (700) on purpose, so a small label
+                    // on a busy card still reads as the actionable thing. Must
+                    // go through the wght axis — StyledText's axis silently
+                    // overrides font.styleName.
                     wght: 800
                     font.pixelSize: NotificationTheme.fontSizeAction
                 }
@@ -309,17 +269,15 @@ Item {
         }
     }
 
-    // Close button pinned to the top-right corner rather than sharing the
-    // header row's horizontal space with the summary and time. Declared after
-    // mainColumn/actionsRow so it sits on top and wins the hit-test over the
-    // whole-card click-to-dismiss MouseArea.
+    // Pinned to the corner rather than sharing the header row's space.
+    // Declared last so it wins the hit-test over the card-wide MouseArea.
     CloseButton {
         anchors.top: parent.top
         anchors.right: parent.right
         anchors.margins: 6
         diameter: 24
-        // Bigger than the group's close-all, with a lighter rest fill: this
-        // is the card's own affordance, not a secondary bulk action.
+        // Bigger and lighter than the group's close-all — this is the card's
+        // own affordance, not a secondary bulk action.
         restColor: NotificationTheme.bgHover
         // A pixel under the ratio, tuned before this was shared.
         glyphSize: 12
@@ -328,10 +286,8 @@ Item {
         onActivated: NotificationService.dismiss(card.wrapper)
     }
 
-    // The selection border is its own top-most overlay rather than the
-    // background's `border`, which paints underneath children and would sit
-    // below the opaque content instead of outlining the card. It has no mouse
-    // handling, so it steals nothing from the MouseAreas underneath.
+    // A top-most overlay, not the background's `border`: that paints under
+    // the children. No mouse handling, so it steals nothing underneath.
     Rectangle {
         anchors.fill: parent
         radius: card.radius

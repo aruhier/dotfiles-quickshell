@@ -17,9 +17,9 @@ BarModule {
     readonly property real iconVerticalOffset: 1
     readonly property real iconSizeRatio: 1.0
 
-    // On the minute, not every second: the label has minute resolution. The
-    // interval binds to `now`, and writing a running Timer's interval restarts
-    // it, so each fire realigns to the next boundary instead of drifting.
+    // On the minute, since that's the label's resolution. The interval binds
+    // to `now`, and writing a running Timer's interval restarts it, so each
+    // fire realigns to the next boundary instead of drifting.
     Timer {
         interval: 60000 - (root.now.getSeconds() * 1000 + root.now.getMilliseconds())
         running: true
@@ -50,12 +50,10 @@ BarModule {
         loader: popupLoader
     }
 
-    // LazyLoader, not a plain child (and not Loader — HoverPopup is a
-    // PopupWindow, not an Item): the calendar grid is ~130 QQuickItems behind
-    // a popup opened a few times a session, and each real popup window keeps
-    // its own GPU context alive for the life of the process once created
-    // (~3-4MB RSS, never freed on hide). Destroying it on close trades that
-    // permanent cost for a one-frame recreation delay on the next hover.
+    // LazyLoader, not Loader — HoverPopup is a PopupWindow, not an Item. Torn
+    // down on close: the grid is ~130 items behind a popup opened a few times
+    // a session, and a created popup window holds its GPU context (~3-4MB,
+    // never freed) for the life of the process. Costs one frame on reopen.
     LazyLoader {
         id: popupLoader
         active: false
@@ -68,13 +66,10 @@ BarModule {
             property int viewYear: root.now.getFullYear()
             property int viewMonth: root.now.getMonth()
 
-            // Reset on close, not open: `cells` depends on viewYear/viewMonth
-            // only while visible, so resetting here — rather than racing the
-            // same visibleChanged signal that flips `visible` true —
-            // guarantees the grid opens on the current month.
-            //
-            // Also tears the popup down, safely: this fires after HoverPopup's
-            // own hideTimer, so nothing still needs the popup open.
+            // Reset on close, not open, so the grid always opens on the
+            // current month without racing the same visibleChanged signal.
+            // Tearing down here is safe — it fires after HoverPopup's own
+            // hideTimer, so nothing still needs the popup.
             onVisibleChanged: {
                 if (!visible) {
                     goToday();

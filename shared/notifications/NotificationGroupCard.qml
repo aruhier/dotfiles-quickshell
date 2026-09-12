@@ -7,40 +7,34 @@ import qs.shared
 import qs.services
 import qs.shared.notifications
 
-// One row of the control-center list: a per-app group, mirroring swaync's
-// notification-grouping. A group of one renders as a plain NotificationCard;
-// 2+ collapse into a peeking card-stack that expands on click into a header
-// (app icon/name, collapse, close-all) plus the individual cards. Floating
-// popups never group this way and use NotificationCard directly.
+// One row of the control-center list: a per-app group. A group of one renders
+// as a plain NotificationCard; 2+ collapse into a peeking card-stack that
+// expands on click into a header (app icon/name, collapse, close-all) plus the
+// individual cards. Popups never group, and use NotificationCard directly.
 Item {
     id: root
 
     required property var group
     property bool selected: false
 
-    // Emitted when the user acts on this row with the mouse, so the list can
-    // move the keyboard selection here. The card doesn't know its own index
-    // and selection isn't its state to own, hence a signal rather than a
-    // write.
+    // Mouse action on this row, so the list can move the keyboard selection
+    // here — the card knows neither its index nor who owns the selection.
     signal selectRequested
 
     readonly property int count: group.items.length
     readonly property bool isGroup: count > 1
-    // notificationGroups walks a newest-first list and appends same-app
-    // entries as it finds them, so items[0] is always the group's most recent
-    // notification — what the header and single-item view key off.
+    // items[0] is always the group's newest — notificationGroups builds each
+    // group in newest-first order.
     readonly property var latest: group.items[0]
     readonly property bool expanded: root.isGroup && NotificationService.isGroupExpanded(root.group.key)
 
-    // swaync's NUM_STACKED_NOTIFICATIONS: the front card plus up to 2
-    // peeking behind it.
+    // The front card plus up to 2 peeking behind it.
     readonly property int peekCount: Math.min(count - 1, 2)
     readonly property int peekOffset: 6
 
-    // Gap between the expanded group's content and the selection ring drawn
-    // around it. Reserved unconditionally (see expandedColumn's margins), so
-    // the ring lands on this row's full width — exactly where the collapsed
-    // stack's and a single card's own selection border sits.
+    // Gap between an expanded group's content and its selection ring.
+    // Reserved unconditionally (see expandedColumn's margins), so the ring
+    // lands where a collapsed stack's or single card's border would.
     readonly property int selectionOutset: 6
 
     implicitHeight: !isGroup ? singleCard.implicitHeight : (expanded ? expandedColumn.implicitHeight + root.selectionOutset * 2 : collapsedStack.implicitHeight)
@@ -69,16 +63,14 @@ Item {
             onHoveredChanged: collapsedStack.hovered = hovered
         }
 
-        // Peeking layers behind the front card, furthest-back first so the
-        // front card paints over them.
+        // Furthest-back first, so the front card paints over them.
         Repeater {
             model: root.peekCount
 
             Rectangle {
                 id: peekLayer
                 required property int index
-                // Named depth, not "layer": that shadows QQuickItem's own
-                // layer-effect property.
+                // Not "layer" — that shadows QQuickItem's layer-effect.
                 readonly property int depth: root.peekCount - index
 
                 anchors.left: parent.left
@@ -88,9 +80,9 @@ Item {
                 y: peekLayer.depth * root.peekOffset
                 height: frontCard.implicitHeight
                 radius: NotificationTheme.cardRadius
-                // Not the front card's own fill, which is near tone-on-tone
-                // with the panel behind it: bgHover makes the peeking edges
-                // read as stacked cards rather than disappear into the panel.
+                // Lighter than the front card's fill, which is near
+                // tone-on-tone with the panel — otherwise the peeking edges
+                // disappear instead of reading as a stack.
                 color: NotificationTheme.bgHover
                 border.width: 1
                 border.color: NotificationTheme.borderSubtle
@@ -109,8 +101,8 @@ Item {
             interactive: false
         }
 
-        // Click anywhere on the stack to expand it. Declared above the
-        // close-all button so that button still wins the hit-test.
+        // Click anywhere to expand. Declared before the close-all button so
+        // that button still wins the hit-test.
         MouseArea {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
@@ -120,7 +112,7 @@ Item {
             }
         }
 
-        // Close-all, revealed on hover like swaync's.
+        // Close-all, revealed on hover.
         CloseButton {
             anchors.top: parent.top
             anchors.right: parent.right
@@ -137,9 +129,8 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        // Inset all round by the selection ring's outset, whether or not this
-        // group is the selected one, so moving the selection onto a row never
-        // shifts its contents or the rows below it.
+        // Inset by the ring's outset even when unselected, so moving the
+        // selection onto a row never shifts it or the rows below.
         anchors.leftMargin: root.selectionOutset
         anchors.rightMargin: root.selectionOutset
         anchors.topMargin: root.selectionOutset
@@ -196,16 +187,10 @@ Item {
         }
     }
 
-    // Selection highlight for the group as a whole: individual rows inside it
-    // are never keyboard-selectable on their own.
-    //
-    // Declared last so it paints over expandedColumn, and outset from it on
-    // every side. Underneath and flush, as it was, the ring survived only in
-    // the gaps between cards: each card's own opaque background and hairline
-    // border sit at exactly the same left and right edges and covered the ring
-    // wherever a card spanned it, so a selected expanded group read as a
-    // dashed outline rather than one box. The outset also keeps the ring clear
-    // of the header's collapse and close buttons, which it used to run under.
+    // Highlights the group as a whole; rows inside it are never selectable on
+    // their own. Declared last and outset on every side: flush and underneath,
+    // each card's opaque background covers the ring wherever it spans, leaving
+    // a dashed outline, and the ring runs under the header's buttons.
     Rectangle {
         visible: root.isGroup && root.expanded && root.selected
         anchors.fill: expandedColumn

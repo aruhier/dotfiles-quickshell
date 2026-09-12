@@ -9,24 +9,17 @@ import qs.shared.animations
 import qs.shared.popup
 
 // An icon per active privacy-sensitive capture: mic (any open audio-capture
-// stream — ideally this would also require the stream to be RUNNING, but
-// Quickshell's PwNode doesn't expose that) and screen-share.
-//
-// Not built on PwNodeLinkTracker(node: defaultAudioSource): a hardware capture
-// device can carry idle/internal link groups with nothing actually recording,
-// which showed the mic icon as active with no app capturing.
-//
-// No dedicated service: this isn't owned I/O, just a tracker plus a scan over
-// the already-process-wide Pipewire.nodes — and this Item only exists on
-// screens whose layout lists `privacy`, so the tracker runs only where the
-// icon can show.
+// stream — Quickshell's PwNode can't tell whether it's actually RUNNING) and
+// screen-share. Not built on PwNodeLinkTracker(node: defaultAudioSource): a
+// capture device carries idle internal link groups, which showed the mic as
+// active with nothing recording. No dedicated service — this is a scan over
+// the process-wide Pipewire.nodes, and it only exists on screens that list
+// `privacy`.
 Item {
     id: root
 
-    // Screen-capture streams need this tracker: an app's own
-    // "Stream/Input/Video" node isn't one of the media classes Quickshell
-    // hardcodes into PwNodeType, so `type` never reflects it — but
-    // `properties`/`ready` populate fine once something tracks the node.
+    // Needed for screen capture: PwNodeType has no video-stream member, so
+    // `type` never reflects one — but `properties` populates once tracked.
     property PwObjectTracker screenShareTracker: PwObjectTracker {
         objects: Pipewire.nodes.values
     }
@@ -34,13 +27,10 @@ Item {
     readonly property string micGlyph: "󰍬"
     readonly property string screenGlyph: "󱒃"
 
-    // A cast and a webcam are indistinguishable from the consumer side — both
-    // are `Stream/Input/Video` named "firefox" with no application.name — so
-    // the screen glyph keys off the portal's own Video/Source node, which
-    // exists only for the life of a cast.
-    //
-    // Limit: with both running at once the camera consumer counts as screen
-    // too. Separating them needs a PwNodeLinkTracker per consumer.
+    // A cast and a webcam look identical from the consumer side, so the screen
+    // glyph keys off the portal's own Video/Source node, which exists only for
+    // a cast's lifetime. Limit: with both running the camera counts as screen
+    // too; separating them needs a PwNodeLinkTracker per consumer.
     readonly property bool screencastPortalActive: {
         const nodes = Pipewire.nodes.values;
         for (let i = 0; i < nodes.length; i++) {
@@ -54,11 +44,9 @@ Item {
         return false;
     }
 
-    // One row per app currently capturing, merging its mic and screen-share
-    // nodes (a video-call app doing both is one row with two glyphs, not two
-    // rows). Relies on screenShareTracker above already tracking every node:
-    // an untracked node's `properties` never populates, whatever its media
-    // class. See AGENTS.md.
+    // One row per capturing app, merging its mic and screen nodes, so a call
+    // doing both is one row with two glyphs. Depends on screenShareTracker
+    // above: an untracked node's `properties` never populates.
     readonly property var capturingApps: {
         const nodes = Pipewire.nodes.values;
         const apps = [];
@@ -67,17 +55,14 @@ Item {
             const node = nodes[i];
             const props = node.properties || {};
             const mediaClass = props["media.class"];
-            // Both off media.class: PwNodeType has no VideoStream member, so
-            // the screen side could never use it. Exact compare, not a prefix
-            // — a headset's always-present `Stream/Input/Audio/Internal` node
-            // must not count as a mic.
+            // Exact compare, not a prefix: a headset's always-present
+            // `Stream/Input/Audio/Internal` node must not count as a mic.
             const isMic = mediaClass === "Stream/Input/Audio";
             const isScreen = mediaClass === "Stream/Input/Video" && root.screencastPortalActive;
             if (!isMic && !isScreen)
                 continue;
-            // One app's streams disagree on its name: Firefox is "Firefox" on
-            // its mic stream and a lowercase "firefox", with no
-            // application.name, on its video one. Fold case so they merge.
+            // One app's streams disagree on case (Firefox reports "Firefox"
+            // on mic, "firefox" on video), so fold it to merge them.
             const reported = props["application.name"] || "";
             const label = reported || node.name || "Unknown";
             const key = label.toLowerCase();
@@ -117,10 +102,8 @@ Item {
     implicitHeight: Theme.barHeight
     clip: true
 
-    // Not BarModule: this is a per-capture-kind sub-icon inside the module,
-    // not the module itself. It collapses to zero width on its own so that
-    // mic-only and mic+screenshare both lay out right, while the module's own
-    // width just follows the row.
+    // Not BarModule — a sub-icon inside the module. It collapses to zero
+    // width on its own, so the module's width just follows the row.
     component PrivacyIcon: Item {
         id: icon
         required property bool active
@@ -202,9 +185,8 @@ Item {
                 }
 
                 Repeater {
-                    // Gated on popup.visible, so delegates are destroyed while
-                    // the popup is closed rather than staying resident — see
-                    // Weather.qml's hourly Repeater.
+                    // Gated on popup.visible so delegates don't stay resident
+                    // while closed — see Weather.qml's hourly Repeater.
                     model: popup.visible ? root.capturingApps : []
                     delegate: RowLayout {
                         id: appRow

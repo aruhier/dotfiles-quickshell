@@ -1,20 +1,14 @@
 #!/usr/bin/env bash
 # Static-check every .qml file in this shell with qmllint.
 #
-# The wrinkle this script exists to solve: files here import each other as
-# `qs.shared`, `qs.services`, `qs.shared.animations` and so on. That `qs`
-# module is synthesised by Quickshell at runtime from the config root — there
-# are no qmldir files on disk, so qmllint on its own resolves none of those
-# imports and every cross-file type comes back unknown, which drowns any real
-# finding in noise.
+# Files import each other as `qs.shared`, `qs.services` and so on, a module
+# Quickshell synthesises at runtime with no qmldir on disk — so qmllint alone
+# resolves none of it and every cross-file type comes back unknown. This builds
+# a throwaway shim tree spelling out the same layout, points qmllint at it with
+# -I, and deletes it afterwards.
 #
-# So: build a throwaway shim tree of qmldir files (plus symlinks to the real
-# sources) that spells out the same module layout Quickshell infers, point
-# qmllint at it with -I, and delete it afterwards.
-#
-# Output is quiet on success. Findings that are genuinely unfixable here are
-# suppressed *individually*, each with a reason (see SUPPRESSED below) — never
-# by category, so a new finding of any kind still fails the run.
+# Quiet on success. Unfixable findings are suppressed individually with a
+# reason (see SUPPRESSED), never by category, so anything new still fails.
 #
 # Usage: scripts/lint.sh [--all] [files...]
 #          --all    also list the suppressed findings, with reasons
@@ -64,8 +58,8 @@ fi
 
 report="$("$qmllint" --json - -I "$shim" -I /usr/lib64/qt6/qml "${files[@]}" 2>/dev/null || true)"
 
-# The report goes through the environment, not stdin: stdin is already taken by
-# the heredoc carrying this filter's own source.
+# The report goes through the environment: stdin already carries this filter's
+# own source, via the heredoc.
 REPO="$repo" SHOW_ALL="$show_all" REPORT="$report" python3 - <<'FILTER'
 import json, os, sys
 

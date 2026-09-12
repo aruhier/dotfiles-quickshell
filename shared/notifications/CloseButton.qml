@@ -4,19 +4,16 @@ import qs.shared
 import qs.shared.animations
 import qs.shared.notifications
 
-// The round ✕ chip: a card's close button and a group's close-all.
-//
-// Implicit size only, never width/height, so it works both anchored into a
-// card's corner and as a plain RowLayout child needing no Layout.preferred*.
+// The round ✕ chip: a card's close button and a group's close-all. Implicit
+// size only, never width/height, so it works both anchored into a card's
+// corner and as a plain RowLayout child.
 Rectangle {
     id: button
 
     property int diameter: 18
-    // Shares a literal with Theme.popupBg by coincidence, not by meaning.
     property color restColor: "black"
-    // Accent-lit on hover like every other clickable — see AGENTS.md's
-    // PressableIcon rule; the chip's fill is what lights up here, so the
-    // glyph goes dark for contrast against it.
+    // Accent-lit on hover like every other clickable. The fill is what lights
+    // up here, so the glyph goes dark for contrast.
     property color hoverColor: Theme.accent
     property color glyphColor: NotificationTheme.text
     property color glyphHoverColor: "black"
@@ -29,12 +26,12 @@ Rectangle {
     implicitWidth: diameter
     implicitHeight: diameter
     // Off `diameter`, not `height`: a RowLayout can stretch this past its
-    // implicit height, and the sites it replaced pinned radius to the nominal.
+    // implicit height, and the chip must stay round.
     radius: diameter / 2
     color: restColor
     scale: press.value
 
-    // Two sites reveal on hover via `opacity`; inert at the third.
+    // For the sites that reveal it on hover; inert where it's always shown.
     Behavior on opacity {
         NumberAnimation {
             duration: 150
@@ -55,7 +52,8 @@ Rectangle {
         onClicked: button.activated()
     }
 
-    // Over the base rather than swapping `color`, as the sites did.
+    // Over the base rather than swapping `color`, so `restColor` stays a
+    // plain property a site can set.
     Rectangle {
         anchors.fill: parent
         radius: parent.radius

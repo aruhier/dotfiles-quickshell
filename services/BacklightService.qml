@@ -4,13 +4,10 @@ import QtQuick
 import Qt.labs.folderlistmodel
 import Quickshell.Io
 
-// Shared backlight state, with exponential perceptual scaling.
-//
-// Reads come straight out of /sys/class/backlight: a FolderListModel finds the
-// device, FileViews read max_brightness/brightness, and an inotify watch on
-// `brightness` reports external changes — nothing polls or forks. Writes go
-// through brightnessctl (the sysfs node is root-owned, which is what its
-// setuid/logind helper is for), but only on an actual user action.
+// Shared backlight state, with exponential perceptual scaling. Reads come
+// straight out of /sys/class/backlight — device discovery, the two values, and
+// an inotify watch for external changes, with nothing polling or forking.
+// Writes go through brightnessctl, since the sysfs node is root-owned.
 QtObject {
     id: root
 
@@ -19,28 +16,26 @@ QtObject {
     readonly property bool available: device !== "" && maxRaw > 0
     readonly property real linear: maxRaw > 0 ? Math.max(0, Math.min(1, raw / maxRaw)) : 0
 
-    // percent = (raw / maxRaw) ^ (1 / exponent). 4 is what `brightnessctl -e`
-    // uses when given no K, so a "+10%" there and a 10-point move here are
-    // the same raw change; keep them in sync if either side changes.
+    // percent = (raw / maxRaw) ^ (1 / exponent). 4 matches `brightnessctl -e`,
+    // so a "+10%" there and a 10-point move here are the same raw change.
     property real exponent: 4
 
     // One wheel notch, in perceptual units (0..1).
     property real step: 0.05
 
-    // Never write 0: that switches the panel off and only another backlight
-    // write brings it back. Same default as brightnessctl's --min-value.
+    // Never write 0 — that switches the panel off, and only another backlight
+    // write brings it back.
     readonly property int minRaw: 1
 
-    // sysfs device name, e.g. "intel_backlight". Empty until discovery runs,
-    // and stays empty on a machine with no backlight.
+    // e.g. "intel_backlight". Empty until discovery runs, and on a machine
+    // with no backlight.
     property string device: ""
     readonly property string devicePath: device === "" ? "" : "/sys/class/backlight/" + device
     property int maxRaw: 0
     property int raw: 0
 
-    // Latest value asked for while a brightnessctl write is already in
-    // flight, -1 when nothing is queued: spinning the wheel outruns process
-    // spawns, and exec() on a running Process is not a queue.
+    // Latest value asked for while a write is in flight, -1 when idle:
+    // spinning the wheel outruns process spawns, and exec() isn't a queue.
     property int pendingRaw: -1
 
     // Move `steps` wheel notches up (positive) or down (negative).
@@ -49,8 +44,8 @@ QtObject {
             return;
         const target = Math.max(0, Math.min(1, Math.pow(linear, 1.0 / exponent) + steps * step));
         let next = Math.round(maxRaw * Math.pow(target, exponent));
-        // At the dark end a whole perceptual step can be worth less than one
-        // raw unit, and rounding would swallow it, leaving the wheel dead.
+        // At the dark end a perceptual step can be worth under one raw unit,
+        // and rounding would swallow it, leaving the wheel dead.
         if (next === raw)
             next = raw + (steps > 0 ? 1 : -1);
         setRaw(next);
@@ -79,9 +74,8 @@ QtObject {
             brightnessFile.reload();
     }
 
-    // Prefer a real panel backlight: nvidia's stub and acpi_video's mirror of
-    // another device both show up here on some machines, and neither is the
-    // one to drive when a native device exists.
+    // Prefer a real panel backlight: nvidia's stub and acpi_video's mirror
+    // also show up here, and neither is the one to drive.
     function rank(name) {
         if (name.startsWith("nvidia"))
             return 2;
@@ -100,8 +94,7 @@ QtObject {
         return best;
     }
 
-    // Entries are symlinks into /sys/devices/…; QDir follows them, so they
-    // list as directories.
+    // Entries are symlinks into /sys/devices/…, which QDir lists as dirs.
     property FolderListModel devices: FolderListModel {
         id: devices
         folder: "file:///sys/class/backlight"
@@ -120,15 +113,10 @@ QtObject {
         onLoadFailed: root.maxRaw = 0
     }
 
-    // watchChanges, not a poll timer: sysfs backlight attributes call
-    // sysfs_notify() on change and kernfs raises a real fsnotify FS_MODIFY
-    // from that, so an inotify watch on this pseudo-file does fire — hardware
-    // keys and brightnessctl keybinds land here immediately. (Verified with
-    // both inotifywait and a standalone FileView probe.)
-    //
-    // reload() is explicit because FileView doesn't re-read on its own. The
-    // parse stays in onLoaded, which fires on every reload even when the bytes
-    // are identical.
+    // watchChanges, not a poll timer: sysfs backlight attributes do raise a
+    // real inotify event, so hardware keys and external writes land here
+    // immediately. reload() is explicit — FileView doesn't re-read on its own
+    // — and onLoaded fires on every reload, identical bytes included.
     property FileView brightnessFile: FileView {
         id: brightnessFile
         path: root.devicePath === "" ? "" : root.devicePath + "/brightness"
@@ -140,8 +128,7 @@ QtObject {
     property Process setProc: Process {
         id: setProc
         onExited: {
-            // Resync: brightnessctl clamps and the driver quantizes, so what
-            // landed isn't necessarily what was asked for.
+            // Resync: the write is clamped and quantized on the way down.
             root.refresh();
             root.flush();
         }

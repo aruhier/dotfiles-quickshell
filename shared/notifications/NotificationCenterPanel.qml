@@ -10,18 +10,12 @@ import qs.services
 import qs.shared.animations
 import qs.shared.notifications
 
-// swaync's control-center panel: toggled from the bar's NotificationCenter
-// indicator and pinned open regardless of cursor position. PopupCoordinator
-// isn't used at all — it only tracks one hover-triggered owner — so
-// visibility just gates off NotificationService.centerOpen.
-//
-// One shared window process-wide, instantiated from shell.qml, whose `screen`
-// follows NotificationService.centerScreen so it opens on whichever output was
-// clicked.
-//
-// Anchored to all four screen edges so the outer MouseArea can catch an
-// outside click to close, rather than stacking a second layer-shell surface
-// whose ordering isn't guaranteed. Fully unmapped while closed.
+// The notification control center: click-toggled and pinned open, so it gates
+// off NotificationService.centerOpen rather than PopupCoordinator (which only
+// tracks one hover-triggered owner). One shared window process-wide, its
+// `screen` following centerScreen so it opens on the clicked output.
+// Anchored to all four edges so the outer MouseArea catches outside clicks —
+// a second layer-shell surface would have no guaranteed stacking order.
 PanelWindow {
     id: panelWindow
 
@@ -35,17 +29,10 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
 
-    // Kept mapped through the close slide-out: unmapping the instant
-    // centerOpen flips false would cut the animation off after a frame.
-    //
-    // `visible` deliberately does NOT reference centerOpen, only `open` and
-    // `closing`, which the handler below writes together. Binding it to
-    // centerOpen directly raced: that binding and the handler are independent
-    // listeners on the same signal with no ordering between them, so when the
-    // binding re-evaluated first it saw centerOpen already false and `closing`
-    // still false, unmapping the window for a frame before the handler remapped
-    // it. Routing both flags through one handler makes them change atomically,
-    // so `visible` can never observe an inconsistent combination.
+    // Kept mapped through the close slide-out. `visible` must not reference
+    // centerOpen: as an independent listener it can see centerOpen false while
+    // `closing` is still unset, unmapping for a frame. One handler writing both
+    // flags makes them change atomically.
     property bool open: false
     property bool closing: false
     visible: open || closing
@@ -53,11 +40,9 @@ PanelWindow {
     Connections {
         target: NotificationService
         function onCenterOpenChanged() {
-            // Order matters: each write fires its change signal synchronously,
-            // with no batching between the two statements. Setting `closing`
-            // before clearing `open` keeps `open || closing` true at every
-            // intermediate point — the other order left a window where both
-            // were false, unmapping and remapping inside one handler call.
+            // Writes fire their signals synchronously and unbatched, so
+            // `closing` must be set before `open` clears to keep `open ||
+            // closing` true at every intermediate point.
             if (!NotificationService.centerOpen)
                 panelWindow.closing = true;
             panelWindow.open = NotificationService.centerOpen;
@@ -67,18 +52,13 @@ PanelWindow {
 
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "quickshell-notification-center"
-    // Tied to centerOpen, not visible: the window stays mapped through the
-    // slide-out, but focus should return to whatever's underneath the instant
-    // the user closes it, not once the spring settles. This is a live
-    // layer-shell surface update rather than a remap, so it takes effect while
-    // the panel is still sliding away.
+    // Tied to centerOpen, not visible: focus returns underneath the instant
+    // the user closes, not once the slide-out spring settles.
     WlrLayershell.keyboardFocus: NotificationService.centerOpen ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 
     onVisibleChanged: if (visible) {
         focusScope.forceActiveFocus();
-        // Pre-select the first row on every open, rather than carrying a
-        // stale selection over or needing an extra keypress before Up/Down
-        // works.
+        // Pre-select the first row, so Up/Down works without a priming press.
         focusScope.selectedKey = NotificationService.notificationGroups.length > 0 ? NotificationService.notificationGroups[0].key : "";
     }
 
@@ -94,15 +74,9 @@ PanelWindow {
         focus: true
         Keys.onEscapePressed: NotificationService.closeCenter()
 
-        // Keyboard selection into NotificationService.notificationGroups, held
-        // as the selected group's key rather than its row index: the list
-        // re-sorts under the selection whenever a notification arrives, since
-        // a group jumps to the position of its newest member. Keyed by index,
-        // the highlight stayed put and silently came to mean a *different*
-        // group — a new notification from another app moved the selection off
-        // the row the user had picked and onto the newcomer. "" means nothing
-        // selected, only reachable once the list empties out. Up/Down move it,
-        // Return/Enter fire the row's action, Delete/Backspace dismiss it.
+        // Keyed by group key, not row index: the list re-sorts under the
+        // selection when a notification arrives, so an index would silently
+        // come to mean a different group. "" = nothing selected (empty list).
         property string selectedKey: ""
 
         readonly property int selectedIndex: {
@@ -114,16 +88,14 @@ PanelWindow {
             return -1;
         }
 
-        // Where the selection last sat, so dismissing the selected group lands
-        // it on whatever slid up into that row rather than dropping it — the
-        // behaviour the old index clamp gave for free.
+        // So dismissing the selected group lands the selection on whatever
+        // slid up into that row rather than dropping it.
         property int lastSelectedIndex: 0
         onSelectedIndexChanged: if (focusScope.selectedIndex >= 0)
             focusScope.lastSelectedIndex = focusScope.selectedIndex
 
-        // Covers dismissal from any source, not just the key handler below:
-        // the list can shrink out from under a keyboard selection whenever the
-        // mouse is used at the same time.
+        // Covers dismissal from any source: the mouse can shrink the list out
+        // from under a keyboard selection.
         Connections {
             target: NotificationService
             function onNotificationsChanged() {
@@ -183,19 +155,10 @@ PanelWindow {
             NotificationService.dismissGroup(groups[focusScope.selectedIndex]);
         }
 
-        // The panel itself: left corners rounded only, flush against the
-        // right screen edge, the same per-corner-radius technique
-        // ModuleGroup.qml uses for the bar's pills. It slides in and out by
-        // animating rightMargin between resting and fully off-screen, rather
-        // than toggling visibility.
-        //
-        // The resting -2 is a deliberate 2px overscan, not a bug: at
-        // Hyprland's fractional scale a rightMargin of 0 left the screen's
-        // last physical column transparent, since the window's own background
-        // is transparent and only this child Rectangle paints. (Bar.qml
-        // doesn't hit this — its background is the window's own `color`.) The
-        // extra 2px are square and land past the true screen edge, so the
-        // compositor clips them.
+        // Slides in and out by animating rightMargin, rather than toggling
+        // visibility. The resting -2 is deliberate overscan: at fractional
+        // scale a 0 margin left the last physical column transparent, since
+        // only this Rectangle paints. The extra 2px are square and clipped.
         Rectangle {
             id: panel
             anchors.top: parent.top
@@ -208,19 +171,13 @@ PanelWindow {
             readonly property real restingRightMargin: -2
             readonly property real closedRightMargin: -panel.width - 2
 
-            // Driven imperatively rather than declaratively: retarget() is
-            // called from the Connections handler above on every centerOpen
-            // change.
+            // Retargeted imperatively from the Connections handler above.
             FrameSpring {
                 id: rightMarginSpring
-                // Softer than Theme's defaults, overridden here rather than
-                // globally since those are shared with the modules' width
-                // springs. Same near-critical damping ratio (~0.92, so still
-                // no wobble), lower natural frequency, for a deliberately
-                // slower slide than the bar's width springs. Measured over the
-                // 500px travel: 90% of it in ~220ms, 99% in ~345ms, fully
-                // settled (epsilon 0.25 on both value and velocity) at ~545ms
-                // — the tail past 99% is sub-pixel and not what the eye reads.
+                // Softer than Theme's defaults (shared with the modules'
+                // width springs, hence the local override): same ~0.92 damping
+                // ratio, lower frequency, for a slower slide. 90% of the 500px
+                // travel in ~220ms, 99% in ~345ms.
                 stiffness: 160
                 damping: 18
                 Component.onCompleted: snapTo(panel.closedRightMargin)
@@ -236,22 +193,19 @@ PanelWindow {
             topRightRadius: 0
             bottomRightRadius: 0
 
-            // Consumes clicks inside the panel so they don't fall through to
-            // the outer close-catcher.
+            // Keeps clicks inside the panel off the outer close-catcher.
             MouseArea {
                 anchors.fill: parent
             }
 
             ColumnLayout {
                 anchors.fill: parent
-                // See NotificationTheme's panelPadding/panelSpacing.
                 anchors.margins: NotificationTheme.panelPadding
                 spacing: NotificationTheme.panelSpacing
 
                 // ---- header ----
-                // No Clear All button, matching this swaync config. Clearing
-                // is still reachable via the `notifications clear` IPC call
-                // (see shell.qml), just not from the UI.
+                // No Clear All button by choice; clearing is reachable over
+                // IPC only (see shell.qml).
                 StyledText {
                     text: "Notifications"
                     color: NotificationTheme.text
@@ -305,10 +259,8 @@ PanelWindow {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
 
-                    // Matches swaync's control-center-list-placeholder: an
-                    // icon above the label, the whole group at half opacity
-                    // (style.css's `.control-center-list-placeholder {
-                    // opacity: 0.5 }`) rather than just dimming the text.
+                    // Icon and label dim together, rather than the text
+                    // alone, so the placeholder reads as one unit.
                     ColumnLayout {
                         anchors.centerIn: parent
                         visible: NotificationService.notifications.length === 0
@@ -335,12 +287,10 @@ PanelWindow {
                         id: notificationListView
                         anchors.fill: parent
                         clip: true
-                        // A card sits further in than the title/DND labels
-                        // above it — see NotificationTheme.listPadding, which
-                        // stacks on the ColumnLayout's own panelPadding.
-                        // Vertically each row carries listCardMargin above and
-                        // below, so stacked cards sit twice that apart while
-                        // the first and last still clear the list's bounds.
+                        // listPadding stacks on the ColumnLayout's own
+                        // panelPadding, so cards sit further in than the labels
+                        // above. Each row carries listCardMargin top and
+                        // bottom, hence the doubled spacing between them.
                         spacing: NotificationTheme.listCardMargin * 2
                         leftMargin: NotificationTheme.listPadding
                         rightMargin: NotificationTheme.listPadding
@@ -351,29 +301,22 @@ PanelWindow {
                         delegate: NotificationGroupCard {
                             id: listCard
                             required property var modelData
-                            // Not `ListView.view.width` alone: that's the
-                            // full viewport, ignoring the view's own left and
-                            // right margins, so cards overflowed them and got
-                            // clipped — a visible seam on the selected card's
-                            // right edge.
+                            // Not `ListView.view.width` alone — that's the
+                            // full viewport, so cards overflowed the view's
+                            // margins and got clipped.
                             width: ListView.view.width - notificationListView.leftMargin - notificationListView.rightMargin
                             group: listCard.modelData
                             selected: focusScope.selectedKey === listCard.modelData.key
-                            // Clicking a row to expand or collapse it moves
-                            // the keyboard selection there too, so the
-                            // highlight follows the group the user is actually
-                            // working with instead of staying on whichever row
-                            // Up/Down last visited.
+                            // Clicking a row moves the keyboard selection
+                            // there too, so the highlight follows the mouse.
                             onSelectRequested: focusScope.selectedKey = listCard.modelData.key
                         }
                     }
                 }
 
                 // ---- now playing (mpris) ----
-                // Generic MPRIS widget like swaync's: whatever is active over
-                // MPRIS, not tied to a specific player. MprisService owns which
-                // player shows and the paging between them; this is its view.
-                // The </> arrows and dots appear once a second player does.
+                // Any MPRIS player, not a specific one. MprisService owns
+                // selection and paging; this is its view.
                 ColumnLayout {
                     Layout.fillWidth: true
                     visible: MprisService.activePlayer !== null
@@ -398,21 +341,18 @@ PanelWindow {
                             color: NotificationTheme.bgHover
                             scale: mprisPopSpring.value
 
-                            // On a player switch the card stays put and only
-                            // its content slides. MprisService.slideDirection
-                            // is set right before the index write rather than
-                            // inferred from the delta, whose sign is ambiguous
-                            // when the selection wraps.
+                            // On a player switch only the content slides.
+                            // slideDirection comes from MprisService because
+                            // the index delta's sign is ambiguous on wrap.
                             readonly property int watchedIndex: MprisService.index
                             onWatchedIndexChanged: {
                                 mprisSlideSpring.value = MprisService.slideDirection * mprisClip.width;
                                 mprisSlideSpring.retarget(0);
                             }
 
-                            // Same player, new track: a small scale bounce
-                            // instead of a slide. Suppressed when the track
-                            // changed as a side effect of switching players,
-                            // so the two effects never stack.
+                            // Same player, new track: a scale bounce instead
+                            // of a slide. Suppressed on a player switch so the
+                            // two effects never stack.
                             readonly property string trackKey: MprisService.activePlayer ? MprisService.activePlayer.trackTitle + "|" + MprisService.activePlayer.trackArtist : ""
                             onTrackKeyChanged: {
                                 if (MprisService.suppressPop)
@@ -425,20 +365,15 @@ PanelWindow {
                                 id: mprisPopSpring
                                 value: 1
                                 target: 1
-                                // The default epsilon is tuned for
-                                // pixel-scale springs, too coarse for this
-                                // 0..1 bump — see PressSpring.qml.
+                                // Default epsilon is pixel-scale, too coarse
+                                // for a 0..1 bump — see PressSpring.qml.
                                 epsilon: 0.002
                             }
 
-                            // Drives both content layers' x. A full
-                            // card-width of travel, so it has to be slow
-                            // enough to read as motion across that distance;
-                            // settle time is independent of distance, so the
-                            // same constants work at any card width. Damping
-                            // ratio ~0.76, a little lighter than critical, so
-                            // it gives slightly at the end rather than gliding
-                            // to a dead stop.
+                            // Drives both content layers' x over a full
+                            // card-width of travel, slow enough to read as
+                            // motion. Damping ratio ~0.76, slightly under
+                            // critical, so it gives at the end.
                             FrameSpring {
                                 id: mprisSlideSpring
                                 value: 0
@@ -448,19 +383,16 @@ PanelWindow {
                                 mass: 0.8
                             }
 
-                            // Clips the sliding layers to the card's content
-                            // area, so a page swaps inside a fixed frame
-                            // rather than spilling past its rounded edges.
+                            // Clips the sliding layers so a page swaps inside
+                            // a fixed frame, not past the rounded edges.
                             Item {
                                 id: mprisClip
                                 anchors.fill: parent
                                 anchors.margins: 12
                                 clip: true
 
-                                // Outgoing: the player just shown, sliding
-                                // out the opposite side from the incoming
-                                // one. On screen only for the slide, and never
-                                // interactive.
+                                // Outgoing: on screen only for the slide, and
+                                // never interactive.
                                 MprisNowPlayingContent {
                                     width: mprisClip.width
                                     height: mprisClip.height
@@ -471,8 +403,7 @@ PanelWindow {
                                 }
 
                                 // Incoming: the current player, always the
-                                // interactive layer. Starts a full card-width
-                                // out and slides to 0.
+                                // interactive layer.
                                 MprisNowPlayingContent {
                                     id: incomingContent
                                     width: mprisClip.width
@@ -513,8 +444,8 @@ PanelWindow {
             }
         }
 
-        // swaync's `.control-center` box-shadow, the same
-        // MultiEffect-as-source pattern as NotificationCard.qml's.
+        // Drop shadow, the same MultiEffect-as-source pattern as
+        // NotificationCard.qml's.
         MultiEffect {
             anchors.fill: panel
             source: panel

@@ -16,10 +16,8 @@ PanelWindow {
     required property var layout
     screen: barWindow.modelData
 
-    // Name -> Component for everything shell.qml's layouts can place.
-    // Workspaces needs this bar's screen name (workspace filtering) and
-    // NotificationCenter its screen object (routing the shared panel to the
-    // clicked screen), so those are bound here rather than bare references.
+    // Name -> Component for everything shell.qml's layouts can place. Two of
+    // them need this bar's screen, so they're bound rather than bare.
     readonly property var moduleComponents: ({
         mpd: mpdComponent,
         submap: submapComponent,
@@ -34,8 +32,8 @@ PanelWindow {
         weather: weatherComponent
     })
 
-    // Layout entries are plain strings, so a typo would otherwise just render
-    // nothing via the Loader.
+    // Layout entries are plain strings, so a typo would silently render
+    // nothing.
     function componentFor(name) {
         const component = barWindow.moduleComponents[name];
         if (!component)
@@ -51,9 +49,8 @@ PanelWindow {
     Component { id: volumeComponent; Volume {} }
     Component { id: notificationsComponent; NotificationCenter { screen: barWindow.modelData } }
     Component { id: clockComponent; Clock {} }
-    // Tray/Privacy/Weather are the expensive modules (icon textures, hover
-    // popups, network), so they're only instantiated on screens whose layout
-    // actually lists them.
+    // The expensive modules — icon textures, hover popups, network. Only
+    // instantiated on screens whose layout lists them.
     Component { id: trayComponent; Tray {} }
     Component { id: privacyComponent; Privacy {} }
     Component { id: weatherComponent; Weather {} }
@@ -80,8 +77,7 @@ PanelWindow {
         color: Theme.barBorder
     }
 
-    // The content area above the border stripe (which is extra height below
-    // it, not an overlay).
+    // Above the border stripe, which is extra height rather than an overlay.
     Item {
         anchors {
             top: parent.top
@@ -90,9 +86,8 @@ PanelWindow {
         }
         height: Theme.barHeight
 
-        // No outer margin on the left: the first module's own glyph bearing
-        // already lands its ink at the right spot. True for the default order
-        // (mpd, submap) — reorder with care.
+        // No outer margin: the first module's glyph bearing already lands its
+        // ink in the right place. Depends on the order (mpd, submap).
         ModuleGroup {
             edge: Qt.LeftEdge
             model: barWindow.layout.left
@@ -109,8 +104,8 @@ PanelWindow {
             }
         }
 
-        // The right group does need an outer margin: a module ending in a
-        // digit or flush glyph (e.g. Clock) has near-zero right bearing.
+        // This one needs a margin: a module ending in a digit or flush glyph
+        // (Clock) has near-zero right bearing.
         ModuleGroup {
             edge: Qt.RightEdge
             model: barWindow.layout.right

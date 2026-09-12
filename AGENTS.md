@@ -147,6 +147,24 @@ both assume the *default* left order (`mpd`, `submap`) and right order
 (`clock` last). Reordering a screen's layout so a different module lands at
 the flush screen edge may need re-tuning those margins for that edge.
 
+## Comments and docs
+
+Keep **code comments** short and concise. A comment earns its place by saying
+*why*, not by restating what the line already says — one to four lines, no
+prose blocks above every property, no retelling of the debugging session that
+produced it. Delete a comment that's gone stale rather than growing it.
+
+**Don't explain code by comparing it to swaync, waybar, or whatever else this
+replaced.** A reader of the code has no access to those configs, and the
+comparison dates fast. State the behavior or the intent — "the panel lists
+these already, so the toast would be redundant", not "swaync hides its toasts".
+Provenance for a measured constant belongs in this file, not at the call site.
+
+**This file is the exception**: it's written for agents, so the long-form
+explanation belongs here — measurements, rejected alternatives, the reasoning
+behind a non-obvious choice. A code comment states the rule and, where the
+reasoning is long, points at the section here that carries it.
+
 ## Style notes
 
 - **Bar has real extra height below the content, not an overlay.** The

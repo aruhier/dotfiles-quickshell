@@ -27,21 +27,18 @@ QtObject {
     // A workspace active on its own monitor but not system-focused: between
     // workspaceBg and accent. See Workspaces.qml.
     readonly property color workspaceActiveBg: Qt.tint(workspaceBg, Qt.rgba(accent.r, accent.g, accent.b, 0.5))
-    // Hover is a relative darken of whatever the pill already is, not a
-    // flat color: every state above stays distinguishable while hovered, and
-    // the dark label text gains contrast rather than losing it. Qt.darker()
-    // factor.
+    // A relative darken (Qt.darker() factor), not a flat color: every state
+    // above stays distinguishable while hovered, and the dark label text
+    // gains contrast rather than losing it.
     readonly property real workspaceHoverDarken: 1.15
-    // Workspace hover preview (shared/popup/WorkspacePreviewPopup.qml): the
-    // mock-up's width, height follows the monitor's aspect ratio. The
-    // "desktop" behind the window thumbnails, lighter than popupBg so the
-    // preview reads as a screen inside the chrome.
+    // Workspace hover preview: width only, height follows the monitor's
+    // aspect ratio. The "desktop" behind the thumbnails is lighter than
+    // popupBg, so the preview reads as a screen inside the chrome.
     readonly property int workspacePreviewWidth: 560
     readonly property color workspacePreviewBg: barBg
 
-    // Lightened from waybar's #f53c3c, which it only ever used as a
-    // background: as text on groupBg that lands at 2.7:1. This reads red at
-    // 4.4:1 on the group pill.
+    // Light enough to read as text on the group pill (4.4:1); a saturated
+    // red only works as a background, landing at 2.7:1 here.
     readonly property color critical: "#FF8A80"
     readonly property color privacyActive: "#D14005"
 
@@ -50,9 +47,8 @@ QtObject {
     // codepoints come from Qt's automatic per-glyph fallback.
     readonly property string fontFamily: "Inter Variable"
     readonly property int fontSize: 12
-    // Inter's wght axis, not a QFont weight — see StyledText.qml for why a
-    // by-number `font.weight` can't express 450 on this font. Read by
-    // StyledText and by any FontMetrics that has to measure the same face.
+    // Inter's wght axis, not a QFont weight — see StyledText.qml. Read by
+    // StyledText and by any FontMetrics measuring the same face.
     readonly property int fontWeight: 450
     readonly property int fontWeightBold: 700
     // Nerd Font glyphs render smaller than Latin text at the same pixelSize,
@@ -78,9 +74,8 @@ QtObject {
     // The center pill's caps.
     readonly property int centerCapWidth: 15
 
-    // Spring constants for shared/animations/FrameSpring.qml, which
-    // integrates the mass-spring-damper ODE directly — so Hyprland's own
-    // physical constants are the right values here.
+    // Spring constants for FrameSpring.qml, which integrates the
+    // mass-spring-damper ODE directly.
     readonly property real frameSpringStiffness: 460
     readonly property real frameSpringDamping: 35
     readonly property real frameSpringMass: 0.6
@@ -90,9 +85,8 @@ QtObject {
     readonly property real springEpsilon: 0.25
 
     // Faster variant for Workspaces.qml, whose pill/delegate/indicator widths
-    // all move together: same damping ratio (ζ ≈ 1.05), roughly 2x the
-    // natural frequency. More damping than this made the motion read *worse*,
-    // which rules out underdamped overshoot — the remaining wobble was pixel
+    // all move together: same damping ratio (ζ ≈ 1.05), roughly 2x the natural
+    // frequency. Don't damp it further — the leftover wobble is pixel
     // rounding, handled in Workspaces.qml itself.
     readonly property real frameSpringWorkspaceStiffness: 920
     readonly property real frameSpringWorkspaceDamping: 50

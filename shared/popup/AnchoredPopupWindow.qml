@@ -13,11 +13,10 @@ PopupWindow {
     anchor {
         window: popup.anchorItem.QsWindow.window
         adjustment: PopupAdjustment.Slide
-        // No Left/Right edge here on purpose: Quickshell then centers on the
-        // anchor rect, recomputed live on every reposition — including ones
-        // caused by the popup's own width changing (e.g. tooltip text changing
-        // while shown). A hand-rolled `rect.x - width / 2` offset would be
-        // evaluated once at anchoring time and go stale on any later resize.
+        // No Left/Right edge on purpose: Quickshell then centers on the anchor
+        // rect and recomputes on every reposition, including ones caused by the
+        // popup's own width changing. A hand-rolled centering offset would be
+        // evaluated once and go stale.
         gravity: Edges.Bottom
         edges: Edges.Bottom
 

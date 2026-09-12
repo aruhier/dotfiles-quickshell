@@ -2,11 +2,9 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 import QtQuick
 
-// Keeps only one hover popup (Clock's calendar, Weather's forecast, …) open at
-// a time. Without it, moving the cursor straight from one module to its
-// neighbour leaves both open for the 200ms close grace period and their
-// surfaces overlap. One cursor, so one global owner is enough — no need to
-// scope this per output.
+// Keeps only one hover popup open at a time: moving the cursor straight to a
+// neighbouring module otherwise leaves both up, overlapping, for the close
+// grace period. One cursor, so one global owner is enough.
 QtObject {
     id: root
 

@@ -4,9 +4,8 @@ import qs.shared
 import qs.shared.popup
 
 // Small hover tooltip anchored below a bar module. Opens after a `showDelay`
-// dwell like HoverPopupArea does for popups, but has no grace-period timer on
-// the way out, unlike HoverPopup: it's plain text with nothing to move the
-// cursor onto, so it closes immediately.
+// dwell and closes immediately — unlike HoverPopup, there's nothing here to
+// move the cursor onto, so it needs no grace period.
 AnchoredPopupWindow {
     id: popup
 
@@ -14,19 +13,16 @@ AnchoredPopupWindow {
     property bool show: false
     property int maxWidth: 480
 
-    // Grace before a hover shows the tooltip, matching HoverPopupArea's
-    // showDelay: a cursor merely crossing the bar shouldn't flash tooltips
-    // open. `show` is the request, `_dwelled` the timer's answer to it.
+    // Dwell before showing, so a cursor crossing the bar doesn't flash
+    // tooltips open. `show` is the request, `_dwelled` the timer's answer.
     property int showDelay: 500
 
     property bool _dwelled: false
 
     visible: show && _dwelled && text.length > 0
 
-    // `running`, not an onShowChanged restart: callers bind `show` to a hover
-    // that is already true when the LazyLoader builds us, and a binding
-    // evaluated at completion starts the timer where a change handler that
-    // never fires would not.
+    // `running`, not an onShowChanged restart: `show` is usually already true
+    // when the LazyLoader builds this, so the handler would never fire.
     Timer {
         interval: popup.showDelay
         running: popup.show

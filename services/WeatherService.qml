@@ -70,10 +70,9 @@ QtObject {
         root.daily = days;
     }
 
-    // Entry point for both the timer and the bar click. Geolocation is
-    // retried here rather than only at startup: if the initial IP lookup
-    // failed (bar launched before the network came up), the coordinates stay
-    // NaN and a plain fetchForecast() would just re-flag the error forever.
+    // Retries geolocation, not just the forecast: if the startup lookup failed
+    // (no network yet) the coordinates stay NaN, and fetching alone would
+    // re-flag the error forever.
     function refresh() {
         if (root.loading)
             return;

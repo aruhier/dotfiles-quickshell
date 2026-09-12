@@ -6,13 +6,11 @@ import Quickshell.Hyprland
 import qs.shared
 import qs.shared.popup
 
-// Hover popup below a workspace pill: a scaled-down live mock-up of that
-// workspace, one ScreencopyView per window placed at the window's real
-// position on its monitor. Hyprland can capture outputs and individual
-// windows but has no notion of capturing a workspace, so this composes the
-// windows itself — which is also what makes it work for workspaces that
-// aren't on screen right now: the compositor re-renders each window offscreen
-// for its capture (verified on Hyprland 0.56.2, see AGENTS.md).
+// Hover popup below a workspace pill: a scaled-down live mock-up, one
+// ScreencopyView per window at the window's real position on its monitor.
+// Composed window by window because Hyprland can capture outputs and windows
+// but not workspaces — which is also why an off-screen workspace works, since
+// each window is re-rendered offscreen for its capture. See AGENTS.md.
 HoverPopup {
     id: popup
 
@@ -20,17 +18,15 @@ HoverPopup {
 
     padding: 6
 
-    // Window geometry comes from lastIpcObject, which is a snapshot that goes
-    // stale as windows get tiled and resized — so re-fetch it once per open.
-    // Creation is the open: the popup is built by a LazyLoader on hover.
+    // lastIpcObject's geometry goes stale as windows are tiled and resized,
+    // so re-fetch on creation — which is the open, via LazyLoader.
     Component.onCompleted: Hyprland.refreshToplevels()
 
     readonly property HyprlandMonitor monitor: workspace.monitor
 
-    // hyprctl's window `at`/`size` and the monitor's `x`/`y` are logical
-    // (scale-divided) global coordinates, but the monitor's `width`/`height`
-    // are the physical mode size, so divide the scale back out. Odd
-    // transforms are 90°/270° rotations, which swap the axes.
+    // Window `at`/`size` and monitor `x`/`y` are logical coordinates, but
+    // monitor `width`/`height` is the physical mode size — hence the scale
+    // divide. Odd transforms are 90°/270° rotations, which swap the axes.
     readonly property bool rotated: monitor ? (monitor.lastIpcObject.transform ?? 0) % 2 === 1 : false
     readonly property real monitorWidth: monitor ? (rotated ? monitor.height : monitor.width) / monitor.scale : 0
     readonly property real monitorHeight: monitor ? (rotated ? monitor.width : monitor.height) / monitor.scale : 0
@@ -38,11 +34,9 @@ HoverPopup {
     readonly property real monitorY: monitor ? monitor.y : 0
     readonly property real scaleFactor: monitorWidth > 0 ? Theme.workspacePreviewWidth / monitorWidth : 0
 
-    // Bottom-to-top paint order: tiled, then floating, then fullscreen, each
-    // group least-recently-focused first (focusHistoryID 0 = most recent).
-    // hyprctl's own order is creation order, which says nothing about
-    // stacking. A window without geometry yet (lastIpcObject still empty)
-    // is left out until the refresh above lands.
+    // Bottom-to-top paint order: tiled, floating, fullscreen, each group
+    // least-recently-focused first (focusHistoryID 0 = most recent). The IPC
+    // order is creation order, which says nothing about stacking.
     readonly property var windows: workspace.toplevels.values.filter(t => t.lastIpcObject.mapped && !t.lastIpcObject.hidden).sort((a, b) => {
         const layer = ipc => ipc.fullscreen ? 2 : ipc.floating ? 1 : 0;
         return layer(a.lastIpcObject) - layer(b.lastIpcObject) || b.lastIpcObject.focusHistoryID - a.lastIpcObject.focusHistoryID;
@@ -79,15 +73,14 @@ HoverPopup {
                     height: Math.round(ipc.size[1] * popup.scaleFactor)
 
                     captureSource: view.modelData.wayland
-                    // Keep capturing while shown; the view is destroyed with the
-                    // popup, so nothing runs once it's closed.
+                    // The view dies with the popup, so nothing captures once
+                    // it's closed.
                     live: true
                 }
             }
         }
 
-        // Footer: the workspace name on an accent strip, echoing the
-        // focused pill in the bar.
+        // The workspace name on an accent strip, echoing the focused pill.
         Rectangle {
             Layout.fillWidth: true
             implicitHeight: footerLabel.implicitHeight + 8

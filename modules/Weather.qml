@@ -181,18 +181,16 @@ BarModule {
                     spacing: 4
 
                     Repeater {
-                        // Gated on popup.visible, not just root.hourly, so
-                        // delegates are destroyed while the popup is closed
-                        // instead of staying resident for as long as
-                        // WeatherService has data — i.e. always.
+                        // Gated on popup.visible, so delegates don't stay
+                        // resident for as long as WeatherService has data.
                         model: popup.visible ? root.hourly : []
                         delegate: ColumnLayout {
                             id: hourCell
                             required property var modelData
 
-                            // maximumWidth must be overridden or fillWidth
-                            // does nothing: QtQuick.Layouts clamps a nested
-                            // Layout's maximumWidth to its implicitWidth.
+                            // fillWidth does nothing without this:
+                            // QtQuick.Layouts clamps a nested Layout's
+                            // maximumWidth to its implicitWidth.
                             Layout.fillWidth: true
                             Layout.maximumWidth: Number.POSITIVE_INFINITY
                             spacing: 3
@@ -286,9 +284,9 @@ BarModule {
                 }
 
                 // ---- footer ----
-                // Not gated on daily.length like the sections above: when the
-                // fetch failed before ever succeeding this is the whole popup,
-                // and the refresh button is the way out of that state.
+                // Ungated, unlike the sections above: after a fetch that never
+                // succeeded this is the whole popup, and its refresh button is
+                // the way out of that state.
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: 10
@@ -316,17 +314,15 @@ BarModule {
                         opacity: 0.7
                     }
 
-                    // Spins while a request is in flight. Always completes
-                    // the turn it's on rather than stopping dead at whatever
-                    // angle the response landed: a fetch usually finishes in
-                    // well under one turn, and a click that produced no
-                    // visible spin would look like it did nothing again.
+                    // Spins while a request is in flight, always finishing the
+                    // turn: a fetch beats one rotation, and a click with no
+                    // visible spin reads as having done nothing.
                     PressableIcon {
                         id: refreshButton
                         text: WeatherIcons.glyph("refresh")
                         font.pixelSize: 13
-                        // Full opacity while loading so the spin reads as
-                        // active even with the cursor elsewhere.
+                        // Full opacity while loading, so the spin reads even
+                        // with the cursor elsewhere.
                         color: Theme.text
                         opacity: root.loading || hovered ? 1.0 : 0.7
                         interactive: !root.loading
@@ -348,8 +344,8 @@ BarModule {
                         }
 
                         // `loading` can already be true when the popup opens
-                        // (bar-icon click, timer), so it's a binding-like
-                        // handler plus an initial check, not just onActivated.
+                        // (bar click, timer), so the spin can't hang off
+                        // onActivated alone.
                         Connections {
                             target: root
                             function onLoadingChanged() {

@@ -6,17 +6,15 @@ import Quickshell.Services.Mpris
 import qs.shared
 import qs.shared.notifications
 
-// One MPRIS now-playing card's content: the art/title/artist/transport row of
-// the control center's now-playing widget. Its own type so that widget can
-// render two independent instances at once — an outgoing player's content
-// sliding out beside an incoming one sliding in. `player` may be null (no previous
-// player, or none at all), so every binding guards for it.
+// The art/title/artist/transport row of the now-playing widget. Its own type
+// so the widget can render two at once, one sliding out as the other slides
+// in. `player` may be null, so every binding guards for it.
 RowLayout {
     id: root
 
     required property var player
-    // False for the outgoing layer during a player-switch slide: a copy on
-    // its way out shouldn't answer clicks meant for the incoming one.
+    // False for the outgoing layer mid-slide, so a copy on its way out doesn't
+    // answer clicks meant for the incoming one.
     property bool interactive: true
 
     spacing: 14

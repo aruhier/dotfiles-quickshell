@@ -3,10 +3,8 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell.Io
 
-// Shared mpd state: one `mpc idleloop` subscription for the whole process
-// rather than one per bar, and no polling timer — idleloop blocks on mpd's
-// `idle` command and only prints when the subsystem changes. refresh()
-// re-reads status and current track on demand.
+// Shared mpd state: one `mpc idleloop` subscription process-wide, and no
+// polling timer — idleloop blocks until the subsystem actually changes.
 QtObject {
     id: root
 
@@ -24,8 +22,8 @@ QtObject {
             root.playbackState = "disconnected";
             return;
         }
-        // The [state] line only appears when a song is loaded, so find it by
-        // content rather than a fixed line index.
+        // The [state] line only appears with a song loaded, so match on
+        // content rather than a line index.
         const lines = text.split("\n");
         let hasVolumeLine = false;
         let stateLine = null;
@@ -80,8 +78,7 @@ QtObject {
         }
     }
 
-    // Long-lived subscription, restricted to "player": the only subsystem
-    // this module displays.
+    // Restricted to "player", the only subsystem displayed here.
     property Process idleProc: Process {
         id: idleProc
         command: ["mpc", "idleloop", "player"]
@@ -93,8 +90,7 @@ QtObject {
         onExited: restartTimer.start()
     }
 
-    // idleloop exits if mpd isn't running or drops the connection; reconnect
-    // after a delay and re-sync.
+    // idleloop exits when mpd isn't running or drops the connection.
     property Timer restartTimer: Timer {
         id: restartTimer
         interval: 5000

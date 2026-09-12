@@ -10,14 +10,11 @@ import qs.shared.popup
 // Workspace pill row: every workspace on every monitor, shown on every bar.
 // Colors: has windows = workspaceBg, empty = workspaceEmptyBg, system-focused
 // = accent (drawn by the sliding `selection` indicator), urgent =
-// workspaceUrgent. A workspace active on its own monitor but not
-// system-focused is bolded with a blended background instead. Hovering a pill
-// shows a live preview of that workspace (WorkspacePreviewPopup).
+// workspaceUrgent, active-but-not-focused = bolded workspaceActiveBg.
 Rectangle {
     id: root
 
-    // This bar's own output name, to tell "active on this monitor" apart from
-    // "active on some other monitor".
+    // This bar's output, to tell "active here" from "active elsewhere".
     required property string screenName
 
     readonly property int capWidth: Theme.centerCapWidth
@@ -25,12 +22,8 @@ Rectangle {
     color: Theme.workspaceEmptyBg
     radius: height / 2
     readonly property real targetWidth: row.implicitWidth + capWidth * 2
-    // Math.round(), not the raw float: this Rectangle (like wsDelegate and
-    // selection below) has antialiasing off for crisp flush edges, and a
-    // continuously-varying sub-pixel width rounds inconsistently frame to
-    // frame as it eases — which reads as a faint shimmer rather than smooth
-    // motion. The old ~60Hz-capped SpringAnimation had the same issue but
-    // sampled 4x less often, muddying it into the motion.
+    // Math.round(): antialiasing is off here (and on wsDelegate/selection)
+    // for crisp flush edges, so a sub-pixel width shimmers as it eases.
     implicitWidth: Math.round(widthSpring.value)
     implicitHeight: row.implicitHeight
     clip: true
@@ -41,44 +34,29 @@ Rectangle {
         to: root.targetWidth
     }
 
-    // One clock for every spring in this file (this pill's width, each
-    // delegate's width, and the selection indicator's three) instead of an
-    // independent FrameAnimation each. They must advance by the identical dt
-    // to stay locked together — the selection square is overlaid on its
-    // focused delegate and has to track its edges pixel for pixel, and
-    // independent drivers measure elapsed time separately (measured: two
-    // standalone springs chasing one target differ in the 2nd decimal at the
-    // "same" moment, which compounds into visible wobble at 240Hz).
-    //
-    // Springs register by declaring `group: sharedSprings`, and the driver
-    // only runs while one of them has motion left, so nothing here has to
-    // start or stop it. See SpringGroup.qml.
+    // One clock for every spring in this file: the selection square overlays
+    // its focused delegate and must track its edges pixel for pixel, which
+    // independent drivers can't do — they measure dt separately and drift into
+    // visible wobble at 240Hz. Springs join by `group: sharedSprings`; see
+    // SpringGroup.qml.
     SpringGroup {
         id: sharedSprings
     }
 
-    // Shared metrics for pill sizing, instead of an invisible Text per
-    // delegate — the font is constant, only the string differs.
+    // Pill sizing, instead of an invisible Text per delegate.
     FontMetrics {
         id: wsMetrics
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontSize
-        // Mirrors StyledText's default weight axis: FontMetrics measures the
-        // face it is given, so leaving this at Regular would size the pills
-        // off a slightly narrower font than the labels actually draw with.
+        // Both mirror StyledText: weight and hinting change advance widths,
+        // so measuring without them sizes the pills off the wrong string.
         font.variableAxes: ({ "wght": Theme.fontWeight })
-        // Hinting changes advance widths, so a metric taken without it would
-        // size the pills off a different string width than the labels draw
-        // with. Both of these mirror StyledText.
         font.hintingPreference: Font.PreferVerticalHinting
     }
 
-    // `selection` and the label Repeater are deliberately siblings of `row`,
-    // not children: this Qt build's QtQuick.Layouts has no "ignoreLayout"
-    // opt-out that would let them live inside a RowLayout unmanaged, and a
-    // non-Layout wrapper around `row` wouldn't help either — its position
-    // would still snap instantly, exactly as `row.x` does. See
-    // `selection.rowTargetXOffset` for how that snap is handled.
+    // `selection` and the label Repeater are siblings of `row`, not children:
+    // this Qt build's Layouts has no "ignoreLayout" opt-out. See
+    // `selection.rowTargetXOffset` for the resulting snap handling.
     RowLayout {
         id: row
         anchors.centerIn: parent
@@ -93,20 +71,15 @@ Rectangle {
                 required property var modelData
 
                 readonly property bool isSpecial: wsDelegate.modelData.name.startsWith("special")
-                // lastIpcObject.windows is a point-in-time snapshot that isn't
-                // kept in sync as windows open and close, so it can go stale
-                // indefinitely. Count live windows via toplevels instead.
+                // Not lastIpcObject.windows — a snapshot that goes stale.
                 readonly property int windows: wsDelegate.modelData.toplevels ? wsDelegate.modelData.toplevels.values.length : 0
-                // True only for the pill on this bar's own monitor —
-                // modelData.active is true once per monitor at a time.
+                // modelData.active is true once per monitor, so qualify it.
                 readonly property bool activeOnThisScreen: wsDelegate.modelData.active && wsDelegate.modelData.monitor !== null && wsDelegate.modelData.monitor.name === root.screenName
-                // Active on this monitor, but this monitor isn't the focused
-                // one.
                 readonly property bool activeNotFocused: activeOnThisScreen && !wsDelegate.modelData.focused
 
                 visible: !isSpecial
                 Layout.preferredHeight: isSpecial ? 0 : Theme.barHeight
-                // 34px minimum for a comfortable button size, measured by eye.
+                // 34px minimum for a comfortable button, measured by eye.
                 readonly property real targetPreferredWidth: isSpecial ? 0 : Math.round(Math.max(wsMetrics.advanceWidth(wsDelegate.modelData.name) + 18, 34))
                 // Math.round() — see root's implicitWidth above.
                 Layout.preferredWidth: Math.round(preferredWidthSpring.value)
@@ -119,15 +92,13 @@ Rectangle {
                 // Square, flush buttons; rounding avoids stray 1px seams.
                 antialiasing: false
 
-                // The focused fill is drawn by the shared `selection`
-                // indicator below, not here.
+                // The focused fill comes from `selection` below, not here.
                 readonly property color stateColor: wsDelegate.modelData.urgent ? Theme.workspaceUrgent : activeNotFocused ? Theme.workspaceActiveBg : windows > 0 ? Theme.workspaceBg : Theme.workspaceEmptyBg
                 readonly property bool hovered: mouseArea.hovered
                 color: hovered ? Qt.darker(stateColor, Theme.workspaceHoverDarken) : stateColor
 
-                // Hover opens a live preview of the workspace (after the usual
-                // dwell); a click switches to it, at which point the preview
-                // is redundant, so it's dropped along with any pending open.
+                // Hover previews the workspace; a click switches to it and
+                // drops the preview along with any pending open.
                 HoverPopupArea {
                     id: mouseArea
                     loader: previewLoader
@@ -139,8 +110,8 @@ Rectangle {
                 }
 
                 // LazyLoader, not Loader — see Clock.qml's popupLoader. Torn
-                // down on close for the same reason, and because each
-                // ScreencopyView inside keeps a capture running while alive.
+                // down on close, since each ScreencopyView inside keeps a
+                // capture running while alive.
                 LazyLoader {
                     id: previewLoader
                     active: false
@@ -158,32 +129,22 @@ Rectangle {
         }
     }
 
-    // Shared square that slides and resizes to whichever delegate is focused,
-    // rather than each delegate snapping its own fill. Painted above `row`,
-    // below the labels.
+    // Shared square that slides to the focused delegate, instead of each
+    // delegate snapping its own fill. Above `row`, below the labels.
     Rectangle {
         id: selection
         visible: root.focusedDelegate !== null
-        // Painted over the focused delegate, so it has to mirror that
-        // delegate's hover itself.
+        // Covers the focused delegate, so it mirrors its hover itself.
         color: root.focusedDelegate && root.focusedDelegate.hovered ? Qt.darker(Theme.accent, Theme.workspaceHoverDarken) : Theme.accent
         antialiasing: false
 
-        // The focused delegate's offset *within* row, sprung on its own. This
-        // and rowTargetXOffset below are two separate springs whose animated
-        // results are summed, rather than one spring over the sum: a single
-        // gated spring freezes during the gap between a workspace being
-        // destroyed and Hyprland reporting the new focus target, then catches
-        // up in one jump; a single spring reading row.x live instead sums a
-        // live row.x against a frozen local offset and lands on an arbitrary
-        // point, usually a neighbouring pill.
+        // The offset *within* row, sprung separately from rowTargetXOffset
+        // and summed: one spring over the sum either freezes and jumps, or
+        // sums a live row.x against a frozen offset and lands on a neighbour.
         //
-        // Sticky fallback (`: focusedTargetLocalX`, not `: 0`): Hyprland
-        // delivers "workspace destroyed" and "new workspace focused" as
-        // separate updates, so focusedDelegate can be null for a frame while
-        // switching away from an empty workspace. Falling back to 0 would snap
-        // the indicator to row's origin and back; holding the last value parks
-        // it until the real target resolves.
+        // Sticky fallback (not `: 0`): Hyprland reports "destroyed" and "newly
+        // focused" separately, so focusedDelegate is null for a frame — 0
+        // would snap the indicator to row's origin and back.
         property real focusedTargetLocalX: root.focusedDelegate ? root.focusedDelegate.x : focusedTargetLocalX
         WorkspaceFrameSpring {
             id: focusedLocalXSpring
@@ -191,13 +152,9 @@ Rectangle {
             to: selection.focusedTargetLocalX
         }
 
-        // row.x mirrored through its own spring rather than read live. It's a
-        // plain RowLayout-managed property, so it snaps the instant a delegate
-        // is destroyed, while focusedLocalXSpring only reaches its new target
-        // on the next tick. Reading it live added an already-new row.x to a
-        // still-old local offset for one frame, which reproducibly overflowed
-        // root's not-yet-shrunk edge by ~2px whenever a focused workspace was
-        // destroyed.
+        // row.x sprung, not read live: RowLayout snaps it the instant a
+        // delegate dies, which for one frame adds a new row.x to a still-old
+        // local offset and overflowed root's edge by ~2px.
         property real rowTargetXOffset: row.x
         WorkspaceFrameSpring {
             id: rowXOffsetSpring
@@ -219,10 +176,8 @@ Rectangle {
         width: Math.round(selectionWidthSpring.value)
     }
 
-    // Static top layer of labels, positioned over their matching delegate but
-    // never moving themselves — only `selection` slides. Reads row.x/bgItem.x
-    // live (unsprung) on purpose: labels aren't animated, so they always match
-    // the pills' actual position with no spring lag of their own.
+    // Labels sit over their delegate and never animate, so they read
+    // row.x/bgItem.x live — no spring lag of their own.
     Repeater {
         model: Hyprland.workspaces
 
@@ -231,8 +186,8 @@ Rectangle {
             required property var modelData
             required property int index
 
-            // repeater.itemAt() alone never re-evaluates once items exist;
-            // reading repeater.count (a real NOTIFY property) keeps this live.
+            // itemAt() never re-evaluates on its own; reading repeater.count
+            // (a real NOTIFY property) keeps this binding live.
             readonly property var bgItem: repeater.count > wsLabel.index ? repeater.itemAt(wsLabel.index) : null
 
             visible: bgItem ? bgItem.visible : false

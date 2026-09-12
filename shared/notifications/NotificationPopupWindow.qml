@@ -8,14 +8,10 @@ import qs.services
 import qs.shared.animations
 import qs.shared.notifications
 
-// Floating notification-toast stack in the top-right corner, just under the
-// bar. Anchored to the screen corner and independent of any bar module, so
-// this is a plain PanelWindow rather than the module-anchored PopupWindow
-// machinery in ../popup/.
-//
-// One shared window, instantiated from shell.qml, whose `screen` follows
-// NotificationService.popupScreen — the output focused when the notification
-// arrived.
+// The toast stack, in the top-right corner under the bar. Anchored to the
+// screen, not to a module, so it's a plain PanelWindow rather than the
+// module-anchored machinery in ../popup/. One shared window whose `screen`
+// follows NotificationService.popupScreen.
 PanelWindow {
     id: popupWindow
 
@@ -33,15 +29,13 @@ PanelWindow {
     WlrLayershell.namespace: "quickshell-notifications"
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
-    // Fully unmapped while there's nothing to show: no footprint and no
-    // stray input-eating surface. Tracks displayPopupsModel rather than
-    // NotificationService.popups, so the window stays mapped through the last
-    // card's exit spring instead of cutting it off.
+    // Fully unmapped while empty, so no stray surface eats input. Tracks
+    // displayPopupsModel, not NotificationService.popups, so the window
+    // outlives the last card's exit spring.
     visible: displayPopupsModel.count > 0
 
-    // Widest shown popup's naturalWidth (see NotificationCard.qml), clamped
-    // to the min/max: most toasts sit at the minimum, while a long summary or
-    // wide action labels push the stack out towards popupMaxWidth.
+    // Widest popup's naturalWidth (see NotificationCard.qml): most toasts sit
+    // at the minimum, a long summary pushes the stack towards popupMaxWidth.
     readonly property real maxNaturalWidth: {
         let w = 0;
         for (let i = 0; i < popupRepeater.count; i++) {
@@ -56,20 +50,15 @@ PanelWindow {
     implicitHeight: column.implicitHeight
 
     // One entry per popup on screen: a superset of NotificationService.popups
-    // that keeps a just-dismissed entry (closing: true) for the length of its
-    // exit spring. Repeater destroys a delegate the instant its item leaves
-    // the model with no way to animate that, so removal is deferred until the
-    // card has finished sliding out (see removeDisplayPopup).
+    // that keeps a dismissed entry (closing: true) for the length of its exit
+    // spring, since Repeater destroys a delegate the instant its row leaves
+    // the model (see removeDisplayPopup).
     //
-    // `display` is a plain-value snapshot of `wrapper`'s fields, taken once on
-    // creation, which NotificationCard binds to instead of `wrapper` itself.
-    // Retaining the underlying Notification via Retainable.lock() was tried
-    // first and still lost the race for one closed by the sending app's own
-    // D-Bus CloseNotification call — that path apparently doesn't wait on the
-    // retain count the way a local dismiss() does, and a burst of them
-    // reliably logged a page of null-property errors. Reading `wrapper` once,
-    // synchronously, while it's certainly live sidesteps the race rather than
-    // trying to outrun it.
+    // `display` snapshots the wrapper's fields once, on creation, and the card
+    // binds to that instead of the wrapper: an app closing its own
+    // notification over D-Bus can free it out from under a live binding, and
+    // Retainable.lock() doesn't cover that path — a burst of them logged a
+    // page of null-property errors.
     component PopupEntry: QtObject {
         required property var wrapper
         property bool closing: false
@@ -85,21 +74,16 @@ PanelWindow {
             "timeStr": wrapper.timeStr,
             "defaultAction": wrapper.defaultAction,
             "otherActions": wrapper.otherActions,
-            // Not displayed: carried through so the card's click-to-dismiss
-            // and close button still have a `.notification` to dismiss. Only
-            // reachable while `interactive` is true, i.e. before `closing`.
+            // Not displayed — carried so the card's dismiss paths still have
+            // something to dismiss. Only reachable while `interactive`.
             "notification": wrapper.notification
         }
     }
 
-    // ListModel, not a `list<PopupEntry>` property reassigned by spread. That
-    // was the original shape and it crashed Quickshell outright under a fast
-    // burst of notifications: a whole-array reassignment makes Repeater tear
-    // down and recreate *every* delegate on every add, and doing that
-    // reentrantly — a second notification arriving while the first's delegate
-    // is still incubating — segfaults inside QQuickRepeater::regenerate().
-    // ListModel's append()/remove() are incremental, so Repeater only hears
-    // about the row that changed.
+    // ListModel, not a list property reassigned by spread: a whole-array
+    // reassignment makes Repeater recreate every delegate, and doing that
+    // reentrantly (a notification arriving mid-incubation) segfaults in
+    // QQuickRepeater::regenerate(). append()/remove() are incremental.
     ListModel {
         id: displayPopupsModel
     }
@@ -136,8 +120,8 @@ PanelWindow {
         }
     }
 
-    // `index` is the delegate's live Repeater index, kept up to date as rows
-    // are added and removed — not one captured at creation.
+    // `index` is the delegate's live Repeater index, not one captured at
+    // creation, so it stays right as rows are added and removed.
     function removeDisplayPopup(index, entry) {
         displayPopupsModel.remove(index);
         entry.destroy();
@@ -171,17 +155,14 @@ PanelWindow {
                 width: column.width
                 implicitHeight: card.implicitHeight
 
-                // Slides in from and out past the stack's right edge, which
-                // sits flush against the screen's. A transform, not `x`: `x`
-                // is owned by the enclosing Column, which re-sets it on every
-                // relayout.
+                // Slides past the stack's right edge. A transform, not `x` —
+                // the enclosing Column re-sets `x` on every relayout.
                 transform: Translate {
                     x: offsetSpring.value
                 }
 
-                // Starts off-screen and springs to its resting position on
-                // creation. Once `entry.closing` flips true it springs back
-                // out, and only when that settles is the entry dropped.
+                // Springs in on creation; on `entry.closing` it springs back
+                // out, and the entry is dropped only once that settles.
                 FrameSpring {
                     id: offsetSpring
                     Component.onCompleted: {
@@ -204,8 +185,7 @@ PanelWindow {
                     width: entryRoot.width
                     wrapper: entryRoot.entry.display
                     floating: true
-                    // A closing toast is on its way out regardless of any
-                    // click.
+                    // A closing toast is on its way out regardless.
                     interactive: !entryRoot.entry.closing
                 }
             }

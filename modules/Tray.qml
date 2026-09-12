@@ -13,15 +13,11 @@ BarModule {
 
     contentWidth: row.implicitWidth
 
-    // One Tooltip shared across every tray icon rather than one per delegate:
-    // a PopupWindow is a real compositor surface, and only one can be shown at
-    // a time anyway since the MouseAreas don't overlap.
-    //
-    // Two properties, because the tooltip needs two unrelated things: the
-    // delegate *Item* to anchor under, and the *SystemTrayItem* to read a
-    // label off. Reaching the latter through the former
-    // (`hoveredIcon.modelData`) would mean reading a required property through
-    // an Item-typed handle, which no type checker can verify.
+    // One Tooltip for every icon, not one per delegate: a PopupWindow is a
+    // real compositor surface and only one can show at a time. Two properties
+    // because it needs the Item to anchor under and the SystemTrayItem to read
+    // a label off — reaching the latter through the former would mean an
+    // unverifiable read through an Item-typed handle.
     property Item hoveredIcon: null
     property SystemTrayItem hoveredItem: null
 
@@ -95,17 +91,15 @@ BarModule {
     }
 
     // LazyLoader, not Loader: Tooltip is a PopupWindow, not an Item — see
-    // Clock.qml's popupLoader. Simpler than Clock's and Weather's, since
-    // Tooltip has no close grace period: `active` can mirror `show` directly
-    // instead of needing an onVisibleChanged teardown hook.
+    // Clock.qml's popupLoader. No close grace period here, so `active` can
+    // mirror `show` instead of needing a teardown hook.
     LazyLoader {
         active: root.hoveredIcon !== null
 
         Tooltip {
             anchorItem: root.hoveredIcon || root
             show: root.hoveredIcon !== null
-            // `title` first: some apps report garbage in their SNI tooltip
-            // text.
+            // `title` first — some apps report garbage in tooltipTitle.
             text: root.hoveredItem ? (root.hoveredItem.title || root.hoveredItem.tooltipTitle || root.hoveredItem.id) : ""
         }
     }

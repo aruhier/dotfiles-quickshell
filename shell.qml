@@ -1,16 +1,13 @@
 //@ pragma UseQApplication
 //@ pragma AppId dev.aruhier.quickshell-bar
-// Qt's default animation driver paces every GUI-thread animation (so every
-// FrameSpring) off the refresh rate of the QScreen it thinks the window is on —
-// always Qt's primary one for layer-shell windows — and then caps them at ~60Hz
-// process-wide. The simple driver has neither the guess nor the cap. Takes
-// effect at process start only, not on reload. See AGENTS.md for the measurements.
+// Qt's default animation driver paces every GUI-thread animation off the
+// refresh rate of the screen it thinks the window is on (always the primary
+// one, for layer-shell) and caps it near 60Hz. The simple driver has neither.
+// Takes effect at process start only, not on reload. Measurements: AGENTS.md.
 //@ pragma Env QSG_USE_SIMPLE_ANIMATION_DRIVER=1
-// Vulkan RHI instead of the default OpenGL. Measured on this machine (3
-// screens, 6 layer-shell windows): 168-171MB RSS vs 256-258MB on OpenGL, three
-// reps each — the GL backend's per-window cost is what scales badly. Changes
-// nothing about animation rates (same broken-vsync trip, same 62/s spring cap),
-// and ScreencopyView's dmabuf import works on both. See AGENTS.md.
+// Vulkan RHI instead of the default OpenGL: ~170MB RSS against ~257MB here,
+// since the GL backend's per-window cost scales badly. Nothing else changes.
+// See AGENTS.md.
 //@ pragma Env QSG_RHI_BACKEND=vulkan
 pragma ComponentBehavior: Bound
 import Quickshell
@@ -24,10 +21,9 @@ import qs.shared.notifications
 ShellRoot {
     id: root
 
-    // Which modules appear where, per output. Screens named in `mainScreens`
-    // (check names with `hyprctl monitors -j`) get `mainLayout`, every other
-    // screen gets `defaultLayout`. Module names must match a key in Bar.qml's
-    // `moduleComponents`.
+    // Which modules appear where, per output. Screens in `mainScreens` (names
+    // from `hyprctl monitors -j`) get `mainLayout`, the rest `defaultLayout`.
+    // Module names must match a key in Bar.qml's `moduleComponents`.
     readonly property var mainScreens: ["DP-1", "eDP-1"]
 
     readonly property var mainLayout: ({
@@ -46,22 +42,17 @@ ShellRoot {
         return root.mainScreens.indexOf(screenName) !== -1 ? root.mainLayout : root.defaultLayout;
     }
 
-    // Fallback screen for the shared, single-instance windows below (toast
-    // stack, control-center panel) before they have a real output to target.
+    // Fallback for the shared windows below, before they have a real output.
     readonly property var mainScreen: Screens.byName(root.mainScreens[0])
 
-    // The control-center panel is a single shared surface, but it's clicked
-    // open from a per-output indicator, so it should appear on whichever
-    // screen was clicked. NotificationService.centerScreen tracks that; fall
-    // back to the main screen before the first-ever click.
+    // One shared panel, opened from a per-output indicator, so it follows the
+    // clicked screen — until the first-ever click, when there is none.
     readonly property var centerScreen: NotificationService.centerScreen || root.mainScreen
 
-    // Lets a Hyprland keybind drive the notification panel the same way the
-    // bar indicator's click does, e.g.:
+    // Drives the panel from a keybind, e.g.
     //   bind = SUPER, N, exec, qs ipc call notifications toggle
-    //
-    // An IPC call has no widget of its own to report a screen, so these target
-    // the focused output instead.
+    // An IPC call has no widget to report a screen, so it targets the focused
+    // output.
     IpcHandler {
         target: "notifications"
 
@@ -86,12 +77,10 @@ ShellRoot {
     Variants {
         model: Quickshell.screens
 
-        // `bar.modelData`, not a bare `modelData`: an unqualified model
-        // reference in a Variants delegate silently resolves against whatever
-        // ambient context is in scope rather than the delegate's own property
-        // (see AGENTS.md — it cost real debugging time in ModuleLoader). The id
-        // makes it unambiguous, and `pragma ComponentBehavior: Bound` turns
-        // the ambiguous form into a compile error.
+        // `bar.modelData`, never a bare `modelData`: unqualified, it resolves
+        // against whatever ambient context is in scope instead of the
+        // delegate's own property. `ComponentBehavior: Bound` makes that an
+        // error rather than a silent wrong value.
         Bar {
             id: bar
             layout: root.layoutFor(bar.modelData.name)
