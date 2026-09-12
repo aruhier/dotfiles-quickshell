@@ -215,9 +215,12 @@ PanelWindow {
                 id: rightMarginSpring
                 // Softer than Theme's defaults, overridden here rather than
                 // globally since those are shared with the modules' width
-                // springs. Same near-critical damping ratio (~1.05, so still
-                // no wobble), lower natural frequency: ~185ms settle instead
-                // of ~137ms, a deliberately slower slide for this panel.
+                // springs. Same near-critical damping ratio (~0.92, so still
+                // no wobble), lower natural frequency, for a deliberately
+                // slower slide than the bar's width springs. Measured over the
+                // 500px travel: 90% of it in ~220ms, 99% in ~345ms, fully
+                // settled (epsilon 0.25 on both value and velocity) at ~545ms
+                // — the tail past 99% is sub-pixel and not what the eye reads.
                 stiffness: 160
                 damping: 18
                 Component.onCompleted: snapTo(panel.closedRightMargin)

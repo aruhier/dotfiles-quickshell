@@ -1,5 +1,11 @@
 //@ pragma UseQApplication
 //@ pragma AppId dev.aruhier.quickshell-bar
+// Qt's default animation driver paces every GUI-thread animation (so every
+// FrameSpring) off the refresh rate of the QScreen it thinks the window is on —
+// always Qt's primary one for layer-shell windows — and then caps them at ~60Hz
+// process-wide. The simple driver has neither the guess nor the cap. Takes
+// effect at process start only, not on reload. See AGENTS.md for the measurements.
+//@ pragma Env QSG_USE_SIMPLE_ANIMATION_DRIVER=1
 pragma ComponentBehavior: Bound
 import Quickshell
 import Quickshell.Io

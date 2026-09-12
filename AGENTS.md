@@ -1394,3 +1394,89 @@ Verification notes:
   terminal running the session. Kill test windows by pid instead.
 - Grabbing a popup screenshot right after the hover lands catches
   Hyprland's popup fade-in and looks see-through; wait a beat.
+
+## The 60Hz animation cap is back (and was never really gone): Qt paces animations off the wrong screen (2026-09-12)
+
+User-reported: the notification panel's open/close slide looks laggy on DP-1
+(240Hz). It is not lazy loading — `NotificationCenterPanel` is instantiated
+eagerly in `shell.qml`, the only `LazyLoader` near it is
+`NotificationCenter.qml`'s tooltip — and it is not the spring maths either.
+FrameSpring was doing exactly what it was written to do; it just cannot create
+frames nobody asked for.
+
+**Measured, in an isolated `qs -p` instance holding only the panel** (config in
+a scratch dir symlinking `shared/`, `services/`, `modules/`, so the live shell
+was never touched), with `QSG_RENDER_TIMING=1` sliced per phase by byte offset
+into the log:
+
+| phase | frames | interval |
+|---|---|---|
+| panel idle open | 0 | — (nothing renders when settled, as intended) |
+| open slide | 38 | median 16ms |
+| close slide | 36 | median 16ms |
+
+`QSG_INFO=1` explains it in two lines:
+
+```
+Animation Driver: using vsync: 16.68 ms
+Window ... is determined to have broken vsync throttling (3.285714 < 8.340144)
+switching to system timer to drive gui thread animations to remedy this
+```
+
+16.68ms is **HDMI-A-1's** 59.95Hz. A `Screen.name` probe inside a
+`PanelWindow` whose Quickshell `screen` is DP-1 prints `qtScreen=HDMI-A-1
+qsScreen=DP-1`: **Quickshell's layer-shell windows never update
+`QWindow::screen()`, so every one of them looks like it's on Qt's primary
+screen.** Qt's `QSGAnimationDriver` takes its expected vsync interval from that
+screen, then sees real frames arriving every 3.3ms on DP-1, concludes the
+window's vsync throttling is broken (measured < expected/2) and switches **all
+GUI-thread animations, process-wide**, to a ~60Hz system timer. That is the
+16ms cadence above — and it is why the slide looked 60Hz-ish even though the
+earlier `FrameSpring` rollout was supposed to have fixed this class of problem:
+`FrameAnimation` is a GUI-thread animation, so it ticks once per *rendered*
+frame, and the render loop had stopped asking for more than ~60 of those per
+second. FrameSpring fixed the *pacing source* (it does integrate the true
+elapsed `frameTime`); it never had any say over the *frame rate*.
+
+**Fix: `//@ pragma Env QSG_USE_SIMPLE_ANIMATION_DRIVER=1` in `shell.qml`.** The
+simple driver has neither the refresh-rate guess nor the broken-vsync
+heuristic. Measured after the change, same harness, same method:
+
+| | frames per open+close | interval | `FrameAnimation.frameTime` | 1000ms `NumberAnimation` |
+|---|---|---|---|---|
+| before | 74 | median 15ms | 16.01ms (accurate, but 60/s) | 961ms wall |
+| after | 532 | median 4ms | 4.17ms (accurate, 240/s) | 1003ms wall |
+
+So it is not a trade: timed animations get *more* accurate (the system-timer
+fallback ran them ~4% short), idle cost is unchanged — **0 frames and 0 CPU
+ticks over 3s with the panel sitting open**, since the gating from the
+always-running-FrameAnimation section above still holds — and one open+close
+cycle costs 8-9 CPU ticks instead of 4, i.e. ~4x the frames for ~2x the CPU,
+only while something is actually moving. Plain comment lines between `//@
+pragma` lines parse fine (checked in the harness), so the reasoning lives next
+to the pragma.
+
+**This supersedes the conclusions of both earlier sections.** "No shell-side
+fix exists" (the 2026-09-03 60Hz section) was wrong twice over: FrameSpring was
+the first correction, this pragma is the second, and the two fix *different*
+halves of the same symptom. Note also that the pragma only takes effect at
+process start — a hot reload keeps the old driver, so A/B testing it needs a
+full kill and relaunch (use the PID recorded at launch, or match `comm == qs`
+plus the config path from `/proc`; `pkill -f 'qs -p'` still self-matches the
+invoking shell, per the earlier note).
+
+**Leftover, not fixed here:** the root cause is upstream — Quickshell not
+setting the real `QScreen` on its layer-shell windows. With that fixed Qt would
+compute 4.17ms, the heuristic would never trip, and the default driver would be
+fine. Worth reporting upstream; the pragma is the local workaround.
+
+**Method note:** `QSG_RENDER_TIMING` output goes to stdout through
+quickshell's own message handler, which is **block-buffered when redirected to
+a file**. Short measurement phases (2-3s) can end entirely inside the 4KB
+buffer and read as "zero frames" — two full measurement rounds were thrown away
+to this. Launch under `stdbuf -o0 -e0`, append to one log, and slice phases by
+`stat -c %s` offsets; truncating the log mid-run does not work either (the
+process keeps its old file offset). And per-frame instrumentation needs to know
+what it is counting: a `console.warn` in `FrameSpring`'s `onValueChanged` fires
+once per *integration sub-step* (4 per frame at 16ms, ~1-2 at 4ms), not once
+per frame, which makes 60Hz look like 250Hz.
