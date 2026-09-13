@@ -30,7 +30,7 @@ QtObject {
 
     property Timer hideTimer: Timer {
         // swayosd's own default.
-        interval: 1000
+        interval: 2000
         onTriggered: root.kind = ""
     }
 }
