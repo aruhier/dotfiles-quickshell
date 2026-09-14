@@ -29,10 +29,116 @@ surface reaching the edge, so `margins.bottom` is 0 and the resting gap is room
 slide distance (the gap plus `osdHeight`), and the pill's `y` is a pixel spring
 between `travel` and 0. Animating the layer-shell margin instead would
 reconfigure the surface every frame. The earlier fade-and-scale is gone —
-nothing here uses opacity — and the surface is now far larger than the pill it
-paints, which the `blur` layerrule does not mind: Hyprland masks the blur by
-the surface's alpha, the same way the full-screen control-centre surface gets
-blur only under its plate.
+nothing here uses opacity except the reveal below — and the surface is far
+larger than the pill it paints, which the `blur` layerrule does not mind:
+Hyprland masks the blur by the surface's alpha, the same way the full-screen
+control-centre surface gets blur only under its plate.
+
+### Entry and exit are staged, off spring values rather than timers (2026-09-14)
+
+What rises out of the edge is only the icon — a stadium `2 * osdPadding +
+glyph.width` wide, so the glyph sits dead centre of it whatever the icon's
+advance turns out to be — and the plate springs open horizontally around it as
+it lands. Going away, the plate narrows back to the glyph, the pill hops a few
+pixels *up* as a wind-up, and then drops under the edge. Measured on DP-1 with
+a `grim` burst (~17ms/frame, converted back to logical px):
+
+| stage | entry | exit |
+|---|---|---|
+| plate widens / narrows | 247 → 500ms (peaks 431px) | 2542 → 2810ms |
+| glyph pill rises / drops | 0 → 245ms | 2843 → 3005ms |
+| bump past the resting line | ~10px, apex ~310ms | ~18px, from 2710ms, apex 2843ms |
+| settles | 420px wide by ~690ms | off the edge at 3005ms |
+
+**Nothing here waits on a timer.** Three latches, each set the moment a spring
+*value* reaches a place:
+
+| latch | set when | releases |
+|---|---|---|
+| `risen` | `slide.value <= 0`, i.e. the pill first reaches its resting line | the widening |
+| `narrowed` | `opened <= 0.2`, i.e. the plate is a fifth from shut | the wind-up |
+| `wound` | `slide.value <= -osdBump` | the drop |
+
+**Where those two thresholds sit is the whole difference between the entry
+reading as one gesture and the exit reading as three.** Reported as "the slide
+down looks a bit weird but I can't explain why", and the cause was that the
+exit's stages did not overlap where the entry's do. Measured: the widening
+starts at 250ms with the rise's bump and ~270ms of its settling still to run,
+so stage 2 happens *inside* stage 1. The exit released the wind-up at
+`opened <= 0.06`, by which point the plate had done 95% of its narrowing and
+the only thing still moving was a 0.4px-a-frame residual — invisible, so the
+narrowing, the hop and the drop each read as a separate beat. At `0.2` the
+width is still closing ~7px a frame when the pill starts to rise, and the
+plate finishes shutting while it is in the air. Lengthening the overlap is
+free: the exit got *shorter*, because the later stages start sooner.
+
+They are latches and not plain comparisons because every one of these springs
+crosses its trigger and comes back: the rise oscillates around the resting
+line, so `risen` as a bare `slide.value <= 0` collapses the plate again on the
+first dip below it and the two springs fight. `risen` and `wound` are cleared
+in `onShowingChanged`; `wound` starts **true**, or a freshly loaded shell winds
+the pill up into view instead of parking it under the edge.
+
+Staging this way is also what makes an OSD re-shown mid-exit reverse from
+wherever it got to rather than restart — verified by re-triggering at 2.62s,
+where the plate turned round at 188px and grew straight back to full without
+the pill ever dropping. A timer-driven sequence has to special-case that.
+
+Four things the stages imply:
+
+- **The surface carries `osdOvershoot` of slack**, 32px, on both axes: either
+  side of the widest pill for the expansion to overshoot into, and above the
+  pill's resting place for the two bumps. A window clips its contents. It is
+  transparent, so it neither blurs nor takes input, and `travel` still means
+  the distance the pill covers rather than the surface's height — the resting
+  `y` is the slack itself.
+- **The rise is under damped, the drop is not** (`damping: showing ? 12.3 :
+  18.2` over stiffness 136). ζ≈0.68 going up gives the ~10px bump the pill
+  lands with; the drop must not undershoot, or the pill would sink past the
+  bottom of the screen and bounce back into view.
+- **The wind-up aims past `osdBump`** and stops where the `wound` latch
+  catches it, so the two numbers split the gesture cleanly: `osdBump` is the
+  hop's *height*, and the multiplier is its *speed*. A spring tuned for
+  `travel` takes ~200ms to settle 18px, ~95ms to pass through them at 2.5x
+  and ~150 at 1.5x, and the flip to `travel` decelerates it so hard that the
+  apex lands within ~5% of the latch whichever is used. 2.5x shipped first and
+  read as a flick; it is 1.5x. The hop is close to free either way — the pill
+  leaves it with downward speed, so the drop that follows is quicker by about
+  what the hop took.
+- **The wind-up is nearly twice the rise's bump**, by request — 18px against
+  ~10px. The rise's is the tail of a landing and the wind-up is a gesture in
+  its own right, so matching them made the exit read as the weaker of the two.
+- **The drop aims 1.5x past the edge** and the third branch of
+  `onValueChanged` parks the spring the moment the pill clears it. Aimed at
+  the edge exactly, a spring *decelerates* into it — the measured drop fell
+  from 24px a frame to 10 and then crept the last pixels for a third of a
+  second, which is an ease-out on an exit. Aimed past, the pill is still doing
+  ~16px a frame when the last of it crosses, and the whole drop takes 160ms
+  rather than 280. The parking is what keeps the next rise starting from the
+  edge instead of from 1.5x below it, and it stops the spring's frames early.
+- **The closing width spring is damped past 1** (`damping: risen ? 16.5 : 24`).
+  Symmetric damping undershot the collapsed width by 11px on the way out,
+  which narrows the plate past the glyph it is meant to be a plate for.
+
+Everything past the glyph — the track and the percentage, or the lock word —
+lives in one `detail` item whose opacity ramps over the second half of the
+expansion (`opened` 0.45 → 0.80) and which is `visible: opacity > 0`, so the
+level layout never renders through the widths where its track has no room.
+This is a plain opacity on unlayered text, not the layer/MultiEffect that
+`notes/text.md` rules out.
+
+**A lock-key pill hugs its word** rather than sitting centred in a 420px
+plate: `openWidth` is `3 * osdPadding + glyph.width + lockLabel.implicitWidth`
+for those kinds. A fixed-width plate would have to grow to a width the content
+does not fill, and the glyph has to start at `osdPadding` from the left edge
+for the collapsed shape to centre it.
+
+**Timings were tuned in three passes, all by request**: both springs slowed
+10% on the first cut, then the slide alone another 10%, then the bumps added.
+The knob for the first two is `stiffness / 1.21` with `damping / 1.1`, which
+stretches a spring's durations by 1.1 and leaves its damping ratio where it
+was — scale the pair, never the stiffness alone, or the feel changes along
+with the timing.
 
 **Vertical position is a fraction of the output's height, not a fixed margin**,
 so it lands in the same place on a 1440 and a 2160 panel. swayosd did the same:

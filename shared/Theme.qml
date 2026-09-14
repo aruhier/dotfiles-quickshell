@@ -72,6 +72,18 @@ QtObject {
     readonly property int osdPadding: 21
     readonly property int osdTrackHeight: 9
     readonly property int osdIconSize: 29
+    // Slack inside the surface for the springs to overshoot into: either side
+    // of the widest pill, and above the pill's resting place. Both the rise
+    // and the opening deliberately spring past their target and settle back,
+    // and a window clips its contents.
+    readonly property int osdOvershoot: 32
+    // How far the pill hops above its resting place as a wind-up before it
+    // drops back under the edge. Deliberately near twice the bump the rise
+    // lands with — that one is a damping ratio rather than a number, and
+    // ~10px here — since the wind-up is the whole gesture rather than the
+    // tail of one. Must stay inside osdOvershoot: the hop coasts ~5% past
+    // this before the drop takes over. See notes/osd.md.
+    readonly property int osdBump: 18
     // The plate's alpha. NotificationTheme.bgFloating's hue with an opacity of
     // this shell's own: a toast is read at leisure, while the OSD lands over
     // whatever happens to be on screen, so it leans less on the blur. Raising
