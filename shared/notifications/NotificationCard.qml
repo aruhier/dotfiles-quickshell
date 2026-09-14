@@ -37,6 +37,12 @@ Item {
     // belongs to the group (expand / close-all), not to this notification.
     property bool interactive: true
 
+    // A control-centre card leaves with a gesture rather than vanishing, and
+    // the row it is in decides who plays it — a single-notification row leaves
+    // whole, a card inside an expanded group leaves on its own. A toast
+    // dismisses outright: its exit is staged by the window that owns it.
+    signal dismissRequested
+
     // Whole-card hover, not just mainColumn's, so the actions row reveals the
     // close button too. Drives the close button's opacity.
     property bool hovered: false
@@ -365,7 +371,12 @@ Item {
                 glyphSize: 12
                 interactive: card.interactive
                 opacity: card.hovered && card.interactive ? card.detailOpacity : 0
-                onActivated: NotificationService.dismiss(card.wrapper)
+                onActivated: {
+                    if (card.floating)
+                        NotificationService.dismiss(card.wrapper);
+                    else
+                        card.dismissRequested();
+                }
             }
         }
     }

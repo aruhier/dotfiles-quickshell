@@ -39,6 +39,41 @@ Item {
 
     implicitHeight: !isGroup ? singleCard.implicitHeight : (expanded ? expandedColumn.implicitHeight + root.selectionOutset * 2 : collapsedStack.implicitHeight)
 
+    // A dismissal here is deferred to an exit gesture: the row winds up left,
+    // slides off the panel's edge, and only then does the notification
+    // actually go. It has to be that way round — the list's model is a plain
+    // array, so any change to it recreates every delegate mid-flight.
+    readonly property alias exiting: rowExit.active
+    // Enough to put a leaving row past the list's clip, which is what it
+    // actually disappears behind — 16px short of the screen edge, the panel's
+    // own padding. Nothing is drawn in that strip, so the cut doesn't read.
+    readonly property real exitTravel: width + NotificationTheme.listPadding + NotificationTheme.panelPadding
+
+    // Every path that dismisses the row as a whole: its close-all buttons, a
+    // single-notification row's own close button, and the panel's Delete key.
+    function dismiss() {
+        rowExit.start();
+    }
+
+    // Nothing left to click on a row that is leaving, the way a closing toast
+    // goes inert.
+    enabled: !root.exiting
+
+    transform: Translate {
+        x: rowExit.value
+    }
+
+    DismissSlide {
+        id: rowExit
+        travel: root.exitTravel
+        onFinished: NotificationService.dismissLater(root.group.items)
+    }
+
+    // A model reset under the gesture — a notification arriving mid-exit —
+    // destroys this delegate; the click still has to land.
+    Component.onDestruction: if (rowExit.active)
+        NotificationService.dismissLater(root.group.items)
+
     // ---- single notification: no group chrome at all ----
     NotificationCard {
         id: singleCard
@@ -48,6 +83,8 @@ Item {
         wrapper: root.latest
         floating: false
         selected: root.selected
+        // The card *is* the row here, so its close button leaves as one.
+        onDismissRequested: root.dismiss()
     }
 
     // ---- 2+: collapsed card-stack ----
@@ -124,7 +161,7 @@ Item {
             anchors.right: parent.right
             anchors.margins: 8
             opacity: collapsedStack.hovered ? 1 : 0
-            onActivated: NotificationService.dismissGroup(root.group)
+            onActivated: root.dismiss()
         }
     }
 
@@ -173,7 +210,7 @@ Item {
             }
 
             CloseButton {
-                onActivated: NotificationService.dismissGroup(root.group)
+                onActivated: root.dismiss()
             }
         }
 
@@ -189,6 +226,23 @@ Item {
                 // Rows aren't selectable on their own (see the ring below),
                 // so selecting the group opens up every row's body.
                 showFullBody: root.selected
+                // One card of an expanded group leaves on its own; the rest of
+                // the group stays put. Only a close-all slides the whole row.
+                enabled: !cardExit.active
+                onDismissRequested: cardExit.start()
+
+                transform: Translate {
+                    x: cardExit.value
+                }
+
+                DismissSlide {
+                    id: cardExit
+                    travel: root.exitTravel
+                    onFinished: NotificationService.dismissLater([groupItemCard.modelData])
+                }
+
+                Component.onDestruction: if (cardExit.active)
+                    NotificationService.dismissLater([groupItemCard.modelData])
             }
         }
     }

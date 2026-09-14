@@ -83,6 +83,10 @@ QtObject {
     // knob for whether the hop is seen; the aim at the call site is the one
     // for how long it takes. See notes/notifications.md.
     readonly property int popupBump: 52
+    // The same wind-up for a control-centre row, which has no plate moving
+    // under it to cancel most of it — this is what a toast's 52 actually
+    // reads as. See notes/notifications.md.
+    readonly property int listDismissBump: 18
 
     // Album art, sized to carry the widget rather than sit beside the text.
     readonly property int mprisImageSize: 80

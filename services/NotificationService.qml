@@ -130,6 +130,24 @@ QtObject {
             wrapper.notification.dismiss();
     }
 
+    // Dismisses whatever of these is still in history, on the next event-loop
+    // pass. The control centre defers a dismissal until its exit gesture ends,
+    // and that ends inside a spring's own frame callback — mutating the list
+    // there regenerates every list delegate reentrantly, from under the spring
+    // driving it. The liveness check is for the other half of that deferral: a
+    // delegate destroyed mid-gesture still has to honour the click, and a
+    // wrapper dropped in the meantime is a destroyed QObject that throws on
+    // property access.
+    function dismissLater(wrappers) {
+        const pending = wrappers.slice();
+        Qt.callLater(() => {
+            for (const w of pending) {
+                if (root.notifications.indexOf(w) !== -1)
+                    root.dismiss(w);
+            }
+        });
+    }
+
     // Snapshot as in clearAll(): dismiss() recomputes notificationGroups,
     // including this `group` object.
     function dismissGroup(group) {

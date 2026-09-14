@@ -397,3 +397,80 @@ one opening while the next slides in. And the exit's last stage ends by
 with `snapTo()` the moment the card clears it, and the resulting
 `onRunningChanged` is what calls `removeDisplayPopup()`. That runs inside the
 spring's own frame callback, which was already true before this change.
+
+
+## Dismissing from the control centre: the toast's exit, minus the plate (2026-09-14)
+
+A row dismissed in the panel used to vanish on the frame the model changed. It
+now leaves with the gesture a toast does, by request — "when I close a
+notification there, it slides right […] a small bump to the left before, the
+same way we have for notifications popups". `shared/notifications/DismissSlide.qml`
+is that gesture on its own: the wind-up and the drop from the toast's exit,
+with none of the plate staging around them, so there are two stages and one
+latch rather than four and three. The caller applies `value` as a `Translate`
+and does the dismissing from `finished`.
+
+The springs are the toast's, unchanged — 455/32.9 critically damped under the
+wind-up, 72/13.4 under the drop, aimed `1.2x` past the bump and `1.5x` past the
+edge. Measured on DP-1 with a `grim` burst (~20ms/frame, converted back to
+logical px), tracking the icon, timed from the frame the click landed on:
+
+| stage | control centre | a toast, for comparison |
+|---|---|---|
+| wind-up | 0 → 115ms, 18px left | 112 → 229ms, ~19px of a 52px bump |
+| flip | ~135ms | 229ms |
+| off the surface | ~345ms | 450ms |
+
+**`popupBump` is 52 and this is 18, and they are the same size on screen.** A
+toast's hop runs under a plate that is still collapsing rightwards and loses
+most of itself to that drift; nothing moves under a panel row, so the whole of
+`listDismissBump` is seen. Measured: 295.2 → 277.6px on the row, 18.4px on a
+card inside an expanded group.
+
+**The dismissal is deferred to the end of the gesture, not played after it.**
+The list's model is `NotificationService.notificationGroups`, a plain JS array,
+so *any* change to it resets the view and recreates every delegate — a card
+mid-flight would be destroyed and replaced at rest. So every close path now
+runs the gesture first and dismisses from `finished`: the card's own close
+button stops calling `NotificationService.dismiss()` and emits
+`dismissRequested` instead (a toast still dismisses outright — its exit is
+staged by `NotificationPopupWindow`), the group's two close-all buttons and the
+panel's Delete key go through `NotificationGroupCard.dismiss()`, and the panel
+reaches its selected row with `itemAtIndex()` rather than calling the service,
+falling back to the old direct call for a row too far out of view to have a
+delegate.
+
+**Two things follow from dismissing late, and both are handled in
+`NotificationService.dismissLater()`.** It is called from inside a spring's own
+frame callback, and mutating the model there regenerates every delegate
+reentrantly — the shape that already segfaulted `QQuickRepeater::regenerate()`
+once (see the popup section above), hence the `Qt.callLater`. And a delegate
+can still be destroyed mid-gesture, by a notification arriving in the ~345ms
+the gesture takes; `Component.onDestruction` re-submits the same wrappers so
+the click is not silently lost. That is why the function checks each wrapper is
+still in `notifications` before dismissing rather than just calling
+`dismiss()`: a wrapper dropped in the meantime is a destroyed QObject, which is
+not null from JS and throws on property access. Verified live — dismissing a
+row and firing a `notify-send` 150ms into the gesture still removed it. What is
+*not* preserved is the animation: the replacement delegate appears at rest and
+the row disappears a frame later without sliding.
+
+**Who slides is the row, except inside an expanded group.** A single-notification
+row and a collapsed stack's close-all move the whole delegate; one card of an
+expanded group moves alone and the header and its siblings stay put, since only
+that notification is going. Both use the same `exitTravel`, which clears the
+list's clip rather than the screen edge — the `ListView` bounds are the panel's
+16px padding short of the edge, so a leaving card is cut there rather than at
+the screen's edge. Checked on a burst: dark card on dark panel over the ~6ms
+the cut is in flight, nothing reads.
+
+**The gap the row leaves closes instantly, as the toast stack's does.** A
+height collapse animating after the slide was considered and left out: the eye
+is following the card off the edge by then, and an animating row height
+reconfigures nothing here but does put every row below it on a spring for a
+gesture that is already over.
+
+**`enabled: false` on whatever is leaving**, rather than guarding each
+`MouseArea` and button — one line, and it matches a closing toast going inert
+(`interactive: !closing`). The hover flags drop with it, so the close button
+fades out over the slide exactly as a toast's does.

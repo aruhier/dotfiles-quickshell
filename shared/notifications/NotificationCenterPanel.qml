@@ -152,7 +152,13 @@ PanelWindow {
             const groups = NotificationService.notificationGroups;
             if (focusScope.selectedIndex < 0 || focusScope.selectedIndex >= groups.length)
                 return;
-            NotificationService.dismissGroup(groups[focusScope.selectedIndex]);
+            // Through the row, so it plays its exit gesture; a row scrolled far
+            // enough out of the view has no delegate to ask.
+            const row = notificationListView.itemAtIndex(focusScope.selectedIndex) as NotificationGroupCard;
+            if (row)
+                row.dismiss();
+            else
+                NotificationService.dismissGroup(groups[focusScope.selectedIndex]);
         }
 
         // Slides in and out by animating rightMargin, rather than toggling
