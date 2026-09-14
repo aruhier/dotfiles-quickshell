@@ -91,7 +91,7 @@ PanelWindow {
 
     // How far along the expansion the pill is, 0..1. Drives the reveal of
     // everything past the glyph.
-    readonly property real opened: Math.max(0, Math.min(1, (expand.value - osd.collapsedWidth) / Math.max(1, osd.openWidth - osd.collapsedWidth)))
+    readonly property real opened: Theme.ramp(expand.value, osd.collapsedWidth, osd.openWidth)
 
     anchors.bottom: true
     // The gap above is room inside the surface, not a layer-shell margin:
@@ -270,7 +270,7 @@ PanelWindow {
             anchors.verticalCenter: parent.verticalCenter
             height: parent.height
 
-            opacity: Math.max(0, Math.min(1, (osd.opened - 0.45) / 0.35))
+            opacity: Theme.ramp(osd.opened, 0.45, 0.80)
             visible: opacity > 0
 
             // Level layout: track, then percentage.
@@ -316,7 +316,7 @@ PanelWindow {
                     Rectangle {
                         // Never narrower than one cap: a 0% fill collapsed to
                         // nothing reads as a broken track rather than an empty one.
-                        width: Math.max(parent.height, parent.width * Math.max(0, Math.min(1, osd.value)))
+                        width: Math.max(parent.height, parent.width * Theme.clamp01(osd.value))
                         height: parent.height
                         radius: parent.radius
                         // A muted sink still has a level, but it isn't audible —

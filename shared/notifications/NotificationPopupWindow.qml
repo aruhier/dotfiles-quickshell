@@ -190,20 +190,6 @@ PanelWindow {
                 // notes/notifications.md.
                 readonly property bool closing: entry.closing
 
-                // Latched while the pill is still arriving — a sixth of the
-                // travel out, not at the resting line. Both stages move the
-                // icon leftwards, so releasing the opening only once the slide
-                // had settled made the icon run fast, stall, and run fast
-                // again; started into the last of the slide it never slows
-                // down, and the two read as one gesture rather than two. The
-                // OSD gets this for free, its stages being perpendicular.
-                readonly property real openThreshold: travel * 0.15
-                // A latch and not a comparison, because the slide crosses that
-                // line and comes back — a bare comparison shuts the plate
-                // again on the first dip past it and the two springs fight.
-                property bool landed: false
-                // Latched when the wind-up has reached its bump height.
-                property bool wound: false
                 // Deliberately far from shut: the hop has to start while the
                 // plate is still visibly closing, or the exit reads as three
                 // beats where the entry reads as one. A fifth from shut dwelt
@@ -229,27 +215,16 @@ PanelWindow {
                 // The wind-up starts when the plate is nearly shut — which, for
                 // a toast dismissed before it ever opened, is already true by
                 // the time `closing` arrives, so both edges are watched.
+                // `start()` is latched, so whichever arrives second is a no-op.
                 onClosingChanged: {
-                    if (entryRoot.closing)
+                    if (entryRoot.closing) {
                         entryRoot.closeX = card.plateX;
-                    entryRoot.startExit();
+                        if (entryRoot.narrowed)
+                            slide.start();
+                    }
                 }
-                onNarrowedChanged: entryRoot.startExit()
-
-                function startExit() {
-                    if (!entryRoot.closing || !entryRoot.narrowed || entryRoot.wound)
-                        return;
-                    // Aimed well past the bump, which the latch below stops it
-                    // at: `popupBump` is the hop's height, the multiplier is
-                    // its speed. Barely past it, unlike the OSD's 1.5x: the
-                    // hop is aimed to *arrive* rather than to be caught in
-                    // flight, so it eases to a near-stop at the latch and the
-                    // drop that follows turns it around from rest instead of
-                    // yanking it out of a full-speed run. Anything further past
-                    // was reported as "the transition between the bump and the
-                    // slide looks weird" — see notes/notifications.md.
-                    slide.retarget(-NotificationTheme.popupBump * 1.2);
-                }
+                onNarrowedChanged: if (entryRoot.closing && entryRoot.narrowed)
+                    slide.start()
 
                 // Slides past the stack's right edge. A transform, not `x` —
                 // the enclosing Column re-sets `x` on every relayout.
@@ -258,52 +233,25 @@ PanelWindow {
                 }
 
                 // The offset right of the resting place, in pixels: `travel` is
-                // clear of the window, 0 is home.
-                FrameSpring {
+                // clear of the window, 0 is home. The same gesture the control
+                // centre leaves by, with the arrival on the front of it —
+                // `entryStiffness`/`entryDamping` are the defaults, tuned here.
+                //
+                // `landed` latches a sixth of the travel out, not at the
+                // resting line: both stages move the icon leftwards, so
+                // releasing the opening only once the slide had settled made
+                // the icon run fast, stall, and run fast again. The OSD gets
+                // this for free, its stages being perpendicular.
+                //
+                // The exit's last stage ends by destroying the delegate, which
+                // runs inside the spring's own frame callback.
+                DismissSlide {
                     id: slide
-                    Component.onCompleted: {
-                        snapTo(entryRoot.travel);
-                        retarget(0);
-                    }
-                    // Far softer than Theme's defaults, which are tuned for the
-                    // few pixels a module's width moves, and softer than the
-                    // OSD's slide: the icon is off the surface for the first
-                    // four fifths of this travel, so the same spring would be
-                    // most of the way through before anything had been seen.
-                    // Under damped on the way in (ζ ≈ 0.71) so the icon bumps
-                    // ~11px past its resting place and settles back; damped
-                    // past 1 on the way out, where an undershoot would bounce
-                    // the card back into view.
-                    // Three tunings, not two. The entry is soft and under
-                    // damped; the wind-up is stiff and critically damped, so it
-                    // covers its distance quickly *and* arrives — a soft hop
-                    // has to be aimed far past to move at all, and is then
-                    // moving far too fast to be turned around; and the drop
-                    // goes back to something soft enough not to snatch.
-                    stiffness: !entryRoot.closing ? 58 : entryRoot.wound ? 72 : 455
-                    damping: !entryRoot.closing ? 8.4 : entryRoot.wound ? 13.4 : 32.9
-                    // Latches each stage the moment the card reaches it.
-                    onValueChanged: {
-                        if (!entryRoot.closing) {
-                            if (slide.value <= entryRoot.openThreshold)
-                                entryRoot.landed = true;
-                        } else if (!entryRoot.wound) {
-                            if (entryRoot.narrowed && slide.value <= -NotificationTheme.popupBump) {
-                                entryRoot.wound = true;
-                                // Aimed past the edge rather than at it: a
-                                // spring decelerates into its target, and the
-                                // last sliver of a toast creeping away reads as
-                                // an ease-out on an exit.
-                                slide.retarget(entryRoot.travel * 1.5);
-                            }
-                        } else if (slide.value >= entryRoot.travel) {
-                            // Parks the spring the moment the card clears the
-                            // surface; settling is what drops the entry.
-                            slide.snapTo(entryRoot.travel);
-                        }
-                    }
-                    onRunningChanged: if (!running && entryRoot.closing && entryRoot.wound)
-                        popupWindow.removeDisplayPopup(entryRoot.index, entryRoot.entry)
+                    travel: entryRoot.travel
+                    bump: NotificationTheme.popupBump
+                    playEntry: true
+                    entryLatchAt: entryRoot.travel * 0.15
+                    onFinished: popupWindow.removeDisplayPopup(entryRoot.index, entryRoot.entry)
                 }
 
                 // The width the plate is open to; the card works the rest of
@@ -315,13 +263,13 @@ PanelWindow {
                 // past the icon it is a plate for.
                 FrameSpring {
                     id: expand
-                    to: entryRoot.landed && !entryRoot.closing ? entryRoot.width : card.collapsedWidth
+                    to: slide.landed && !entryRoot.closing ? entryRoot.width : card.collapsedWidth
                     // The shut is the slower of the two, by request, and with
                     // it every spring the exit rides — see notes/notifications.md
                     // for the knob that stretches a spring without changing
                     // how it feels.
-                    stiffness: entryRoot.landed && !entryRoot.closing ? 122 : 92
-                    damping: entryRoot.landed && !entryRoot.closing ? 11.5 : 15.7
+                    stiffness: slide.landed && !entryRoot.closing ? 122 : 92
+                    damping: slide.landed && !entryRoot.closing ? 11.5 : 15.7
                 }
 
                 NotificationCard {

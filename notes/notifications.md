@@ -389,6 +389,15 @@ wider span. Both are latched exactly as `notes/osd.md` describes, with
 `narrowed` at `opened <= 0.2` so the wind-up starts while the plate is still
 visibly shutting.
 
+**The gesture itself now lives in `DismissSlide.qml`**, shared with the control
+centre (see the section below) — one spring, because the exit has to pick up
+wherever the arrival left the item, so the toast's entry rides it too via
+`playEntry`. The window keeps only what is specific to a toast: the `narrowed`
+gate before `start()`, `closeX`, and the plate spring the latches release. The
+entry tuning (58 / 8.4) is `DismissSlide`'s default because the toast is the
+only caller that plays one; the exit's four constants had been copied verbatim
+into both files before this.
+
 **Two things the per-delegate version does that the OSD does not.** The
 latches live on the delegate rather than on the window, since every toast
 stages independently — two arriving 300ms apart were verified overlapping,
@@ -410,9 +419,11 @@ with none of the plate staging around them, so there are two stages and one
 latch rather than four and three. The caller applies `value` as a `Translate`
 and does the dismissing from `finished`.
 
-The springs are the toast's, unchanged — 455/32.9 critically damped under the
-wind-up, 72/13.4 under the drop, aimed `1.2x` past the bump and `1.5x` past the
-edge. Measured on DP-1 with a `grim` burst (~20ms/frame, converted back to
+The springs are the toast's — 455/32.9 critically damped under the wind-up,
+72/13.4 under the drop, aimed `1.2x` past the bump and `1.5x` past the edge —
+and since 2026-09-14 they are literally the same code rather than a copy of it:
+the toast's exit was folded into this file, which grew an optional entry phase
+for it. A panel row plays none and starts at rest. Measured on DP-1 with a `grim` burst (~20ms/frame, converted back to
 logical px), tracking the icon, timed from the frame the click landed on:
 
 | stage | control centre | a toast, for comparison |

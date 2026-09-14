@@ -66,7 +66,7 @@ Item {
     // 0..1 across that. Clamped, because the spring deliberately overshoots
     // both ends — a height that followed it there would open into the toast
     // below, and a reveal would flicker at full.
-    readonly property real opened: Math.max(0, Math.min(1, (openWidth - collapsedWidth) / Math.max(1, width - collapsedWidth)))
+    readonly property real opened: Theme.ramp(openWidth, collapsedWidth, width)
 
     // The plate around the icon alone: its left inset mirrored on the right,
     // and `padding` above and below.
@@ -102,7 +102,7 @@ Item {
     // The reveal is a hard clip edge, so text caught under it is cut mid-glyph
     // and wipes in letter by letter; this keeps it near-transparent until
     // there is almost nothing left to cut.
-    readonly property real detailOpacity: Math.max(0, Math.min(1, (opened - 0.72) / 0.28))
+    readonly property real detailOpacity: Theme.ramp(opened, 0.72, 1)
 
     // Width needed to show header, body and actions unwrapped, read by
     // NotificationPopupWindow.qml to grow the stack (clamped to popupMaxWidth
@@ -173,10 +173,7 @@ Item {
     // corner. `clip` only while the plate is smaller than the card — a scissor
     // rect, not a layer, so the text under it is not resampled (notes/text.md).
     Item {
-        x: card.plateX
-        y: card.plateY
-        width: card.plateWidth
-        height: card.plateHeight
+        anchors.fill: background
         clip: card.plateWidth < card.width || card.plateHeight < card.height
 
         Item {
@@ -394,10 +391,7 @@ Item {
     // A top-most overlay, not the background's `border`: that paints under
     // the children. No mouse handling, so it steals nothing underneath.
     Rectangle {
-        x: card.plateX
-        y: card.plateY
-        width: card.plateWidth
-        height: card.plateHeight
+        anchors.fill: background
         radius: card.radius
         color: "transparent"
         border.width: card.selected ? 2 : 1

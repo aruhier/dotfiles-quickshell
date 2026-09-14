@@ -5,8 +5,11 @@ pill-shaped module groups) and a fixed per-monitor module layout. Not meant to
 grow new features beyond what's already here unless asked.
 
 **Source of truth for any visual value is `shared/Theme.qml`** — the palette +
-metrics singleton (colors, padding, radii, border widths, font sizes, animation
-springs). It wins over any prose, including these notes.
+metrics singleton (colors, padding, radii, border widths, font sizes, spring
+defaults and the distances a gesture covers). It wins over any prose, including
+these notes. A *gesture's own* spring tuning is the exception and stays at its
+call site, next to the comment that says why it is what it is; the one pair two
+surfaces share lives in `NotificationTheme.qml`. See `notes/rendering.md`.
 
 ## Keep this file short
 
