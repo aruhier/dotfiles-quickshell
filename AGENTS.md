@@ -1878,7 +1878,9 @@ a Qt variable at all — 6.11's `libQt6WaylandClient` has no such string.
 `swayosd-server` + `swayosd-libinput-backend` are gone. `shared/osd/OsdWindow.qml`
 is a single bottom-centre pill on the focused output — glyph, level track,
 percentage for volume/backlight; glyph and a word for a lock key — held for
-1000ms, swayosd's own default. The dotfiles side changed with it: the volume
+2500ms, up from swayosd's 1000ms: the pill spends part of that rising and
+dropping, and a second left it leaving about as soon as it was read. The
+dotfiles side changed with it: the volume
 binds no longer call `swayosd-client`, the brightness binds no longer call
 `brightnessctl`, and three new non-consuming lock-key binds were added.
 
@@ -1893,6 +1895,17 @@ way a toast does, so it belongs to that palette; the split is called out at
 both ends. That plate carries real alpha, so `quickshell-osd` needs the same
 `blur` layerrule the control centre has, plus `no_anim` — the window springs
 itself in and out, and Hyprland fading it too double-animates.
+
+**It rises out of the bottom edge and drops back under it.** That needs a
+surface reaching the edge, so `margins.bottom` is 0 and the resting gap is room
+*inside* the surface: one `travel` property is both the surface height and the
+slide distance (the gap plus `osdHeight`), and the pill's `y` is a pixel spring
+between `travel` and 0. Animating the layer-shell margin instead would
+reconfigure the surface every frame. The earlier fade-and-scale is gone —
+nothing here uses opacity — and the surface is now far larger than the pill it
+paints, which the `blur` layerrule does not mind: Hyprland masks the blur by
+the surface's alpha, the same way the full-screen control-centre surface gets
+blur only under its plate.
 
 **Vertical position is a fraction of the output's height, not a fixed margin**,
 so it lands in the same place on a 1440 and a 2160 panel. swayosd did the same:

@@ -13,7 +13,10 @@ import qs.shared.notifications
 // module-anchored machinery in ../popup/.
 //
 // Only the bottom edge is anchored: layer-shell centres a surface on the axis
-// it isn't anchored to, so nothing here has to know the output's width.
+// it isn't anchored to, so nothing here has to know the output's width. The
+// surface sits flush with that edge and is taller than the pill, because the
+// pill rises out of the edge on show and drops back under it on hide; the
+// resting gap is room inside the surface rather than a layer-shell margin.
 //
 // Colours are NotificationTheme's, not Theme's: this is a floating surface
 // over the desktop like a toast, and reading as one of those rather than as a
@@ -28,7 +31,7 @@ PanelWindow {
     // the moment the hide timer fires, while the window is still on screen for
     // the length of the exit spring, so binding the content to it directly
     // makes every OSD render the fallback branch of the switches below as it
-    // fades out. Off the request rather than off `showing`, since one OSD can
+    // slides out. Off the request rather than off `showing`, since one OSD can
     // replace another while the window is up and `showing` never drops.
     property string kind: ""
     readonly property string requestedKind: OsdService.kind
@@ -72,11 +75,18 @@ PanelWindow {
         }
     }
 
-    anchors.bottom: true
-    // Snapped for the same reason as the toast stack's margins: an off-grid
+    // Both the height of the surface and the distance the pill covers: its own
+    // height, plus the gap it rests above the bottom of the output. That gap is
+    // snapped for the same reason as the toast stack's margins — an off-grid
     // offset puts every glyph below it on a fraction of a device pixel. See
     // AGENTS.md.
-    margins.bottom: Screens.snap((osd.screen ? osd.screen.height : 1080) * Theme.osdBottomEdgeFraction, osd.screen)
+    readonly property real travel: Screens.snap((osd.screen ? osd.screen.height : 1080) * Theme.osdBottomEdgeFraction, osd.screen) + Theme.osdHeight
+
+    anchors.bottom: true
+    // The gap above is room inside the surface, not a layer-shell margin:
+    // a margin would have to be animated to move the pill, and every frame of
+    // that is a surface reconfigure.
+    margins.bottom: 0
 
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
@@ -92,29 +102,43 @@ PanelWindow {
     // The surface is centred by its width, so that width is what decides where
     // the left edge — and with it every glyph — lands on the device pixel grid.
     implicitWidth: Screens.snap(Theme.osdWidth, osd.screen)
-    implicitHeight: Theme.osdHeight
+    implicitHeight: osd.travel
 
     // Stays mapped until the exit spring has settled, then unmaps entirely so
     // nothing is left on the overlay layer between keypresses.
-    visible: reveal.value > 0.001
+    visible: slide.value < osd.travel
 
+    // The offset of the pill below its resting place, in pixels: `travel` is
+    // off-screen, 0 is up. A pixel spring, so Theme.springEpsilon (pixel-scale)
+    // applies as it stands — see PressSpring.qml for the 0..1 case.
     FrameSpring {
-        id: reveal
-        to: osd.showing ? 1 : 0
-        // Theme.springEpsilon is pixel-scale and the whole travel here is 1,
-        // so retarget() would read every change as already settled. See
-        // PressSpring.qml.
-        epsilon: 0.002
+        id: slide
+        to: osd.showing ? 0 : osd.travel
+        // Much softer than Theme's defaults, which are tuned for the few
+        // pixels a module's width moves and read as a snap over this
+        // distance. Damping ratio a shade over 1, so the pill glides to the
+        // edge and stops dead rather than bouncing: 90% of the travel in
+        // ~265ms.
+        stiffness: 150
+        damping: 20
     }
 
+    // OsdService picks the output before it sets the kind, so an OSD moving to
+    // a screen of a different height changes `travel` while the pill is still
+    // parked. Re-park it: left at the old offset it would start its rise from
+    // the wrong place, and on a taller screen that place is already on-screen.
+    onTravelChanged: if (!osd.showing)
+        slide.snapTo(osd.travel)
+
+    // The pill itself: `Theme.osdHeight` of the surface, sliding through the
+    // rest of it. Moved by `y` and nothing else — never `layer`/MultiEffect or
+    // an opacity fade over one, since a layer source is a texture and a
+    // texture resamples the text inside it. See AGENTS.md.
     Item {
-        id: content
-        anchors.fill: parent
-        // Group opacity and a transform, never `layer`/MultiEffect: a layer
-        // source is a texture, and a texture resamples the text inside it. See
-        // AGENTS.md.
-        opacity: reveal.value
-        scale: 0.92 + 0.08 * reveal.value
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: Theme.osdHeight
+        y: slide.value
 
         Rectangle {
             anchors.fill: parent

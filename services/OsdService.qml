@@ -29,8 +29,10 @@ QtObject {
     }
 
     property Timer hideTimer: Timer {
-        // swayosd's own default.
-        interval: 2000
+        // Held long enough that the rise and the drop are a small part of
+        // what is on screen: a second leaves the pill on its way out about as
+        // soon as the eye has found it.
+        interval: 2500
         onTriggered: root.kind = ""
     }
 }
