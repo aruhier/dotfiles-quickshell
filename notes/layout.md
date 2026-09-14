@@ -84,6 +84,15 @@ shared/notifications/ the notification daemon's UI — see
   NotificationCenterPanel.qml click-triggered control-center panel
                          (PanelWindow), pinned open via
                          NotificationService.centerOpen
+  ControlCenterSlide.qml that panel's own slide: four stages on one
+                         spring, two latches, bump on arrival and wind-up
+                         on exit — see `notes/panels.md` for why it is not
+                         DismissSlide.qml
+  DismissSlide.qml       the exit gesture a toast and a control-centre row
+                         leave by: wind-up, then slide off the right edge
+  MprisNowPlayingWidget.qml the control centre's now-playing widget: paging,
+                         the slide/pop gestures and the pager dots;
+                         MprisNowPlayingContent.qml is one page of it
 shared/ModuleGroup.qml the left/right pill-shaped module group (flush
                       against a screen edge, rounded only on the
                       center-facing side); used twice from Bar.qml with

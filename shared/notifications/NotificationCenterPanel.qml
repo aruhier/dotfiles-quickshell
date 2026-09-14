@@ -7,7 +7,6 @@ import Quickshell.Wayland
 import Quickshell.Widgets
 import qs.shared
 import qs.services
-import qs.shared.animations
 import qs.shared.notifications
 
 // The notification control center: click-toggled and pinned open, so it gates
@@ -46,17 +45,15 @@ PanelWindow {
             if (!NotificationService.centerOpen)
                 panelWindow.closing = true;
             panelWindow.open = NotificationService.centerOpen;
+            // `closing` is cleared here, not only when the exit finishes,
+            // so that reopening mid-close does not leave the window pinned
+            // visible. Ordered after the write above so `open || closing`
+            // never dips false.
             if (NotificationService.centerOpen) {
-                // Cleared here, not only when the exit finishes: reopening
-                // mid-close leaves `closing` set otherwise, and the spring
-                // reads it to know which stage it is in. Ordered after the
-                // write above so `open || closing` never dips false.
                 panelWindow.closing = false;
-                panel.bumped = false;
-                rightMarginSpring.retarget(panel.bumpAim);
+                slide.open();
             } else {
-                panel.wound = false;
-                rightMarginSpring.retarget(panel.windUpAim);
+                slide.close();
             }
         }
     }
@@ -173,42 +170,30 @@ PanelWindow {
         }
 
         // Slides in and out by animating rightMargin, rather than toggling
-        // visibility. It is drawn `edgeOverscan` wider than it reads and rests
-        // that far past the screen edge, so the opening bump pulls that slack
-        // in instead of opening a gap to the edge — and so the last physical
-        // column, which a flush margin leaves transparent at fractional scale
-        // since only this Rectangle paints, is covered. That side is square,
-        // and what sits past the edge is compositor-clipped.
+        // visibility; the gesture itself is ControlCenterSlide.qml.
         //
-        // Every *resting* offset that places this Rectangle goes through
-        // `Screens.snap()`, width included — right-anchored, so margin *and*
-        // width decide where the left edge lands. Mid-gesture it is off the
-        // grid on purpose; see the margin binding below. That is for this
-        // Rectangle's own 1px border: off the device pixel grid it draws as
-        // two half-lit columns instead of one solid one. The panel's *text*
-        // does not depend on it (Qt rounds glyph positions); what text needed
-        // was getting out of the shadow's layer, below.
+        // The plate is drawn `edgeOverscan` wider than it reads and rests that
+        // far past the screen edge. That slack is what the arrival's bump pulls
+        // in, instead of opening a gap to the edge, and it also covers the last
+        // physical column, which a flush margin leaves transparent at
+        // fractional scale since only this Rectangle paints. The side past the
+        // edge is square, and compositor-clipped.
+        //
+        // Every *resting* offset placing this Rectangle goes through
+        // `Screens.snap()`, width included — it is right-anchored, so margin
+        // and width together decide where the left edge lands, and this
+        // Rectangle's own 1px border draws as two half-lit columns off the
+        // device pixel grid. Mid-gesture it is deliberately off that grid; see
+        // ControlCenterSlide.qml. The panel's *text* needs more than this — see
+        // `listEdge` below and notes/text.md — and needed getting out of the
+        // shadow's layer, below.
         Rectangle {
             id: panel
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             anchors.margins: Screens.snap(NotificationTheme.controlCenterMarginV, panelWindow.screen)
-            // Deliberately *not* snapped per frame, though every resting
-            // offset here is: the slow tail of a gesture then advances a whole
-            // device pixel at a time, which reads as stepping. Measured, at
-            // 1.25 scale: 0.8px every ~10ms on a 240Hz output.
-            //
-            // The *landing* is the exception. Glyph origins are rounded to
-            // whole device pixels while this plate is resampled continuously,
-            // so over the last couple of device pixels the text takes its final
-            // step alone, while the panel is creeping too slowly to read as
-            // moving — which looks like the text shifting inside its card.
-            // Snapped over that window, plate and text step together instead.
-            // See notes/text.md.
-            readonly property real devicePixel: 1 / Screens.scaleFor(panelWindow.screen)
-            readonly property bool landing: !panelWindow.closing && panel.bumped && Math.abs(rightMarginSpring.value - panel.restingRightMargin) <= 2 * panel.devicePixel
-            anchors.rightMargin: panel.landing ? Screens.snap(rightMarginSpring.value, panelWindow.screen) : rightMarginSpring.value
+            anchors.rightMargin: slide.margin
             // Snapped separately and added, rather than snapping the sum: the
             // left edge lands at `width - edgeOverscan`, so both have to be on
             // the device pixel grid for it to be.
@@ -220,29 +205,6 @@ PanelWindow {
             // Off-screen, so it only has to clear the edge, not land on it.
             readonly property real closedRightMargin: -panel.width - 2
 
-            // A bigger margin is further left, so both bumps — the arrival's,
-            // past the edge, and the exit's wind-up, onto the screen — are
-            // *above* the resting margin, and the drop is far below it.
-            //
-            // Each stage is aimed past the line that ends it and caught there
-            // by a latch: a spring decelerates into its target, so aiming past
-            // the bump arrives at it slowly and releases from near rest, where
-            // a spring aimed *at* it would still be at full speed. That is the
-            // whole difference between this and one under damped spring, which
-            // crosses its resting line fast and rings back. See notes/panels.md.
-            readonly property real bumpLine: panel.restingRightMargin + NotificationTheme.controlCenterBump
-            readonly property real bumpAim: panel.restingRightMargin + NotificationTheme.controlCenterBump * 1.2
-            readonly property real windUpLine: panel.restingRightMargin + NotificationTheme.controlCenterDismissBump
-            readonly property real windUpAim: panel.restingRightMargin + NotificationTheme.controlCenterDismissBump * 1.2
-            // Aimed past the edge rather than at it: the last sliver of a
-            // panel creeping away reads as an ease-out on an exit.
-            readonly property real dropAim: panel.closedRightMargin - (panel.restingRightMargin - panel.closedRightMargin) * 0.5
-
-            // Latched rather than compared, because the spring crosses each
-            // line and comes back over it.
-            property bool bumped: false
-            property bool wound: false
-
             // The panel's inner inset, and where the list's left edge sits in
             // the window once the panel is at rest. The card inset is solved
             // against this rather than snapped on its own: what a text subtree
@@ -253,55 +215,14 @@ PanelWindow {
             readonly property real contentInset: Screens.snap(NotificationTheme.panelPadding, panelWindow.screen)
             readonly property real listEdge: panelWindow.width - panel.visibleWidth + panel.contentInset
 
-            // Retargeted imperatively from the Connections handler above.
-            //
-            // Four stages on one spring, every one of them critically damped,
-            // switched on the two latches: sweep in and ease into the bump,
-            // settle back out of it, wind up onto the screen, drop off the
-            // edge. One spring rather than two so a gesture interrupted
-            // mid-flight — closing while still arriving — picks up the panel
-            // where it actually is instead of jumping.
-            FrameSpring {
-                id: rightMarginSpring
-                // The sweep is soft enough to read at 500px of travel, the
-                // settle stiffer since it only has the bump to undo, and the
-                // exit's pair are the toasts' own — the wind-up stiff so it
-                // covers its distance *and* arrives, the drop soft enough not
-                // to snatch. Scale a pair to change the pace, never the
-                // stiffness alone; the knob is in notes/osd.md. The opening
-                // pair have been through it once, at 1.15.
-                stiffness: panelWindow.closing ? (panel.wound ? 72 : 455) : (panel.bumped ? 345 : 227)
-                damping: panelWindow.closing ? (panel.wound ? 13.4 : 32.9) : (panel.bumped ? 28.8 : 23.3)
-                onValueChanged: {
-                    if (panelWindow.closing) {
-                        if (!panel.wound) {
-                            if (value >= panel.windUpLine) {
-                                panel.wound = true;
-                                retarget(panel.dropAim);
-                            }
-                        } else if (value <= panel.closedRightMargin) {
-                            // Parked the moment the panel is clear; settling is
-                            // what unmaps the window, below.
-                            snapTo(panel.closedRightMargin);
-                        }
-                    } else if (!panel.bumped) {
-                        if (value >= panel.bumpLine) {
-                            panel.bumped = true;
-                            retarget(panel.restingRightMargin);
-                        }
-                    } else if (Math.abs(value - panel.restingRightMargin) <= 0.5 * panel.devicePixel) {
-                        // Parked once the rendered position can no longer
-                        // change. The stop condition in FrameSpring compares a
-                        // velocity in px/s against a pixel epsilon, so a
-                        // critically damped settle goes on integrating for
-                        // ~130ms after it has visibly arrived — frames that can
-                        // only produce the sub-pixel drift above.
-                        snapTo(panel.restingRightMargin);
-                    }
-                }
-                Component.onCompleted: snapTo(panel.closedRightMargin)
-                onRunningChanged: if (!running && !NotificationService.centerOpen)
-                    panelWindow.closing = false
+            // Driven imperatively from the Connections handler above; the
+            // staging, the latches and the tuning live in the gesture.
+            ControlCenterSlide {
+                id: slide
+                resting: panel.restingRightMargin
+                closed: panel.closedRightMargin
+                screen: panelWindow.screen
+                onFinished: panelWindow.closing = false
             }
 
             color: NotificationTheme.bgGlobal
@@ -479,131 +400,7 @@ PanelWindow {
                 }
 
                 // ---- now playing (mpris) ----
-                // Any MPRIS player, not a specific one. MprisService owns
-                // selection and paging; this is its view.
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    visible: MprisService.activePlayer !== null
-                    spacing: 8
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 4
-
-                        PressableIcon {
-                            visible: MprisService.players.length > 1
-                            text: "󰅁"
-                            color: NotificationTheme.text
-                            font.pixelSize: NotificationTheme.mprisControlIconSize - 4
-                            onActivated: MprisService.prev()
-                        }
-
-                        Rectangle {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: incomingContent.implicitHeight + 24
-                            radius: 14
-                            color: NotificationTheme.bgHover
-                            scale: mprisPopSpring.value
-
-                            // On a player switch only the content slides.
-                            // slideDirection comes from MprisService because
-                            // the index delta's sign is ambiguous on wrap.
-                            readonly property int watchedIndex: MprisService.index
-                            onWatchedIndexChanged: {
-                                mprisSlideSpring.value = MprisService.slideDirection * mprisClip.width;
-                                mprisSlideSpring.retarget(0);
-                            }
-
-                            // Same player, new track: a scale bounce instead
-                            // of a slide. Suppressed on a player switch so the
-                            // two effects never stack.
-                            readonly property string trackKey: MprisService.activePlayer ? MprisService.activePlayer.trackTitle + "|" + MprisService.activePlayer.trackArtist : ""
-                            onTrackKeyChanged: {
-                                if (MprisService.suppressPop)
-                                    return;
-                                mprisPopSpring.value = 0.94;
-                                mprisPopSpring.retarget(1);
-                            }
-
-                            FrameSpring {
-                                id: mprisPopSpring
-                                value: 1
-                                target: 1
-                                // Default epsilon is pixel-scale, too coarse
-                                // for a 0..1 bump — see PressSpring.qml.
-                                epsilon: 0.002
-                            }
-
-                            // Drives both content layers' x over a full
-                            // card-width of travel, slow enough to read as
-                            // motion. Damping ratio ~0.76, slightly under
-                            // critical, so it gives at the end.
-                            FrameSpring {
-                                id: mprisSlideSpring
-                                value: 0
-                                target: 0
-                                stiffness: 60
-                                damping: 13
-                                mass: 0.8
-                            }
-
-                            // Clips the sliding layers so a page swaps inside
-                            // a fixed frame, not past the rounded edges.
-                            Item {
-                                id: mprisClip
-                                anchors.fill: parent
-                                anchors.margins: 12
-                                clip: true
-
-                                // Outgoing: on screen only for the slide, and
-                                // never interactive.
-                                MprisNowPlayingContent {
-                                    width: mprisClip.width
-                                    height: mprisClip.height
-                                    visible: mprisSlideSpring.running && MprisService.previousPlayer !== null
-                                    player: MprisService.previousPlayer
-                                    interactive: false
-                                    x: mprisSlideSpring.value - MprisService.slideDirection * mprisClip.width
-                                }
-
-                                // Incoming: the current player, always the
-                                // interactive layer.
-                                MprisNowPlayingContent {
-                                    id: incomingContent
-                                    width: mprisClip.width
-                                    height: mprisClip.height
-                                    player: MprisService.activePlayer
-                                    x: mprisSlideSpring.value
-                                }
-                            }
-                        }
-
-                        PressableIcon {
-                            visible: MprisService.players.length > 1
-                            text: "󰅂"
-                            color: NotificationTheme.text
-                            font.pixelSize: NotificationTheme.mprisControlIconSize - 4
-                            onActivated: MprisService.next()
-                        }
-                    }
-
-                    RowLayout {
-                        Layout.alignment: Qt.AlignHCenter
-                        visible: MprisService.players.length > 1
-                        spacing: 6
-
-                        Repeater {
-                            model: MprisService.players.length
-
-                            Rectangle {
-                                required property int index
-                                width: 6
-                                height: 6
-                                radius: 3
-                                color: index === MprisService.index ? NotificationTheme.text : NotificationTheme.textDisabled
-                            }
-                        }
-                    }
+                MprisNowPlayingWidget {
                 }
             }
         }

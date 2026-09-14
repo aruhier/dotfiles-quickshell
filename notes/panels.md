@@ -245,6 +245,13 @@ wind-up peaks 23px left of rest ~100ms in, decelerating into it, then flips and
 clears the screen ~210ms later — against the toast's 115ms / 450ms, on 500px of
 travel rather than 265.
 
+**Where it lives.** `ControlCenterSlide.qml`, next to the gesture it is not
+(below). The panel hands it where it rests and where it is clear of the screen
+and binds `margin`; the staging, both latches, the tuning and the landing are
+the component's. It was inline on the panel's background Rectangle first, which
+put ten properties and the whole four-stage handler on an object whose job is
+to be a plate.
+
 **Why not `DismissSlide.qml` itself.** It drives a `Translate` from a resting
 place it assumes the item is sitting at, and it owns its own spring. This panel
 can be closed *while it is still arriving*, and one spring driving the margin
