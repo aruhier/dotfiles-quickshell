@@ -37,7 +37,11 @@ BarModule {
     readonly property string level: percent <= 15 ? "critical" : percent <= 30 ? "warning" : ""
 
     // Charging out of a critical level isn't an emergency, so it won't blink.
-    readonly property bool criticalBlink: level === "critical" && !charging
+    // Gated on contentVisible as well: with no battery present UPower's
+    // display device reports 0%, which reads as "critical" and left the blink
+    // below running forever behind a hidden module. A running animation keeps
+    // every window in the process rendering every frame — see AGENTS.md.
+    readonly property bool criticalBlink: contentVisible && level === "critical" && !charging
 
     // ---- icons ----
     // One per 20% band.
@@ -118,8 +122,15 @@ BarModule {
     readonly property color textColor: criticalBlink ? Theme.critical : Theme.groupText
 
     SequentialAnimation {
-        running: root.criticalBlink
-        loops: Animation.Infinite
+        id: pulse
+        // Bounded, and never left on: a running animation keeps every window
+        // in the process re-rendering every frame, measured at 3.7% of a core
+        // across this machine's three outputs. Slowing the fade down does not
+        // help — a 5x longer cycle measured identically — so the lever is how
+        // long it runs, not how fast. Three cycles is ~7s, long enough to pull
+        // the eye; the red text below carries the warning after that. See
+        // AGENTS.md.
+        loops: 3
 
         NumberAnimation {
             target: root
@@ -140,11 +151,38 @@ BarModule {
         }
     }
 
-    // The animation stops mid-pulse, and nothing else resets blinkOpacity.
-    onCriticalBlinkChanged: {
-        if (!criticalBlink)
-            blinkOpacity = 1;
+    // The percentage the last pulse fired at. What makes the re-pulse below
+    // "another whole percent lost" rather than "percent changed": UPower's
+    // reading wobbles a point either way near the end, and firing on the way
+    // back up would leave the animation running more or less permanently,
+    // which is the whole thing this is shaped to avoid. 101 is "none yet".
+    property int pulsedAt: 101
+
+    function firePulse() {
+        root.pulsedAt = root.percent;
+        pulse.restart();
     }
+
+    // Driven from here rather than a `running:` binding, since restart() on a
+    // bound `running` would break the binding on the first call.
+    onCriticalBlinkChanged: {
+        if (root.criticalBlink) {
+            root.firePulse();
+        } else {
+            // The animation can stop mid-pulse, and nothing else resets this.
+            pulse.stop();
+            root.blinkOpacity = 1;
+            root.pulsedAt = 101;
+        }
+    }
+
+    onPercentChanged: if (root.criticalBlink && root.percent < root.pulsedAt)
+        root.firePulse()
+
+    // A reload with the battery already critical evaluates the binding during
+    // creation, which can beat the handler above being connected.
+    Component.onCompleted: if (root.criticalBlink)
+        root.firePulse()
 
     Row {
         id: content

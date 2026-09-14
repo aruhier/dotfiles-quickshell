@@ -2053,3 +2053,121 @@ the whole config down. And `Connections` resolves under `import QtQuick`, not
 `Connections is not a type`. Both failures leave the running shell on its last
 good config, so a change that "did nothing" is worth checking against
 `qs log -i <id>` before it is worth debugging.
+
+## A machine with no battery blinked an invisible module at 3.2% CPU (2026-09-14)
+
+`qs` sat at ~3.2% of a core with nothing on screen moving — the same *class* of
+bug as the always-running-`FrameAnimation` section above, but with a completely
+different cause and a much wider blast radius.
+
+**Cause:** `Battery.qml`'s critical-level pulse. `criticalBlink` was
+`level === "critical" && !charging`, and `level` is derived from `percent`,
+which falls back to `0` when UPower has no real device:
+
+```
+readonly property int percent: device && device.ready ? ... : 0
+readonly property string level: percent <= 15 ? "critical" : ...
+```
+
+On a machine with no battery at all (`upower -i .../DisplayDevice` →
+`battery-missing-symbolic`, `percentage: 0%`, state `Unknown`) that chain reads
+0% as *critical*, `charging` is false, and the `SequentialAnimation` with
+`loops: Animation.Infinite` runs for the life of the process. `contentVisible`
+is false at the same time, so the module draws nothing — **the shell was paying
+full frame rate to animate the opacity of a hidden item.** This config is shared
+between a laptop (`eDP-1`, a real battery) and a desktop (`DP-1`/`DP-2`/
+`HDMI-A-1`, none), so it only ever showed up on one of them.
+
+**Fix:** fold the readiness check into the gate —
+`criticalBlink: contentVisible && level === "critical" && !charging`. One line.
+The general rule: a fallback value chosen to keep bindings safe (`0` here) will
+be *compared against thresholds* somewhere downstream, and 0 passes every
+"is it low?" test. Gate the consumer on "is there real data", not just on the
+derived level.
+
+**A running animation is process-wide, not window-local.** This is the part
+worth internalising beyond this bug. The earlier section measured one output;
+this one measured three, and *all three bars re-rendered every frame* even
+though `battery` is a module on the right-hand group only and was invisible.
+Qt's render loop keeps every showing window updating for as long as any
+`QAbstractAnimation` in the process is running. So a single stuck animation
+anywhere costs the **sum** of every output's refresh rate — here 240 + 144 + 60
+= 444 frames/s of pure waste.
+
+**Measurement, without `strace`.** `kernel.yama.ptrace_scope = 1` blocks
+attaching to an already-running `qs`, which rules out this repo's usual
+`strace -f -c` check unless you relax it (`sudo sysctl -w
+kernel.yama.ptrace_scope=0`, and put it back to `1` afterwards). The
+privilege-free substitute is **per-thread voluntary context switches** out of
+`/proc/<pid>/task/*/status`, sampled twice:
+
+| render thread | wakeups/s | monitor | refresh |
+|---|---|---|---|
+| 264947 | 288.5 | DP-1 | 240 Hz |
+| 264953 | 183.2 | DP-2 | 144 Hz |
+| 264954 | 71.7 | HDMI-A-1 | 60 Hz |
+
+A constant ~1.2 wakeups per vblank on every output is the signature of
+"rendering every frame", and it needs no privileges at all. It is also a
+*better* signal than `%CPU`: it says which windows are rendering and at what
+rate, where `%CPU` only says "high". Once ptrace was relaxed, `strace -f -c`
+agreed — 148,891 syscalls / 6s before (2,924 `sendmsg`, i.e. ~487 commits/s
+against the 444 Hz total), **1 syscall / 6s after**.
+
+**Bisecting by layout is fast and safe.** `shell.qml`'s `mainLayout` /
+`defaultLayout` arrays are the natural bisection knob: empty both, reload, then
+add modules back in halves. Emptying them took 32 ticks/10s → 4, which proved
+it was a module and not one of the always-instantiated shared windows
+(`NotificationPopupWindow`, `NotificationCenterPanel`, `OsdWindow`) in four
+seconds of editing. Six reloads found `battery` alone at 29-30 ticks/10s with
+every other module at 0. Honour the 6s settle from the method note above, and
+note that `touch` does **not** trigger quickshell's reload — the file's
+contents have to actually change.
+
+Final numbers on the full shell: **32-36 ticks/10s → 1 tick/20s**, 0 render
+wakeups/s on all three outputs.
+
+### The pulse itself was the wrong shape, and "gentler" is not the fix
+
+Follow-up from the user, and a fair one: a laptop that *does* reach 15% would
+have blinked legitimately, burning power at exactly the moment it has none to
+spare. The intuitive fix — make the pulse slower or shallower — does nothing.
+Measured with the blink forced on and the module actually drawing:
+
+| variant | idle cost |
+|---|---|
+| the pulse as written (1.2s legs, infinite) | 55 ticks/15s — 3.67% of a core |
+| **the same pulse with 6s legs** | **56 ticks/15s — identical** |
+| a Timer stepping opacity 1 → 0.6 every 1.2s | 6 ticks/15s — 0.4% |
+| a bounded pulse, once it has finished | **0 ticks/15s** |
+
+Row two is the one to remember. **The cost of an animation is binary, not
+proportional to how fast it moves.** Any continuously-varying property renders
+every frame for as long as it varies, so amplitude and period are free and
+*duration* is the only thing you are actually buying. Extrapolated to a single
+90Hz laptop panel this was ~0.7-0.8% of a core sustained, and the CPU number
+understates it: the real cost is holding the GPU and the compositor's commit
+path out of idle indefinitely.
+
+**Chosen: a bounded pulse.** `loops: 3` (~7s) instead of `Animation.Infinite`,
+re-fired on entering critical and on each further whole percent lost, with the
+solid `Theme.critical` text carrying the warning in between. The designed look
+is preserved exactly — it is the same fade, it just stops — and steady-state
+cost is zero. The rejected alternatives are worth knowing: the Timer-stepped
+toggle is ~9x cheaper than today but still costs forever *and* turns the
+deliberate slow fade into a hard blink, which this module's own comment argues
+against; dropping the motion entirely is free but throws away the signal.
+
+Three implementation details, each of which is a trap:
+
+- **`restart()` on a bound `running` breaks the binding.** The animation is
+  driven entirely from handlers now (`onCriticalBlinkChanged`,
+  `onPercentChanged`, `Component.onCompleted`); there is no `running:` line
+  left. Keeping both would work exactly once.
+- **Re-pulse on "a percent *lost*", never on "percent changed".** UPower's
+  reading wobbles a point either way near the end, and firing on the way back
+  up puts the animation back on more or less permanently — reintroducing the
+  bug through the fix. `pulsedAt` is the low-water mark that prevents it.
+- **`Component.onCompleted` is not redundant here.** A reload with the battery
+  already critical evaluates the binding during creation, which can beat
+  `onCriticalBlinkChanged` being connected.
