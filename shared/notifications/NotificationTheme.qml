@@ -70,6 +70,19 @@ QtObject {
     // growth to be visible.
     readonly property int popupMinWidth: 380
     readonly property int popupMaxWidth: 500
+    // Slack left of the stack for the slide to bump into on the way in and to
+    // wind up into on the way out, plus room for the cards' shadows: a window
+    // clips its contents. The plate opens the other way, into the gap the
+    // stack keeps from the screen edge. Nothing is drawn here at rest, so it
+    // only widens the surface away from that edge.
+    readonly property int popupOvershoot: 24
+    // How far a toast pulls left as a wind-up before it leaves to the right.
+    // Most of it is cancelled on the way to the eye: the hop runs *under* a
+    // plate still collapsing rightwards, which drags the icon back the other
+    // way, so what reads is the difference — ~19px of this 52. This is the
+    // knob for whether the hop is seen; the aim at the call site is the one
+    // for how long it takes. See notes/notifications.md.
+    readonly property int popupBump: 52
 
     // Album art, sized to carry the widget rather than sit beside the text.
     readonly property int mprisImageSize: 80

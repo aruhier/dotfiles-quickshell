@@ -117,3 +117,283 @@ ordinary action button. Correct form: `-A "default=Open"`. Separately,
 notification is closed — background it (`timeout N notify-send ... &`)
 during manual testing or the shell command hangs.
 
+
+
+## Toast entry and exit: staged like the OSD pill (2026-09-14)
+
+A toast used to slide in fully drawn and slide back out, one spring, no
+stages. It now arrives the way `shared/osd/OsdWindow.qml` does, by request —
+"the same vibe of the OSD popup animations". **Read `notes/osd.md`'s staging
+section first**; everything there about latches, overlap and aiming springs
+past their target applies here unchanged, and only the differences are below.
+
+**What slides in is the icon alone**, in a plate `2 * (padding +
+iconHorizontalPadding) + iconSize` = 92px wide and `2 * padding + iconSize` =
+84px tall, the card's insets mirrored so the icon sits dead centre of it. That
+plate rests **centred on the card's width** and springs open out to it
+sideways, the way the OSD's pill grows out of its own middle — but only
+*downwards* vertically, for the reason two sections below. The card's whole
+content — icon, text, actions, close
+button — is laid out at the card's full width and position throughout and
+merely *revealed* through the plate. Measured on DP-1 with a `grim` burst
+(~11.9ms/frame, converted back to logical px), on a 414px-wide toast, each
+column timed from its own first frame — the toast appearing, and the dismissal:
+
+| stage | entry | exit |
+|---|---|---|
+| icon pill slides / leaves | 0 → 214ms visible alone | 229 → 450ms |
+| plate opens / shuts | 214 → 714ms (peaks 430px) | 0 → 588ms, the last ~140 off-surface |
+| bump past the resting line | ~11px slide, ~8px per edge opening | 52px wind-up, 112 → 229ms |
+| settles | 414px wide by 714ms | off the surface at 450ms |
+
+**Where the plate opens from took three passes, and the middle one is the
+lesson.** In order:
+
+| | plate | content | verdict |
+|---|---|---|---|
+| 1 | keeps its right edge, opens left | rides the left edge, travels the whole width | rejected |
+| 2 | pinned at the icon's own corner, opens right and down | never moves | good, but not the OSD |
+| 3 | centred on the width, opens out both ways | rides the left edge, travels half | shipped |
+
+Pass 1 was reported as "it looks really different than the OSD animation, the
+expand part is not smooth at all, and the notification slides fully expanded
+instead of being limited to the icon". **The moving content was not what was
+wrong with it** — the OSD's glyph is not stationary either, it rides its pill's
+left edge and travels half the growth. What was wrong is that the icon
+travelled the *whole* width, in the *same direction as the slide that had just
+brought it in*, so there was no landing to see and the two stages read as one
+long slide of a whole card. Centring halves that and splits it between two
+edges moving apart, which reads as an opening rather than as more slide.
+
+Pass 2 is still what the code is built on: the content keeps the card's full
+size and position and is only *offset*, never relaid out, so **no text rewraps
+and no row reflows however the plate moves**. Pass 3 changes where that offset
+points, not what it is.
+
+**Two things were needed to stop the opening reading as rough**, both
+reported as "the expand needs to be smoother". First, `plateWidth` is
+`Screens.snap()`ped: the plate's right edge carries a 1px border and a 10px
+corner radius, while the reveal's scissor rect is whole device pixels whatever
+the spring value is. Left fractional the two disagree by up to a pixel, so the
+border renders at half intensity across two columns and the corner's
+antialiasing crawls — at 240Hz that is a visibly shimmering edge. Second, the
+detail's opacity ramp was moved from the second half of the opening
+(`opened` 0.35 → 0.70) to its last quarter (0.72 → 1.0). The reveal is a hard
+edge, so any text caught under it is cut mid-glyph and wipes in letter by
+letter; held back this far, the text is still near-transparent while there is
+anything left to cut and reaches full opacity as the plate settles. The OSD
+needs neither — its detail is *anchored* to the pill's edges and squeezes
+rather than being cut, which a card's wrapped text cannot do.
+
+**That reveal is a `clip: true` on an Item, not a layer.** `clip` is a scissor
+rect, so the text under it is not resampled — see `notes/text.md` for why a
+`layer`/MultiEffect over text is not an option here. It is switched off
+(`plateWidth < width`) once the plate is open, so the control-centre list,
+which never sets `plateWidth`, carries no clip at all. The drop shadow's
+MultiEffect stays *outside* the clipping item: its blur is drawn past the
+plate's bounds and a clipping ancestor would cut it off.
+
+**The plate opens into the gap the stack keeps from the screen edge.** A
+window clips its contents, so the overshoot needs room on both sides and the
+two sides are not symmetric:
+
+| side | room | what needs it |
+|---|---|---|
+| left | `NotificationTheme.popupOvershoot`, 24px | the slide's ~11px bump *plus* the opening's ~8px, together; the shadow |
+| right | the 10px edge gap, now inside the surface | the opening's ~8px, less whatever the slide is still leaning left |
+
+**The two overshoots land on top of each other, and only on the left.** The
+opening now starts while the slide is still settling (below), so the slide's
+bump and the plate's peak coincide: measured, the left edge went 16.8px past
+its resting place and the right edge 0.8px, from an opening that overshoots
+8.4px on each edge and a slide leaning 10.8px left at that moment. They add on
+one side and cancel on the other. It reads as the whole card lunging left and
+settling, which is the gesture anyway, and it is why the left needs ~17px of
+the 24 while the right sits inside its 10px gap with room to spare.
+
+So `margins.right` is **0** and the resting gap is `anchors.rightMargin` on the
+column instead — the same move `OsdWindow.qml` makes with `margins.bottom`.
+That widens the surface past the stack on both sides, and a toast is
+clickable, so the window needs `mask: Region { item: column }` or the slack
+would swallow clicks meant for whatever is under it, the screen's own right
+edge included. The OSD needs no such mask because nothing on it is clickable.
+
+**`travel` is measured from the collapsed plate's own left edge**, not from
+the card's: `width + edgeGap - collapsedX`. The pill rests centred, so half the
+stack is already past the surface's right edge before it moves, and parking it
+a whole stack-width away would spend most of the slide off screen — the visible
+part fell from ~356ms to ~230 when this was still the card's full width.
+
+**The card is driven by one number.** `NotificationPopupWindow` sets `openWidth`
+(the spring) and `screen`, and `NotificationCard` derives `opened`, its whole
+plate rect, the content's offset and the reveal's opacity from it, snapping
+each edge to that output's pixel grid itself. Everything else — the staging,
+the latches, the springs — stays in the window. The control centre sets none of
+it: `openWidth` defaults to the card's width, so `opened` is 1 and every value
+below collapses to the card's own rect.
+
+**The opening is released while the pill is still arriving**, at
+`travel * 0.15` rather than at the resting line. Both stages move the icon
+leftwards, so with the opening held until the slide had settled the icon ran
+fast, stalled, and ran fast again — a double pump, reported as wanting "a
+smoother transition between the animations". Released a sixth of the travel
+out, the opening's speed picks up while the slide is still decelerating and
+the icon never slows in between. The OSD gets this for free: its two stages are
+perpendicular, so they compose instead of interfering. The side effect is the
+stacked overshoot above, and a *shorter* entry — 714ms against 809 — because
+the later stage starts sooner, the same way `notes/osd.md`'s exit got shorter
+when its stages were made to overlap.
+
+**The exit's wind-up is the one place the OSD's own recipe does not carry
+over**, and it took four passes to see why. Asked for as "lower the time
+between the shrink and slide right, so that it looks more organic", then twice
+more as "still a bit too much — the wait between animations is still a bit too
+long". Measured against the shut's own start, tracking the icon (the thing the
+eye follows) rather than the plate:
+
+| | `narrowed` | hop aim | drop starts | gone | what the icon did |
+|---|---|---|---|---|---|
+| 1 | 0.2 | 1.5x | 404ms | 618ms | stood still for ~140ms |
+| 2 | 0.35 | 2x | 297ms | 547ms | stood still for ~60ms |
+| 3 | 0.5 | 4x, stiffer spring | 226ms | 381ms | stood still for ~35ms |
+| 4 | 0.6 | 5x, `popupBump` 26 → 14 | 143ms | 321ms | never stopped |
+| 5 | 0.6 | 9x, `popupBump` 14 → 24 | 143ms | 321ms | pulled ~4px back left |
+| 6 | 0.6 | 5x, `popupBump` 24 → 52 | 166ms | 345ms | pulled ~19px back over ~48ms |
+
+**The OSD's pill hops out of a plate that has already finished closing; a
+toast's hops out of one that is still closing underneath it.** The icon rides
+the plate's left edge, which — while the plate collapses towards the card's
+centre — travels *rightwards* at up to ~0.9px/ms, against a hop pulling left.
+Passes 1-6 are all attempts to tune around that cancellation, and none of them
+can win: a hop slow enough to read as a wind-up is slower than the drift and
+produces a dead stop; a hop fast enough to out-run the drift is then moving far
+too fast to be turned around, and the turn reads as a yank ("the transition
+between the bump and the slide looks weird and not smooth at all" — measured,
+the icon went from -2.9 to +2.9px/frame in a single frame).
+
+**Pass 7 removes the conflict instead of tuning it.** While a toast is leaving,
+the plate shrinks onto *its own left edge* rather than onto the card's centre —
+`NotificationCard.pinnedX`, latched by the delegate to whatever `plateX` was
+when the exit began. The icon under it then does not move at all through the
+shut, so the wind-up that follows is seen at its full size whatever speed it
+runs at, and can be shaped for the turn rather than for out-running anything:
+
+| | before the pin | after |
+|---|---|---|
+| icon during the shut | drifts ~100px right | still |
+| hop aim | 5x past the bump, caught at full speed | 1.2x, eased into |
+| spring under the hop | 95 (the drop's) | 600, critically damped |
+| what the icon does | ~19px of the 52px bump | all 44px of it, decelerating |
+| the turn | reversed at 769px/s | from near rest |
+
+Measured after: the icon holds still while the plate collapses onto it, then
+-4.0, -7.2, -8.0, -7.2, -7.2, -5.6, -4.8 px/frame, ~36ms at the apex, then
++7.2, +46, +31, +32, +34. That is the textbook anticipation shape — ease into
+the extreme, hold, snap away — and the apex hold is the spring crawling the
+last few px to its latch. It is worth having: the only way to remove it is to
+catch the hop while it is still moving, which is exactly the yank this pass
+fixed.
+
+**Every closing spring was then stretched 1.15x**, by request ("make the whole
+animations when closing the popup overall a bit slower"), with the usual knob —
+`stiffness / 1.32`, `damping / 1.15`. Phases, integrated rather than captured:
+
+| | hop starts | flip | shut done | gone |
+|---|---|---|---|---|
+| before | 96ms | 200ms | 504ms | 392ms |
+| after | 112ms | 229ms | 588ms | 450ms |
+
+The card is gone before the plate has finished shutting in both — the last
+~140ms of the collapse happens off the surface, which is free.
+
+One thing from those passes is worth keeping even now: **the time a hop costs
+depends on the ratio `popupBump / aim`, not on `popupBump`** — a critically
+damped spring covers a *fraction* of its target in a fixed multiple of `1/ωn`.
+Size and duration are independent knobs as long as the aim is scaled with the
+bump. What that bought was a bigger bump for free; what it could not buy was a
+bump that survived the drift.
+
+**The slide spring is tuned three ways, not two.** The entry is soft and under
+damped (58 / 8.4, ζ ≈ 0.71); the wind-up is stiff and critically damped
+(455 / 32.9) so it covers its distance quickly *and* arrives, since a soft hop
+has to be aimed far past to move at all and is then moving too fast to turn;
+and the drop goes back to something soft enough not to snatch (72 / 13.4). One
+spring, three phases, switched on `closing` and `wound`. The plate's own spring
+splits the same way — 122 / 11.5 opening, 92 / 15.7 shutting.
+
+**The slide spring is softer than the OSD's** — stiffness 58/damping 9.1
+against 136/12.3, same ζ ≈ 0.77. Not a taste difference: the OSD's pill rises
+through 187px and is visible for all of it, while a toast's icon is off the
+surface for the first four fifths of its ~425px travel. At the OSD's own
+constants the pill was on screen for ~103ms of a 258ms slide, which is not
+long enough to register as a stage at all; here it is ~357ms, which reads like
+the OSD's 245ms rise.
+
+**Both springs were then slowed, by request, with the knob `notes/osd.md`
+documents**: `stiffness / 1.21`, `damping / 1.1`, which stretches a spring's
+durations by 1.1 and leaves its damping ratio where it was — scale the pair,
+never the stiffness alone. Everything went through it once ("I would make the
+animation (overall) slightly slower"), and the plate's spring twice, the second
+pass on its own ("you still need to make the expand/shrink a bit slower /
+smoother"). That is what puts the slide at 58 stiffness and the plate at
+122, rather than the OSD's 136 and 215.
+
+**Then the bumps were opened up**, by request ("make the animation a bit more
+fun, like the OSD does — a bigger bump, for example"): damping 9.1 → 8.4 on the
+slide (ζ 0.77 → 0.71, an ~11px bump) and 12.4 → 11.5 on the plate (ζ 0.73 →
+0.67, ~8px on each edge). The shut stays damped past 1, and the slide's exit
+is both stiffer and shorter than its entry — 95/15.4 against 58/8.4, same ζ —
+since the wind-up and the drop both ride it and at the entry's stiffness the
+hop alone took ~140ms to reach its latch however early it was released. The plate's is as far as it goes: at ζ 0.64 the right edge
+would reach past the screen edge, and the gap it opens into is only 10px.
+
+**The height opens off the width's progress, not its own spring.** One
+`opened` drives `plateWidth`, `plateHeight` and `plateY`, so the plate reaches
+its full size on one curve; two springs over the same gesture would land its
+two edges at different moments. The height is taken from the *clamped*
+progress where the width is not — the width is free to spring past the card
+and settle back, but a bottom edge overshooting does it into the toast below.
+First shipped as width-only, which was wrong: reported as "the expand also
+needs to work on the height, right now it's just width".
+
+**Only the width is centred. Vertically the plate stays where the icon is and
+grows downwards**, and the content never moves on that axis at all. Centring
+both axes was tried and rejected on sight — "it looks strange, I prefer not to
+have this drift": sideways the content riding the plate reads as the icon
+pulling the card open, but the same thing vertically reads as the text sliding
+up into place under a plate that is opening around it, which is two motions
+disagreeing rather than one gesture.
+
+So `plateY` is `collapsedY * (1 - opened)` with `collapsedY` =
+`(contentRow.height - iconSize) / 2`, and the content is offset by `-plateY` to
+cancel it. `collapsedY` is 0 on every toast whose text is shorter than the
+64px icon — which is most of them, and every one with action buttons, since
+the actions sit below that row rather than in it. It is there for the ones
+where it isn't: the icon is centred in `contentRow`, a three-line body pushes
+that row past the icon's own height, and a plate pinned to the card's top
+corner would then cut the icon off. Verified against both shapes, since on a
+2-line toast `collapsedY` is 0 and hides the bug.
+
+**The row keeps the card's full height throughout**, so the stack reserves the
+space a collapsed toast will grow into rather than growing with it. That leaves
+a gap under a pill that has toasts below it, which in practice only shows
+during an exit: a new toast is appended at the bottom of the stack, so nothing
+sits under it while it opens. The alternative costs much more than it looks —
+the window's `implicitHeight` is the column's, so an animating row height
+reconfigures the layer surface every frame, which is the thing
+`notes/osd.md` moved the OSD's whole resting gap inside its surface to avoid.
+
+**`popupBump` is 16px** against the OSD's 18, and the entry's bump is ~8px
+against ~10 — same ratio, scaled to a surface that moves sideways across a
+wider span. Both are latched exactly as `notes/osd.md` describes, with
+`narrowed` at `opened <= 0.2` so the wind-up starts while the plate is still
+visibly shutting.
+
+**Two things the per-delegate version does that the OSD does not.** The
+latches live on the delegate rather than on the window, since every toast
+stages independently — two arriving 300ms apart were verified overlapping,
+one opening while the next slides in. And the exit's last stage ends by
+*destroying* the delegate: the drop is aimed 1.5x past the surface, parked
+with `snapTo()` the moment the card clears it, and the resulting
+`onRunningChanged` is what calls `removeDisplayPopup()`. That runs inside the
+spring's own frame callback, which was already true before this change.

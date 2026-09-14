@@ -72,11 +72,17 @@ Item {
                 required property int index
                 // Not "layer" — that shadows QQuickItem's layer-effect.
                 readonly property int depth: root.peekCount - index
+                // How far each layer behind the front card is inset, so its
+                // edge peeks out on both sides.
+                readonly property int inset: peekLayer.depth * 8
 
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.leftMargin: peekLayer.depth * 8
-                anchors.rightMargin: peekLayer.depth * 8
+                // Sized off `collapsedStack` rather than anchored through
+                // `parent`: a Repeater delegate is created before it is
+                // parented, so an anchor reading `parent.left` resolves
+                // against null and logs a TypeError for every layer, on every
+                // rebuild.
+                x: peekLayer.inset
+                width: collapsedStack.width - peekLayer.inset * 2
                 y: peekLayer.depth * root.peekOffset
                 height: frontCard.implicitHeight
                 radius: NotificationTheme.cardRadius
