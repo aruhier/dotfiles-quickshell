@@ -171,3 +171,160 @@ Stills can't show motion anyway (a user correction mid-session:
 of the specific property values, diffed against a known-good and
 known-bad ordering, is both safer and more diagnostic than screenshots.
 
+
+## The panel's slide is staged, like the OSD pill and the toasts (2026-09-14)
+
+The slide used to be one near critically damped spring each way (160 / 18,
+ζ ≈ 0.92): in, it ran up to the screen edge and stopped dead on it; out, it
+simply left. It is now the shell's staged gesture — **four stages on one
+spring, two latches, every stage critically damped**: sweep in, ease into a
+bump past the resting place, settle back out of it, then on the way out wind up
+*onto* the screen before dropping off the edge. Requested in three passes: "a
+bump overshoot comparable to what the notification popups do (without the
+expand/shrink thing)", then "the bump looks too mecanical", then "I would also
+like to have the bump to the left before sliding right, when closing the panel
+— same way that for the notifications popups or the OSD".
+
+**Read `notes/osd.md`'s staging section first**; the latches, the aiming past a
+target and the overlap all work there exactly as they do here.
+
+### Why staged, and not one under damped spring
+
+The first two passes used a single under damped spring (ζ ≈ 0.71) and the bump
+was its overshoot. That is what got reported as mechanical, and a `grim` burst
+says why. Measured on DP-1 (~12.5ms per sample, logical px, tracking the
+panel's left edge):
+
+| | one under damped spring | staged |
+|---|---|---|
+| crosses the resting line | ~190ms | ~205ms |
+| bump | 18.0px at ~320ms | 18.5px at ~306ms |
+| return to the resting line | **~250ms, flat ~80px/s** | **~150ms, eased** |
+| fastest step of the return | 1.6px per sample | 2.4px per sample |
+| total | ~570ms | ~470ms |
+
+A spring aimed *at* its resting place crosses it at full speed, so the
+overshoot is the fast half of a sine and the return is its slow half — a
+near-linear crawl that reads as a mechanism. A spring aimed *past* the bump and
+caught there by a latch arrives at the extreme slowly, and is released from
+near rest into a second spring that eases back. Ease in, hold, release: the
+anticipation shape, and the same one the toast's wind-up gets from the same
+trick. It is also why the counter-oscillation is gone — nothing here is under
+damped any more, the bump is geometry rather than ringing.
+
+The aim is `1.2x` the bump, as everywhere else in this shell. The coast past
+the latch is only 0.1px, because by then the spring has nearly stopped.
+
+### The stages
+
+| stage | gate | spring | what it does |
+|---|---|---|---|
+| sweep in | opening, `!bumped` | 227 / 23.3 | 500px of travel, aimed at `resting + bump * 1.2` |
+| settle | opening, `bumped` | 345 / 28.8 | eases the 18px bump back out |
+| wind-up | closing, `!wound` | 455 / 32.9 | 24px onto the screen, aimed `1.2x` past |
+| drop | closing, `wound` | 72 / 13.4 | off the edge, aimed `1.5x` past it |
+
+**The opening pair were then slowed 15%**, by request, with the usual knob —
+`stiffness / 1.15²`, `damping / 1.15` — from 300 / 26.8 and 457 / 33.1. The
+closing pair were left alone. Measured on a burst either side of the change,
+which is also a check that the knob does what it claims: the bump survives it,
+being a property of the damping ratio rather than of the pace.
+
+| | before | after | ratio |
+|---|---|---|---|
+| reaches the resting line | 211ms | 250ms | 1.19 |
+| bump | 18.5px at 306ms | 17.7px at 363ms | 1.19 |
+| settled | 519ms | 621ms | 1.20 |
+
+(Measured ratios run a little over the 1.15 asked for: one sample is ~12.5ms,
+which is 4-6% of these durations.)
+
+The exit pair are the toasts' own numbers (`DismissSlide.qml`), which is what
+"the same way as the popups" means here. Measured, again on a burst: the
+wind-up peaks 23px left of rest ~100ms in, decelerating into it, then flips and
+clears the screen ~210ms later — against the toast's 115ms / 450ms, on 500px of
+travel rather than 265.
+
+**Why not `DismissSlide.qml` itself.** It drives a `Translate` from a resting
+place it assumes the item is sitting at, and it owns its own spring. This panel
+can be closed *while it is still arriving*, and one spring driving the margin
+picks the panel up wherever it actually is — two would have to hand over a
+position and a velocity, or the panel would jump. The OSD makes the same call
+for the same reason and stages itself in `OsdWindow.qml`.
+
+**The bump sizes are pixels, not a damping ratio, and the two differ.** 18px
+arriving, 24px winding up — the OSD's ratio, where a wind-up is the whole
+gesture rather than the tail of one. Nothing moves underneath either, so both
+read at full size, like a control-centre row's 18 and unlike a toast's 52.
+
+### The bump must not open a gap at the screen edge
+
+First shipped bumping off the old resting `-2`, which put ~9px of desktop and
+the panel's square right edge (with its 1px `borderSubtle` outline) on screen
+for the ~300ms around the peak. Reported as "a bit weird […] the notification
+panel needs to be wider than what it really is so that it doesn't show that
+it's out of the screen", and that is the fix:
+`NotificationTheme.controlCenterOverscan`, 22px of panel drawn *past* the right
+edge, with the resting margin at `-overscan` rather than `-2`. The bump pulls
+that slack in and never reaches the panel's own edge — verified on the burst:
+once the panel is on screen, the screen-edge column is never desktop in any
+frame. The slack is free, being compositor-clipped either way; it is what has
+to grow if `controlCenterBump` ever does. Same trick as the fractional-scale
+edge column in the section above, sized for a different job, and it subsumes
+it: one overscan now, not two.
+
+What that makes the gesture, precisely: the panel's width never changes and its
+right edge stays off screen throughout, so what reads is the *left* edge
+lunging past where it will rest and easing back, with the contents riding it.
+Nothing relayouts during the bump — only the Rectangle's x moves.
+
+Three consequences of drawing it wider:
+
+- **The width is snapped in two parts and added** — `Screens.snap(width) +
+  Screens.snap(overscan)` — not snapped as a sum. The panel is right-anchored,
+  so the left edge lands at `width - overscan`; snapping the sum alone would
+  leave that difference off the device pixel grid, which is what the 1px border
+  and the panel's own outline are snapped for in the first place.
+- **The contents fill the visible part, not the overscan**
+  (`anchors.rightMargin: panel.edgeOverscan` on the sibling Item that holds
+  them). Filling the whole Rectangle would measure the layout's 16px padding
+  from an edge that is 22px off screen, taking every row's right inset off the
+  visible panel entirely.
+- **The panel reads 2px wider than it used to**, 500 rather than 498: the old
+  `-2` came out of the visible width, and the overscan is now separate from it.
+  The contents gain those 2px back as padding, since they used to be offset
+  into the overscan too.
+
+### It moved the list's text off the logical grid
+
+Widening the panel shifted its contents 1.6px, which put every card in the list
+on a fractional *logical* x and fringed all of their text — the panel's own
+header, 26.4px to the left of them, stayed crisp. Reported as "the text in
+notifications in the panel has some fringe/artifacts". The list's horizontal
+insets are now solved against where the cards actually land
+(`Screens.snapTextInset()`), off `panel.listEdge` — the panel's *resting*
+position, never its live x, since re-solving mid-slide would walk the list
+sideways inside the panel. The mechanism, the measurement, and why neither
+`snap()` nor a coarser rounding of the inset is enough in front of text, are in
+`notes/text.md`.
+
+### Dead end: snapping the slide to the device pixel grid
+
+"Rough" was first read as a rendering artifact and the spring's value was
+snapped per frame — the panel is the drop shadow's `source`, so it is drawn
+from a layer texture that resamples when it lands off-grid, and the glyphs over
+it are snapped to whole pixels while the plate under them is not. The burst
+killed it: at 1.25 scale the grid is 0.8px, and the slow tail of the gesture
+advances *one* grid step every ~10ms, so a 240Hz output shows the same position
+for two or three frames and then a jump. Snapping traded a sub-pixel blur on a
+moving object, which the eye does not resolve, for visible stepping, which it
+does. Resting offsets are still snapped — those are what the border and the
+text need; motion between them is not.
+
+**Method note:** `grim -g` takes *logical* coordinates in the compositor's
+layout — DP-1 sits at x=2560, so its right edge is x=5632, not 3840 — and
+writes *physical* pixels, so the image is 1.25x the region. A burst of
+one-pixel-tall captures across the edge's travel (~12.5ms apart, timestamped in
+the filename), differenced against a reference row of the closed state, gives
+the whole curve. Trigger the gesture from inside the capture loop; `seq -w 0 90`
+pads to *two* digits, and a trigger keyed on `"003"` never fires.

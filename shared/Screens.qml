@@ -64,4 +64,33 @@ QtObject {
         const scale = scaleFor(screen);
         return Math.round(length * scale) / scale;
     }
+
+    // Adjusts an inset so that what it places lands on a whole *logical*
+    // pixel. Glyph origins are logical, so a text subtree carrying a fraction
+    // renders every stem at its own subpixel offset however exact its device
+    // position is — snap() fixes only the device half. See notes/text.md.
+    //
+    // Solved for the landing place rather than the inset, because whether a
+    // subtree lands whole depends on where its container already is: an inset
+    // that works under a panel on one output is off by a fraction under the
+    // same panel on another. `edge` is where the inset starts, measured
+    // rightwards, in the window's own coordinates; negate both for an inset
+    // running the other way.
+    //
+    // A landing that is *also* a whole device pixel keeps the outline it
+    // places crisp too, so one is preferred when the scale puts one within
+    // 2px: that is every scale whose fractional part is halves, thirds,
+    // quarters or fifths — 1.25 lands on fours, 1.5 on twos. Failing that the
+    // nearest whole logical pixel wins, since text is the thing being placed.
+    function snapTextInset(inset, edge, screen) {
+        const scale = scaleFor(screen);
+        const nearest = Math.round(edge + inset);
+        for (let offset = 0; offset <= 2; offset++) {
+            for (const landing of [nearest + offset, nearest - offset]) {
+                if (Math.abs(landing * scale - Math.round(landing * scale)) < 1e-3)
+                    return landing - edge;
+            }
+        }
+        return nearest - edge;
+    }
 }

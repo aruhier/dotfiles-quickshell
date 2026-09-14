@@ -225,3 +225,106 @@ it makes Qt render every surface at 6144x3456 for a 3840-wide output, and it
 treats the symptom. `QT_WAYLAND_DISABLE_FRACTIONAL_SCALE`, tried first, is not
 a Qt variable at all — 6.11's `libQt6WaylandClient` has no such string.
 
+
+## `snap()` is not enough in front of text: solve for the landing (2026-09-14)
+
+Reported as "the text in notifications in the panel has some fringe/artifacts",
+after the control centre's overscan changed (see `notes/panels.md`). In the
+same screenshot the panel's *header* — "Notifications", "Do Not Disturb" — was
+crisp and only the cards' text fringed, which is what located it: the two
+subtrees differ by the list's own inset.
+
+**Glyph origins are logical pixels; `snap()` only guarantees device pixels.**
+Both facts were already in this file; together they leave a gap. The list's
+26px inset snaps to 26.4 at scale 1.25 — a whole device pixel, so the card's
+outline is exactly as crisp as intended — and 26.4 lands the card, and every
+glyph in it, on a fractional *logical* x. The rasteriser then positions each
+stem at its own subpixel offset and the weights alternate word to word. It
+looks like a font-weight bug, not an alignment one. Vertical offsets in the
+same chain are just as fractional (the panel rests at y = 50.4) and the text is
+unaffected: baselines are rounded to whole device pixels, only horizontal
+positioning is subpixel.
+
+Measured, with the same notification on screen either side of the change:
+
+| | card's absolute x | logical | device |
+|---|---|---|---|
+| before the overscan | 2573.6 + 16 + 26.4 | 2616.0 ✓ | 3270 ✓ |
+| after it | 2572.0 + 16 + 26.4 | 2614.4 ✗ | 3268 ✓ |
+
+So the old rendering was crisp *by luck*: the panel's own `-1.6` resting
+overscan happened to cancel the inset's `+0.4`. Changing the overscan changed
+the parity and the cancellation stopped.
+
+**Snapping the inset is not the fix — the landing place is.** The first attempt
+rounded the inset itself to a length whole in both spaces (4px at 1.25, 3 at
+1.333). It works on this output and is wrong in general: whether a subtree
+lands whole depends on where its container already is, and the container is
+placed by `snap()`, which does not care about logical wholeness. At scale
+1.3333 on a 2560 monitor the panel's own left edge lands at 1419.75, and *no*
+inset that is a multiple of 3 can fix that.
+
+`Screens.snapTextInset(inset, edge, screen)` takes where the inset starts, in
+the window's own coordinates, and returns the inset that lands on a whole
+logical pixel — preferring a landing that is a whole device pixel too, so the
+outline it places stays crisp, when the scale puts one within 2px. That covers
+every scale whose fraction is halves, thirds, quarters or fifths; past that the
+nearest whole logical pixel wins, since text is the thing being placed.
+
+Checked arithmetically over 60 combinations — 12 Hyprland-quantized scales
+(1.0 … 2.0, including 7/6 and 175/120, both awkward) against five monitor
+widths, running the real chain with JS rounding semantics:
+
+| | cards landing fractional |
+|---|---|
+| inset snapped on its own | 42 of 60 |
+| solved for the landing | **0 of 60** |
+
+The inset itself ends up between 23.8 and 28.2 against the designed 26. At 7/6
+the landing is whole logically but not in device pixels, and the card's outline
+softens instead of its text — the documented order of preference.
+
+**Use it for the last offset in front of text, not everywhere.** Everything
+that places an edge, a border or a container still takes `snap()`; only the
+inset a text subtree ultimately hangs off needs this, and it needs the
+container's *resting* position, never a position mid-animation.
+
+### The other half of it: text steps, plates glide (2026-09-14)
+
+Reported separately, once the panel was crisp at rest: "it looks like the text
+of the notification slightly shifts to the right after the animation finishes."
+It does, and it is the same rounding seen from the other side. Glyph origins
+are rounded to whole device pixels *every frame*, so a moving text subtree
+advances in 1px hops; the plate under it carries no such rounding — it is a
+layer texture, resampled — so it glides. While the panel is moving quickly the
+two are indistinguishable. At the end of a settle they are not: the panel
+creeps the last pixel at ~0.1px per frame, and somewhere in that creep the text
+takes one 1px step by itself, against a card that looks stationary.
+
+Measured across the last frames of the open, each strip cross-correlated
+against the settled frame (device px, positive = still left of home):
+
+| | card's left edge | the text | apart |
+|---|---|---|---|
+| before | 0.72 → 0.16 | 1.00, held | 0.28 → **0.84** |
+| after | 1.04 → 0 | 1.23 → 0 | 0.19, **landing on one frame** |
+
+**Two changes, and neither is about the resting alignment above.** The landing —
+the last 2 device pixels of the settle only — snaps the margin to the device
+grid, so the plate takes the same hops the text is taking and they arrive
+together. And the spring is parked once it is within half a device pixel,
+because `FrameSpring.isSettled()` compares a *velocity in px/s* against a
+*pixel* epsilon: for a critically damped settle that means it keeps integrating
+until the error is ~0.01px, about 130ms of frames that cannot change a single
+rendered pixel, which is what gave the lone text step room to happen.
+
+Snapping only the landing, rather than the whole gesture, is deliberate — see
+the dead end in `notes/panels.md`: snapped throughout, the slow parts of a
+gesture advance one device pixel every ~10ms and read as stepping. The window
+is in *device* pixels (`2 / scale`), so it is two hops wide on any output.
+
+**What is irreducible:** the panel still lands with one 1px hop, because text
+can only ever sit on whole device pixels. The fix makes the card and its text
+take that hop together, which reads as the panel arriving rather than as the
+text sliding inside it.
+

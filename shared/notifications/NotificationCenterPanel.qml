@@ -46,7 +46,18 @@ PanelWindow {
             if (!NotificationService.centerOpen)
                 panelWindow.closing = true;
             panelWindow.open = NotificationService.centerOpen;
-            rightMarginSpring.retarget(NotificationService.centerOpen ? panel.restingRightMargin : panel.closedRightMargin);
+            if (NotificationService.centerOpen) {
+                // Cleared here, not only when the exit finishes: reopening
+                // mid-close leaves `closing` set otherwise, and the spring
+                // reads it to know which stage it is in. Ordered after the
+                // write above so `open || closing` never dips false.
+                panelWindow.closing = false;
+                panel.bumped = false;
+                rightMarginSpring.retarget(panel.bumpAim);
+            } else {
+                panel.wound = false;
+                rightMarginSpring.retarget(panel.windUpAim);
+            }
         }
     }
 
@@ -162,13 +173,17 @@ PanelWindow {
         }
 
         // Slides in and out by animating rightMargin, rather than toggling
-        // visibility. The resting -2 is deliberate overscan: at fractional
-        // scale a 0 margin left the last physical column transparent, since
-        // only this Rectangle paints. The extra 2px are square and clipped.
+        // visibility. It is drawn `edgeOverscan` wider than it reads and rests
+        // that far past the screen edge, so the opening bump pulls that slack
+        // in instead of opening a gap to the edge — and so the last physical
+        // column, which a flush margin leaves transparent at fractional scale
+        // since only this Rectangle paints, is covered. That side is square,
+        // and what sits past the edge is compositor-clipped.
         //
-        // Every offset that places this Rectangle goes through
+        // Every *resting* offset that places this Rectangle goes through
         // `Screens.snap()`, width included — right-anchored, so margin *and*
-        // width decide where the left edge lands. That is for this
+        // width decide where the left edge lands. Mid-gesture it is off the
+        // grid on purpose; see the margin binding below. That is for this
         // Rectangle's own 1px border: off the device pixel grid it draws as
         // two half-lit columns instead of one solid one. The panel's *text*
         // does not depend on it (Qt rounds glyph positions); what text needed
@@ -179,22 +194,111 @@ PanelWindow {
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             anchors.margins: Screens.snap(NotificationTheme.controlCenterMarginV, panelWindow.screen)
-            anchors.rightMargin: rightMarginSpring.value
-            width: Screens.snap(NotificationTheme.controlCenterWidth, panelWindow.screen)
+            // Deliberately *not* snapped per frame, though every resting
+            // offset here is: the slow tail of a gesture then advances a whole
+            // device pixel at a time, which reads as stepping. Measured, at
+            // 1.25 scale: 0.8px every ~10ms on a 240Hz output.
+            //
+            // The *landing* is the exception. Glyph origins are rounded to
+            // whole device pixels while this plate is resampled continuously,
+            // so over the last couple of device pixels the text takes its final
+            // step alone, while the panel is creeping too slowly to read as
+            // moving — which looks like the text shifting inside its card.
+            // Snapped over that window, plate and text step together instead.
+            // See notes/text.md.
+            readonly property real devicePixel: 1 / Screens.scaleFor(panelWindow.screen)
+            readonly property bool landing: !panelWindow.closing && panel.bumped && Math.abs(rightMarginSpring.value - panel.restingRightMargin) <= 2 * panel.devicePixel
+            anchors.rightMargin: panel.landing ? Screens.snap(rightMarginSpring.value, panelWindow.screen) : rightMarginSpring.value
+            // Snapped separately and added, rather than snapping the sum: the
+            // left edge lands at `width - edgeOverscan`, so both have to be on
+            // the device pixel grid for it to be.
+            readonly property real visibleWidth: Screens.snap(NotificationTheme.controlCenterWidth, panelWindow.screen)
+            readonly property real edgeOverscan: Screens.snap(NotificationTheme.controlCenterOverscan, panelWindow.screen)
+            width: panel.visibleWidth + panel.edgeOverscan
 
-            readonly property real restingRightMargin: Screens.snap(-2, panelWindow.screen)
+            readonly property real restingRightMargin: -panel.edgeOverscan
             // Off-screen, so it only has to clear the edge, not land on it.
             readonly property real closedRightMargin: -panel.width - 2
 
+            // A bigger margin is further left, so both bumps — the arrival's,
+            // past the edge, and the exit's wind-up, onto the screen — are
+            // *above* the resting margin, and the drop is far below it.
+            //
+            // Each stage is aimed past the line that ends it and caught there
+            // by a latch: a spring decelerates into its target, so aiming past
+            // the bump arrives at it slowly and releases from near rest, where
+            // a spring aimed *at* it would still be at full speed. That is the
+            // whole difference between this and one under damped spring, which
+            // crosses its resting line fast and rings back. See notes/panels.md.
+            readonly property real bumpLine: panel.restingRightMargin + NotificationTheme.controlCenterBump
+            readonly property real bumpAim: panel.restingRightMargin + NotificationTheme.controlCenterBump * 1.2
+            readonly property real windUpLine: panel.restingRightMargin + NotificationTheme.controlCenterDismissBump
+            readonly property real windUpAim: panel.restingRightMargin + NotificationTheme.controlCenterDismissBump * 1.2
+            // Aimed past the edge rather than at it: the last sliver of a
+            // panel creeping away reads as an ease-out on an exit.
+            readonly property real dropAim: panel.closedRightMargin - (panel.restingRightMargin - panel.closedRightMargin) * 0.5
+
+            // Latched rather than compared, because the spring crosses each
+            // line and comes back over it.
+            property bool bumped: false
+            property bool wound: false
+
+            // The panel's inner inset, and where the list's left edge sits in
+            // the window once the panel is at rest. The card inset is solved
+            // against this rather than snapped on its own: what a text subtree
+            // needs is a whole logical landing place, and where that is
+            // depends on where the panel has landed on this output. Off the
+            // *resting* geometry and never the live x — re-solving it
+            // mid-slide would walk the list sideways inside the panel.
+            readonly property real contentInset: Screens.snap(NotificationTheme.panelPadding, panelWindow.screen)
+            readonly property real listEdge: panelWindow.width - panel.visibleWidth + panel.contentInset
+
             // Retargeted imperatively from the Connections handler above.
+            //
+            // Four stages on one spring, every one of them critically damped,
+            // switched on the two latches: sweep in and ease into the bump,
+            // settle back out of it, wind up onto the screen, drop off the
+            // edge. One spring rather than two so a gesture interrupted
+            // mid-flight — closing while still arriving — picks up the panel
+            // where it actually is instead of jumping.
             FrameSpring {
                 id: rightMarginSpring
-                // Softer than Theme's defaults (shared with the modules'
-                // width springs, hence the local override): same ~0.92 damping
-                // ratio, lower frequency, for a slower slide. 90% of the 500px
-                // travel in ~220ms, 99% in ~345ms.
-                stiffness: 160
-                damping: 18
+                // The sweep is soft enough to read at 500px of travel, the
+                // settle stiffer since it only has the bump to undo, and the
+                // exit's pair are the toasts' own — the wind-up stiff so it
+                // covers its distance *and* arrives, the drop soft enough not
+                // to snatch. Scale a pair to change the pace, never the
+                // stiffness alone; the knob is in notes/osd.md. The opening
+                // pair have been through it once, at 1.15.
+                stiffness: panelWindow.closing ? (panel.wound ? 72 : 455) : (panel.bumped ? 345 : 227)
+                damping: panelWindow.closing ? (panel.wound ? 13.4 : 32.9) : (panel.bumped ? 28.8 : 23.3)
+                onValueChanged: {
+                    if (panelWindow.closing) {
+                        if (!panel.wound) {
+                            if (value >= panel.windUpLine) {
+                                panel.wound = true;
+                                retarget(panel.dropAim);
+                            }
+                        } else if (value <= panel.closedRightMargin) {
+                            // Parked the moment the panel is clear; settling is
+                            // what unmaps the window, below.
+                            snapTo(panel.closedRightMargin);
+                        }
+                    } else if (!panel.bumped) {
+                        if (value >= panel.bumpLine) {
+                            panel.bumped = true;
+                            retarget(panel.restingRightMargin);
+                        }
+                    } else if (Math.abs(value - panel.restingRightMargin) <= 0.5 * panel.devicePixel) {
+                        // Parked once the rendered position can no longer
+                        // change. The stop condition in FrameSpring compares a
+                        // velocity in px/s against a pixel epsilon, so a
+                        // critically damped settle goes on integrating for
+                        // ~130ms after it has visibly arrived — frames that can
+                        // only produce the sub-pixel drift above.
+                        snapTo(panel.restingRightMargin);
+                    }
+                }
                 Component.onCompleted: snapTo(panel.closedRightMargin)
                 onRunningChanged: if (!running && !NotificationService.centerOpen)
                     panelWindow.closing = false
@@ -233,7 +337,11 @@ PanelWindow {
         // offset; text *inside* a layer is not, and this panel used to put its
         // entire contents in one. Measured: AGENTS.md.
         Item {
+            // Fills what reads, not the overscan: the slack past the screen
+            // edge is background, so the layout's padding still measures from
+            // the visible edge.
             anchors.fill: panel
+            anchors.rightMargin: panel.edgeOverscan
 
             // Keeps clicks inside the panel off the outer close-catcher.
             MouseArea {
@@ -242,7 +350,7 @@ PanelWindow {
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: Screens.snap(NotificationTheme.panelPadding, panelWindow.screen)
+                anchors.margins: panel.contentInset
                 spacing: NotificationTheme.panelSpacing
 
                 // ---- header ----
@@ -337,9 +445,19 @@ PanelWindow {
                         // margins: these place each card's 1px outline, which
                         // splits across two columns when it lands off the
                         // device pixel grid.
+                        //
+                        // The horizontal pair are the last offset before a
+                        // card's *text*, so they are solved for where the card
+                        // lands rather than snapped on their own: an inset
+                        // whole only in device pixels leaves the card on a
+                        // fractional logical x, which fringes every glyph in
+                        // the list. Both sides take the value solved for the
+                        // left edge — where a line of text starts — so the
+                        // cards stay centred in the panel. See notes/text.md.
+                        readonly property real cardInset: Screens.snapTextInset(NotificationTheme.listPadding, panel.listEdge, panelWindow.screen)
                         spacing: Screens.snap(NotificationTheme.listCardMargin * 2, panelWindow.screen)
-                        leftMargin: Screens.snap(NotificationTheme.listPadding, panelWindow.screen)
-                        rightMargin: Screens.snap(NotificationTheme.listPadding, panelWindow.screen)
+                        leftMargin: notificationListView.cardInset
+                        rightMargin: notificationListView.cardInset
                         topMargin: Screens.snap(NotificationTheme.listCardMargin, panelWindow.screen)
                         bottomMargin: Screens.snap(NotificationTheme.listCardMargin, panelWindow.screen)
                         model: NotificationService.notificationGroups

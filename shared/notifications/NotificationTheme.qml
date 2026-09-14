@@ -72,6 +72,21 @@ QtObject {
     readonly property int fontSizeTitle: 21
 
     readonly property int controlCenterWidth: 500
+    // Drawn past the right screen edge, on top of controlCenterWidth: the
+    // panel is this much wider than it reads, so its opening bump slides that
+    // slack in rather than opening a gap to the edge, and the edge column a
+    // flush margin leaves transparent at fractional scale is covered. Must
+    // stay clear of controlCenterBump; see notes/panels.md.
+    readonly property int controlCenterOverscan: 22
+    // How far past its resting place the panel runs as it arrives, before
+    // easing back into the screen edge. Read directly, like a control-centre
+    // row's wind-up and unlike a toast's: nothing moves underneath it to
+    // cancel part of it.
+    readonly property int controlCenterBump: 18
+    // How far it pulls the other way — further onto the screen — as a wind-up
+    // before it leaves. Bigger than the arrival's bump, as the OSD pill's is:
+    // a wind-up is the whole gesture rather than the tail of one.
+    readonly property int controlCenterDismissBump: 24
     // Gap above and below the panel, so it floats rather than filling the edge.
     readonly property int controlCenterMarginV: 50
     // Popup stack width: narrow for an ordinary toast, growing only when the
