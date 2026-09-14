@@ -336,6 +336,7 @@ PanelWindow {
                     pinnedX: entryRoot.closing ? entryRoot.closeX : -1
                     wrapper: entryRoot.entry.display
                     floating: true
+                    radius: NotificationTheme.popupRadius
                     // A closing toast is on its way out regardless.
                     interactive: !entryRoot.entry.closing
                 }

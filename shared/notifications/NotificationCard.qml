@@ -131,11 +131,11 @@ Item {
     implicitHeight: padding + mainColumn.implicitHeight + (actionsRow.visible ? actionsTopMargin + actionsRow.height + actionsMargin : padding)
 
     // Shared so the selection-border overlay matches the background's shape.
-    readonly property int radius: NotificationTheme.cardRadius
+    // Settable: a toast rounds harder than a list card (see popupRadius).
+    property int radius: NotificationTheme.cardRadius
 
     // Split out from `card` so it can be the MultiEffect source for the drop
-    // shadow. A source Item is excluded from normal scene painting, so this
-    // never double-renders.
+    // shadow.
     Rectangle {
         id: background
         x: card.plateX
@@ -144,6 +144,16 @@ Item {
         height: card.plateHeight
         radius: card.radius
         color: card.floating ? NotificationTheme.bgFloating : NotificationTheme.bg
+        // A MultiEffect source is *not* excluded from ordinary scene painting:
+        // left visible, the plate is drawn twice — once here and once through
+        // the effect — and the two alphas compound. A toast's 0.89 lands at
+        // 0.99 that way, which is opaque over a bright window where the OSD's
+        // single pass still shows the blur through. Hidden here, the effect is
+        // the only thing that paints it, shadow and all. Only for a toast: a
+        // control-centre card is over the panel's own plate rather than over
+        // the desktop, and undoing the compounding there would lighten every
+        // row in the list.
+        visible: !card.floating
     }
 
     MultiEffect {

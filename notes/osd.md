@@ -14,12 +14,13 @@ binds no longer call `swayosd-client`, the brightness binds no longer call
 **It is painted as a notification surface, not as a bar pill.** Metrics live in
 `Theme.qml` with the rest of the shell's, but every colour comes from
 `NotificationTheme.qml` — `bgFloating` plate, `borderSubtle` edge,
-`text`/`textDisabled` labels, `bgSelected` fill. The plate takes that hue at
-its own alpha (`Theme.osdOpacity`, 0.94) rather than `bgFloating`'s 0.875: a
-toast is read at leisure, the OSD lands over whatever is on screen, and raising
-`bgFloating` would move the toasts with it. It floats over the desktop the
-way a toast does, so it belongs to that palette; the split is called out at
-both ends. That plate carries real alpha, so `quickshell-osd` needs the same
+`text`/`textDisabled` labels, `bgSelected` fill. The plate takes `bgFloating`
+whole, alpha included: it floats over the desktop the way a toast does, so it
+is the same material and reads as one. (It used to hold its own alpha in
+`Theme.osdOpacity` on the grounds that the OSD lands over whatever is on
+screen where a toast is read at leisure — 0.89 against 0.875, a difference
+nobody could see. Removed 2026-09-14 when the toasts were made to match it,
+and the shared value then went to 0.94 for both; see notes/notifications.md.) That plate carries real alpha, so `quickshell-osd` needs the same
 `blur` layerrule the control centre has, plus `no_anim` — the window springs
 itself in and out, and Hyprland fading it too double-animates.
 

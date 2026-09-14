@@ -9,7 +9,13 @@ QtObject {
     // Real alpha, so Hyprland's blur layerrule has something to show through.
     // Cards sit lighter than the panel so they still read as chips on it.
     readonly property color bg: Qt.rgba(0.20, 0.20, 0.20, 0.825)
-    readonly property color bgFloating: Qt.rgba(0.165, 0.165, 0.165, 0.875)
+    // Every free-floating surface — the toasts and the OSD pill — takes this
+    // one, so the two read as the same pane of glass. Both namespaces carry a
+    // Hyprland `blur` layerrule; without one this alpha reads as flat grime
+    // rather than as glass. Higher than the panel's: these land over whatever
+    // happens to be on screen, and over a white window the blurred bleed is
+    // what costs the text its contrast. See notes/notifications.md.
+    readonly property color bgFloating: Qt.rgba(0.165, 0.165, 0.165, 0.94)
     readonly property color bgGlobal: Qt.rgba(0.165, 0.165, 0.165, 0.875)
     readonly property color bgHover: "#4b4b4b"
     // Action-button chip fill: above the card, below its hover state.
@@ -31,6 +37,11 @@ QtObject {
     readonly property color borderSubtle: Qt.rgba(text.r, text.g, text.b, 0.1)
 
     readonly property int cardRadius: 10
+    // A toast is a floating plate rather than a chip in a list, so it carries
+    // more corner than a control-centre card does — closer to the OSD pill it
+    // shares a palette with, without going stadium: a toast is tall enough
+    // that a stadium would bow its sides.
+    readonly property int popupRadius: 18
     readonly property int controlCenterRadius: 12
 
     // ---- control-center metrics ----

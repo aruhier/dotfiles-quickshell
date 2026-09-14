@@ -231,8 +231,9 @@ PanelWindow {
             radius: Theme.osdRadius
             // Real alpha, like the control centre's plate — the `quickshell-osd`
             // blur layerrule is what gives it something to show through. The
-            // hue is the toasts', the opacity is Theme.osdOpacity; see there.
-            color: Qt.rgba(NotificationTheme.bgFloating.r, NotificationTheme.bgFloating.g, NotificationTheme.bgFloating.b, Theme.osdOpacity)
+            // toasts' plate colour outright, alpha included: both are floating
+            // surfaces over the desktop and read as one material.
+            color: NotificationTheme.bgFloating
             border.width: 1
             border.color: NotificationTheme.borderSubtle
         }

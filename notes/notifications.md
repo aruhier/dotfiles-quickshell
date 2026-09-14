@@ -474,3 +474,71 @@ gesture that is already over.
 `MouseArea` and button — one line, and it matches a closing toast going inert
 (`interactive: !closing`). The hover flags drop with it, so the close button
 fades out over the slide exactly as a toast's does.
+
+
+## Toasts read as glass, like the OSD (2026-09-14)
+
+Reported as "the popups should be a bit more rounded, and look more like the
+OSD in terms of transparency". The rounding is one number
+(`NotificationTheme.popupRadius`, 18 against a list card's 10, set on the card
+from `NotificationPopupWindow.qml` so nothing in the control centre moves).
+The transparency was not a number at all — **the toast's plate was being
+composited twice**, and the second pass is what made it opaque.
+
+`NotificationCard.qml` paints its plate as a `Rectangle` that is also the
+`MultiEffect` source for the drop shadow. A MultiEffect source is *not*
+excluded from ordinary scene painting the way a `ShaderEffectSource` with
+`hideSource` is: the rectangle was drawn once by the scene graph and once more
+through the effect, and two 0.89 alphas compound to 0.99. Measured over a
+white window on DP-1, plate interior against a `(245,242,238)` backdrop:
+
+| | over dark desktop | over white window | effective alpha |
+|---|---|---|---|
+| toast, plate drawn twice | (40,40,40) | (43,43,43) | ~0.99 |
+| toast, plate drawn once | (40,40,40) | (71,70,69) | 0.89 |
+| OSD pill (never had the effect) | (43,43,44) | ~(59,59,58) | 0.89 |
+
+`bgFloating` then settled at **0.94**, not the 0.89 the OSD had been carrying:
+0.89 reads as glass over the desktop but leaves the backdrop's own text
+legible enough through a toast over a white window to compete with the
+summary. Over white the plate goes 71 → 65 at 0.92 → 60 at 0.94, while over
+the dark desktop all three sit within a level of each other — the whole knob
+is spent on the bright case. Anything past this stops showing the blur at all
+and the surface reads as a flat chip again.
+
+The give-away was that the toast barely moved between a dark backdrop and a
+white one, where the OSD moved by ~16 levels. Dropping the alpha to 0.4 to
+test showed 115 where a single pass predicts 164 and two passes predict 115 —
+which is what identified the double pass rather than the blur or the shadow.
+
+Fixed with `visible: !card.floating` on the plate: the effect then paints it
+once, shadow and all. **Only for a toast.** A control-centre card sits on the
+panel's own plate rather than on the desktop, so undoing the compounding there
+would lighten every row in the list — out of scope for this change, and still
+true if it is ever wanted.
+
+`bgFloating` went 0.875 → 0.94 and `Theme.osdOpacity` was deleted, so the
+toasts and the OSD are now literally the same colour (see notes/osd.md).
+
+**The other half was a missing layerrule.** `quickshell-notifications` had no
+`blur` rule where `quickshell-osd` and `quickshell-notification-center` both
+do, so once the plate was genuinely translucent the window behind it showed
+through *sharp* — legible text under the toast, which is worse than opaque.
+Added to `~/dotfiles/hypr/conf/rules.lua` with the OSD's own threshold:
+
+```lua
+hl.layer_rule({ match = { namespace = "quickshell-notifications" }, blur = true, ignore_alpha = 0.8 })
+```
+
+`ignore_alpha` has to stay below the plate's alpha and above the shadow's:
+0.8 blurs the plate and leaves the shadow's halo alone. Verified by removing
+the rule and re-shooting — same pixel values either way (Hyprland's blur
+brightness cancels out over a flat backdrop), the difference is entirely
+whether the bleed-through is sharp or smeared, so **measure this one by eye,
+not by sampling**.
+
+Not touched, and a candidate if the entry ever looks doubled:
+`quickshell-notifications` has no `no_anim` rule either, so Hyprland still
+fades the surface in as the first toast's own spring plays. The window only
+maps and unmaps at the ends of a burst, so it is one fade per stack rather
+than per toast.

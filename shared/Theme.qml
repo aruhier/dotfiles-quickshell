@@ -84,11 +84,6 @@ QtObject {
     // tail of one. Must stay inside osdOvershoot: the hop coasts ~5% past
     // this before the drop takes over. See notes/osd.md.
     readonly property int osdBump: 18
-    // The plate's alpha. NotificationTheme.bgFloating's hue with an opacity of
-    // this shell's own: a toast is read at leisure, while the OSD lands over
-    // whatever happens to be on screen, so it leans less on the blur. Raising
-    // bgFloating itself would move the toasts with it.
-    readonly property real osdOpacity: 0.89
     // A share of the output's height, not a fixed margin, so it lands in the
     // same place on a 1440 and a 2160 panel. swayosd worked the same way —
     // `margin_bottom = height * (1 - top_margin)`, default 0.85, so 0.15. This
