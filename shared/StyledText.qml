@@ -1,6 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
-import qs.shared
+import qs.themes
 
 // Every piece of text in this shell. A bare `Text {}` is a bug: the four
 // settings below are identical at all ~65 sites, and three of them fail

@@ -38,7 +38,7 @@ reports the true elapsed `frameTime` — rather than `QUnifiedTimer`'s fixed
 ~60Hz GUI-thread ticker.
 
 Stiffness/damping/mass default to Hyprland's own spring config
-(`Theme.frameSpringStiffness/Damping/Mass` = 460/35/0.6), **not**
+(`FrameSpring.qml`'s own `stiffness/damping/mass` = 460/35/0.6), **not**
 `Theme.springSpring/springDamping` — those tune Qt's `SpringAnimation` formula
 specifically and do not share Hyprland's unit convention despite the same
 underlying ODE shape. FrameSpring implements that ODE directly, so Hyprland's

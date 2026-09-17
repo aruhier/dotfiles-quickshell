@@ -199,7 +199,7 @@ two sides are not symmetric:
 
 | side | room | what needs it |
 |---|---|---|
-| left | `NotificationTheme.popupOvershoot`, 24px | the slide's ~11px bump *plus* the opening's ~8px, together; the shadow |
+| left | `NotificationPopupWindow.qml`'s `overshoot`, 24px | the slide's ~11px bump *plus* the opening's ~8px, together; the shadow |
 | right | the 10px edge gap, now inside the surface | the opening's ~8px, less whatever the slide is still leaning left |
 
 **The two overshoots land on top of each other, and only on the left.** The
@@ -432,10 +432,10 @@ logical px), tracking the icon, timed from the frame the click landed on:
 | flip | ~135ms | 229ms |
 | off the surface | ~345ms | 450ms |
 
-**`popupBump` is 52 and this is 18, and they are the same size on screen.** A
+**`popupBump` (`NotificationPopupWindow.qml`'s `bump`) is 52 and this is 18, and they are the same size on screen.** A
 toast's hop runs under a plate that is still collapsing rightwards and loses
 most of itself to that drift; nothing moves under a panel row, so the whole of
-`listDismissBump` is seen. Measured: 295.2 → 277.6px on the row, 18.4px on a
+the row's wind-up (`NotificationTheme.bump`, which the OSD and the control centre's arrival share) is seen. Measured: 295.2 → 277.6px on the row, 18.4px on a
 card inside an expanded group.
 
 **The dismissal is deferred to the end of the gesture, not played after it.**

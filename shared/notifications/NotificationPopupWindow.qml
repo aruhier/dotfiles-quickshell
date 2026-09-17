@@ -7,6 +7,7 @@ import qs.shared
 import qs.services
 import qs.shared.animations
 import qs.shared.notifications
+import qs.themes
 
 // The toast stack, in the top-right corner under the bar. Anchored to the
 // screen, not to a module, so it's a plain PanelWindow rather than the
@@ -28,6 +29,19 @@ PanelWindow {
     // and a window clips its contents.
     margins.right: 0
     readonly property real edgeGap: Screens.snap(10, popupWindow.screen)
+    // Slack left of the stack for the slide to bump into on the way in and to
+    // wind up into on the way out, plus room for the cards' shadows: a window
+    // clips its contents. The plate opens the other way, into the gap the
+    // stack keeps from the screen edge. Nothing is drawn here at rest, so it
+    // only widens the surface away from that edge.
+    readonly property int overshoot: 24
+    // How far a toast pulls left as a wind-up before it leaves to the right.
+    // Most of it is cancelled on the way to the eye: the hop runs *under* a
+    // plate still collapsing rightwards, which drags the icon back the other
+    // way, so what reads is the difference — ~19px of this 52. This is the
+    // knob for whether the hop is seen; the aim at the call site is the one
+    // for how long it takes. See notes/notifications.md.
+    readonly property int bump: 52
 
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
@@ -68,8 +82,8 @@ PanelWindow {
 
     // The stack, the gap it keeps from the screen edge — which is also what the
     // opening plate springs past its full width into — and slack on the far
-    // side for the slide to overshoot into. See NotificationTheme.popupOvershoot.
-    implicitWidth: Screens.snap(NotificationTheme.popupOvershoot + stackWidth + edgeGap, popupWindow.screen)
+    // side for the slide to overshoot into. See `overshoot`.
+    implicitWidth: Screens.snap(popupWindow.overshoot + stackWidth + edgeGap, popupWindow.screen)
     implicitHeight: column.implicitHeight
 
     // One entry per popup on screen: a superset of NotificationService.popups
@@ -248,7 +262,7 @@ PanelWindow {
                 DismissSlide {
                     id: slide
                     travel: entryRoot.travel
-                    bump: NotificationTheme.popupBump
+                    bump: popupWindow.bump
                     playEntry: true
                     entryLatchAt: entryRoot.travel * 0.15
                     onFinished: popupWindow.removeDisplayPopup(entryRoot.index, entryRoot.entry)

@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell.Hyprland
 import qs.shared
+import qs.themes
 
 // Hyprland submap indicator: hidden on the default submap, an italic pill with
 // the submap name otherwise.

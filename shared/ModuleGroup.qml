@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import qs.shared
+import qs.themes
 
 // Flush pill-shaped module group for the bar's left/right ends: rounded on the
 // side facing center, square against the screen edge. The center group is a

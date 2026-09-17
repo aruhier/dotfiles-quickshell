@@ -6,6 +6,7 @@ import Quickshell.Hyprland
 import qs.shared
 import qs.shared.animations
 import qs.shared.popup
+import qs.themes
 
 // Workspace pill row: every workspace on every monitor, shown on every bar.
 // Colors: has windows = workspaceBg, empty = workspaceEmptyBg, system-focused

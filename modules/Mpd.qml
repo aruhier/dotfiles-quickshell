@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import qs.services
 import qs.shared
+import qs.themes
 
 // MPD now-playing indicator (via mpc, since mpd isn't exposed over MPRIS
 // here) — a thin view over MpdService, which owns the polling.

@@ -30,8 +30,14 @@ services/*.qml        pragma-Singleton types holding state + the actual
                       OsdService, WeatherService) — one
                       watch/subscription/fetch cycle for the whole process
                       regardless of monitor count
-shared/Theme.qml      pragma-Singleton palette + metrics — shared
-                      process-wide, not one instance per output
+themes/Theme.qml      pragma-Singleton palette + metrics for the bar and
+                      the OSD's geometry — shared process-wide, not one
+                      instance per output. Source of truth for any visual
+                      value (see AGENTS.md)
+themes/NotificationTheme.qml pragma-Singleton palette/metrics for the
+                      notification popups, control center and OSD colours
+                      — deliberately not Theme.qml, see
+                      `notes/notifications.md`
 shared/BarModule.qml  base type for a bar module: eased width (contentWidth +
                       padding through a FrameSpring), bar-height sizing,
                       clip, and the `contentVisible` flag ModuleLoader reads.
@@ -74,9 +80,6 @@ shared/osd/OsdWindow.qml the on-screen display: one shared bottom-centre
 shared/notifications/ the notification daemon's UI — see
                       `notes/notifications.md` for why this is a separate
                       subsystem from shared/popup/ rather than built on it
-  NotificationTheme.qml  pragma-Singleton palette/metrics matching the
-                         swaync setup this replaces — deliberately not
-                         shared/Theme.qml, see `notes/notifications.md`
   NotificationCard.qml   one notification's visual; reused by both the
                          popup stack and the control-center list
   NotificationPopupWindow.qml top-right floating toast stack (PanelWindow,
@@ -113,7 +116,7 @@ shared/animations/FrameSpring.qml   FrameAnimation-driven spring (real
                       ~60Hz-capped QUnifiedTimer clock — see "capped near
                       60Hz" below) — every module's width-change easing
                       now uses this instead of WidthSpring.qml
-shared/animations/WorkspaceFrameSpring.qml same, but Theme.frameSpringWorkspace*
+shared/animations/WorkspaceFrameSpring.qml same, with its own faster constants
                       — Workspaces.qml's own faster FrameSpring variant,
                       kept separate for the same reason WorkspaceSpring.qml
                       was

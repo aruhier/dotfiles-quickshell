@@ -2,7 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import qs.shared
 import qs.shared.animations
-import qs.shared.notifications
+import qs.themes
 
 // The round ✕ chip: a card's close button and a group's close-all. Implicit
 // size only, never width/height, so it works both anchored into a card's

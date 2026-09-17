@@ -3,6 +3,7 @@ import QtQuick
 import Quickshell
 import qs.services
 import qs.shared
+import qs.themes
 
 // Volume indicator — a thin view over AudioService, which owns the default
 // sink and the writes.

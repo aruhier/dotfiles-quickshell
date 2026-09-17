@@ -5,7 +5,7 @@ import Quickshell.Wayland
 import qs.services
 import qs.shared
 import qs.shared.animations
-import qs.shared.notifications
+import qs.themes
 
 // The on-screen display: one shared pill, bottom-centre on whichever output
 // OsdService last targeted. Anchored to the screen rather than to a module, so
@@ -75,19 +75,46 @@ PanelWindow {
         }
     }
 
+    // Geometry of the pill. Colours come from NotificationTheme.qml: the OSD is
+    // the same kind of floating surface as a toast rather than a bar pill.
+    // pillRadius is half pillHeight, i.e. a stadium; keep them in step.
+    readonly property int pillWidth: 420
+    readonly property int pillHeight: 66
+    readonly property int pillRadius: 33
+    readonly property int pillPadding: 21
+    readonly property int trackHeight: 9
+    readonly property int iconSize: 29
+    // Slack inside the surface for the springs to overshoot into: either side
+    // of the widest pill, and above the pill's resting place. Both the rise
+    // and the opening deliberately spring past their target and settle back,
+    // and a window clips its contents.
+    readonly property int overshoot: 32
+    // How far the pill hops above its resting place as a wind-up before it
+    // drops back under the edge. Deliberately near twice the bump the rise
+    // lands with — that one is a damping ratio rather than a number, and
+    // ~10px here — since the wind-up is the whole gesture rather than the
+    // tail of one. Must stay inside overshoot: the hop coasts ~5% past
+    // this before the drop takes over. See notes/osd.md.
+    readonly property int bump: NotificationTheme.bump
+    // A share of the output's height, not a fixed margin, so it lands in the
+    // same place on a 1440 and a 2160 panel. swayosd worked the same way —
+    // `margin_bottom = height * (1 - top_margin)`, default 0.85, so 0.15. This
+    // sits deliberately lower than that.
+    readonly property real bottomEdgeFraction: 0.07
+
     // Both the height of the surface and the distance the pill covers: its own
     // height, plus the gap it rests above the bottom of the output. That gap is
     // snapped for the same reason as the toast stack's margins — an off-grid
     // offset puts every glyph below it on a fraction of a device pixel. See
     // AGENTS.md.
-    readonly property real travel: Screens.snap((osd.screen ? osd.screen.height : 1080) * Theme.osdBottomEdgeFraction, osd.screen) + Theme.osdHeight
+    readonly property real travel: Screens.snap((osd.screen ? osd.screen.height : 1080) * osd.bottomEdgeFraction, osd.screen) + osd.pillHeight
 
     // The two widths the pill springs between. Collapsed is the glyph and its
     // padding and nothing else, so the glyph sits dead centre of it whatever
     // the icon's advance is; open is the full plate — fixed for a level, and
     // hugging the word for a lock key, which has no track to fill.
-    readonly property real collapsedWidth: Screens.snap(2 * Theme.osdPadding + glyph.width, osd.screen)
-    readonly property real openWidth: Screens.snap(osd.level ? Theme.osdWidth : 3 * Theme.osdPadding + glyph.width + lockLabel.implicitWidth, osd.screen)
+    readonly property real collapsedWidth: Screens.snap(2 * osd.pillPadding + glyph.width, osd.screen)
+    readonly property real openWidth: Screens.snap(osd.level ? osd.pillWidth : 3 * osd.pillPadding + glyph.width + lockLabel.implicitWidth, osd.screen)
 
     // How far along the expansion the pill is, 0..1. Drives the reveal of
     // everything past the glyph.
@@ -112,13 +139,13 @@ PanelWindow {
 
     // The surface is centred by its width, so that width is what decides where
     // the left edge — and with it every glyph — lands on the device pixel grid.
-    // Wider than the widest pill by `osdOvershoot`, which is the room the
+    // Wider than the widest pill by `overshoot`, which is the room the
     // expansion spring needs to overshoot into: a window clips its contents.
-    implicitWidth: Screens.snap(Theme.osdWidth + Theme.osdOvershoot, osd.screen)
+    implicitWidth: Screens.snap(osd.pillWidth + osd.overshoot, osd.screen)
     // Same slack again above the pill's resting place, for the rise to bump
     // into. `travel` stays the distance the pill covers, not the surface's
     // height, so nothing else here has to know about the extra room.
-    implicitHeight: osd.travel + Theme.osdOvershoot
+    implicitHeight: osd.travel + osd.overshoot
 
     // Stays mapped until the exit spring has settled, then unmaps entirely so
     // nothing is left on the overlay layer between keypresses.
@@ -165,7 +192,7 @@ PanelWindow {
         onValueChanged: {
             if (osd.showing && slide.value <= 0)
                 osd.risen = true;
-            else if (!osd.showing && osd.narrowed && slide.value <= -Theme.osdBump)
+            else if (!osd.showing && osd.narrowed && slide.value <= -osd.bump)
                 osd.wound = true;
             else if (!osd.showing && osd.wound && slide.value >= osd.travel)
                 slide.snapTo(osd.travel);
@@ -174,17 +201,17 @@ PanelWindow {
         // the resting place, then down. Both of the latter are aimed past
         // where the pill actually goes, since a latch stops it: the wind-up's
         // multiplier is not the hop's height but its speed (half again past
-        // `osdBump` puts the apex at ~150ms, where 2.5x reached the same 18px
+        // `bump` puts the apex at ~150ms, where 2.5x reached the same 18px
         // in ~95 and read as a flick), and the drop aims below the edge so the
         // pill is still moving when it crosses it. Aimed at the edge exactly,
         // a spring decelerates into it and the last sliver creeps away for a
         // third of a second.
-        to: osd.showing || !osd.narrowed ? 0 : osd.wound ? osd.travel * 1.5 : -Theme.osdBump * 1.5
+        to: osd.showing || !osd.narrowed ? 0 : osd.wound ? osd.travel * 1.5 : -osd.bump * 1.5
         // Much softer than Theme's defaults, which are tuned for the few
         // pixels a module's width moves and read as a snap over this
         // distance. Under damped on the way up (ratio ~0.68) so the pill bumps
         // a few pixels past its resting place — the room for that is
-        // Theme.osdOvershoot — and damped past 1 on the way down, where an
+        // osd.overshoot — and damped past 1 on the way down, where an
         // undershoot would drop the pill below the screen and bounce it back
         // into view.
         stiffness: 136
@@ -193,7 +220,7 @@ PanelWindow {
 
     // The width of the pill. Under damped on the way open — the overshoot and
     // settle-back is the spring in the expansion, ~3% of the travel, which is
-    // the room Theme.osdOvershoot leaves. Damped past 1 on the way closed,
+    // the room osd.overshoot leaves. Damped past 1 on the way closed,
     // where undershooting would narrow the plate past its own glyph.
     FrameSpring {
         id: expand
@@ -209,7 +236,7 @@ PanelWindow {
     onTravelChanged: if (!osd.showing)
         slide.snapTo(osd.travel)
 
-    // The pill itself: `Theme.osdHeight` of the surface, sliding through the
+    // The pill itself: `osd.pillHeight` of the surface, sliding through the
     // rest of it. Moved by `x`/`y`/`width` and nothing else — never
     // `layer`/MultiEffect or an opacity fade over one, since a layer source is
     // a texture and a texture resamples the text inside it. See AGENTS.md.
@@ -221,14 +248,14 @@ PanelWindow {
         // rest, whatever width the kind settled on.
         width: expand.value
         x: Screens.snap((parent.width - width) / 2, osd.screen)
-        height: Theme.osdHeight
+        height: osd.pillHeight
         // `slide` is the offset below the resting place, so the resting place
         // itself is the slack the bump needs above it.
-        y: Theme.osdOvershoot + slide.value
+        y: osd.overshoot + slide.value
 
         Rectangle {
             anchors.fill: parent
-            radius: Theme.osdRadius
+            radius: osd.pillRadius
             // Real alpha, like the control centre's plate — the `quickshell-osd`
             // blur layerrule is what gives it something to show through. The
             // toasts' plate colour outright, alpha included: both are floating
@@ -243,11 +270,11 @@ PanelWindow {
         Icon {
             id: glyph
             anchors.left: parent.left
-            anchors.leftMargin: Theme.osdPadding
+            anchors.leftMargin: osd.pillPadding
             anchors.verticalCenter: parent.verticalCenter
             // pixelSize over Icon's sizeRatio, as the notification
             // surfaces do: this one isn't sized against bar text.
-            font.pixelSize: Theme.osdIconSize
+            font.pixelSize: osd.iconSize
             // A level carries its own state in the track, so its glyph is just
             // a label; a lock key has nothing else to carry it, so the glyph
             // goes accent when on and dims when off.
@@ -264,9 +291,9 @@ PanelWindow {
             id: detail
 
             anchors.left: glyph.right
-            anchors.leftMargin: Theme.osdPadding
+            anchors.leftMargin: osd.pillPadding
             anchors.right: parent.right
-            anchors.rightMargin: Theme.osdPadding
+            anchors.rightMargin: osd.pillPadding
             anchors.verticalCenter: parent.verticalCenter
             height: parent.height
 
@@ -305,9 +332,9 @@ PanelWindow {
                 Rectangle {
                     anchors.left: parent.left
                     anchors.right: valueSlot.left
-                    anchors.rightMargin: Theme.osdPadding
+                    anchors.rightMargin: osd.pillPadding
                     anchors.verticalCenter: parent.verticalCenter
-                    height: Theme.osdTrackHeight
+                    height: osd.trackHeight
                     radius: height / 2
                     // A tint over the plate, not an absolute grey — see
                     // NotificationTheme.bgOverlay.

@@ -4,7 +4,6 @@ import QtQuick
 import Quickshell
 import Quickshell.Services.Notifications
 import qs.shared
-import qs.shared.notifications
 
 // The notification daemon: owns the DBus org.freedesktop.Notifications
 // server and every list and timer the popup stack and control-center panel
@@ -75,6 +74,11 @@ QtObject {
     // Same, for the toast stack, captured from the focused monitor as each
     // notification arrives (see onNotification).
     property var popupScreen: null
+
+    // Toast lifetimes in ms; critical's 0 means "no auto-dismiss".
+    readonly property int timeoutLow: 5000
+    readonly property int timeoutNormal: 10000
+    readonly property int timeoutCritical: 0
 
     readonly property int count: notifications.length
     readonly property string iconState: dnd ? (count > 0 ? "dnd-notification" : "dnd-none") : (count > 0 ? "notification" : "none")
@@ -192,11 +196,11 @@ QtObject {
                     return appTimeout;
                 switch (wrapper.urgency) {
                 case NotificationUrgency.Low:
-                    return NotificationTheme.timeoutLow;
+                    return root.timeoutLow;
                 case NotificationUrgency.Critical:
-                    return NotificationTheme.timeoutCritical;
+                    return root.timeoutCritical;
                 default:
-                    return NotificationTheme.timeoutNormal;
+                    return root.timeoutNormal;
                 }
             }
             running: false

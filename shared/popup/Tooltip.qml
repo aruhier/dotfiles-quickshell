@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import qs.shared
 import qs.shared.popup
+import qs.themes
 
 // Small hover tooltip anchored below a bar module. Opens after a `showDelay`
 // dwell and closes immediately — unlike HoverPopup, there's nothing here to

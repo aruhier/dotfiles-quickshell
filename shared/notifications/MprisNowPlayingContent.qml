@@ -4,7 +4,7 @@ import QtQuick.Layouts
 import Quickshell.Widgets
 import Quickshell.Services.Mpris
 import qs.shared
-import qs.shared.notifications
+import qs.themes
 
 // The art/title/artist/transport row of the now-playing widget. Its own type
 // so the widget can render two at once, one sliding out as the other slides
@@ -17,12 +17,16 @@ RowLayout {
     // answer clicks meant for the incoming one.
     property bool interactive: true
 
+    // Album art, sized to carry the widget rather than sit beside the text.
+    readonly property int imageSize: 80
+    readonly property int imageRadius: 14
+
     spacing: 14
 
     ClippingRectangle {
-        Layout.preferredWidth: NotificationTheme.mprisImageSize
-        Layout.preferredHeight: NotificationTheme.mprisImageSize
-        radius: NotificationTheme.mprisImageRadius
+        Layout.preferredWidth: root.imageSize
+        Layout.preferredHeight: root.imageSize
+        radius: root.imageRadius
         color: NotificationTheme.bg
 
         Image {

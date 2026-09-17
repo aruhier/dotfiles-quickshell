@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import qs.services
 import qs.shared
+import qs.themes
 
 // Screen-brightness indicator — a thin view over BacklightService, which owns
 // the actual /sys/class/backlight reading. Hides itself when there's no

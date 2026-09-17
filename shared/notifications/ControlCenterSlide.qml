@@ -2,7 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import qs.shared
 import qs.shared.animations
-import qs.shared.notifications
+import qs.themes
 
 // The control centre's slide, staged the way the OSD pill and the toasts are:
 // four stages on one spring, two latches, every stage critically damped — sweep
@@ -39,10 +39,21 @@ QtObject {
     // *at* it would still be at full speed. That is the whole difference
     // between this and one under damped spring, which crosses its resting line
     // fast and rings back.
-    readonly property real bumpLine: root.resting + NotificationTheme.controlCenterBump
-    readonly property real bumpAim: root.resting + NotificationTheme.controlCenterBump * 1.2
-    readonly property real windUpLine: root.resting + NotificationTheme.controlCenterDismissBump
-    readonly property real windUpAim: root.resting + NotificationTheme.controlCenterDismissBump * 1.2
+
+    // How far past its resting place the panel runs as it arrives, before
+    // easing back into the screen edge. Read directly, like a control-centre
+    // row's wind-up and unlike a toast's: nothing moves underneath it to
+    // cancel part of it.
+    readonly property real bump: NotificationTheme.bump
+    // How far it pulls the other way — further onto the screen — as a wind-up
+    // before it leaves. Bigger than the arrival's bump, as the OSD pill's is:
+    // a wind-up is the whole gesture rather than the tail of one.
+    readonly property real windUp: 24
+
+    readonly property real bumpLine: root.resting + root.bump
+    readonly property real bumpAim: root.resting + root.bump * 1.2
+    readonly property real windUpLine: root.resting + root.windUp
+    readonly property real windUpAim: root.resting + root.windUp * 1.2
     // Aimed past the edge rather than at it: the last sliver of a panel
     // creeping away reads as an ease-out on an exit.
     readonly property real dropAim: root.closed - (root.resting - root.closed) * 0.5

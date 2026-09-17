@@ -1,7 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
-import qs.shared
 import qs.shared.popup
+import qs.themes
 
 // Base type for a hover-triggered popup below a bar module: chrome, the close
 // grace timer and PopupCoordinator registration on top of

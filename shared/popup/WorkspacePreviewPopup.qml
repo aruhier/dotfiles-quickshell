@@ -5,6 +5,7 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import qs.shared
 import qs.shared.popup
+import qs.themes
 
 // Hover popup below a workspace pill: a scaled-down live mock-up, one
 // ScreencopyView per window at the window's real position on its monitor.
@@ -32,7 +33,9 @@ HoverPopup {
     readonly property real monitorHeight: monitor ? (rotated ? monitor.width : monitor.height) / monitor.scale : 0
     readonly property real monitorX: monitor ? monitor.x : 0
     readonly property real monitorY: monitor ? monitor.y : 0
-    readonly property real scaleFactor: monitorWidth > 0 ? Theme.workspacePreviewWidth / monitorWidth : 0
+    // Width only; height follows the monitor's aspect ratio.
+    readonly property int previewWidth: 560
+    readonly property real scaleFactor: monitorWidth > 0 ? popup.previewWidth / monitorWidth : 0
 
     // Bottom-to-top paint order: tiled, floating, fullscreen, each group
     // least-recently-focused first (focusHistoryID 0 = most recent). The IPC
@@ -44,7 +47,7 @@ HoverPopup {
 
     visible: _open && monitor !== null && windows.length > 0
 
-    implicitWidth: Theme.workspacePreviewWidth + 2 * padding
+    implicitWidth: popup.previewWidth + 2 * padding
     implicitHeight: body.implicitHeight + 2 * padding
 
     ColumnLayout {

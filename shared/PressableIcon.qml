@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import qs.shared
 import qs.shared.animations
+import qs.themes
 
 // A glyph that answers clicks, shrinks while held and turns accent-coloured
 // under the cursor, so every pressable icon shares one feel. Set

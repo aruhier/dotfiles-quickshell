@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import qs.shared
+import qs.themes
 
 // A Nerd Font glyph: StyledText's stack sized off Theme.iconSize, since icon
 // glyphs render smaller than Latin text at the same pixelSize — and glyph sets

@@ -1,10 +1,14 @@
 pragma Singleton
 pragma ComponentBehavior: Bound
 import QtQuick
+import qs.themes
 
-// Palette and metrics for the notification popups and control center. Kept
-// separate from ../Theme.qml — these are their own surfaces, with bgSelected
-// below as the one deliberate tie back to the bar.
+// Palette, type and shared geometry for the notification popups and control
+// center. Kept separate from Theme.qml — these are their own surfaces, with
+// bgSelected below as the one deliberate tie back to the bar.
+//
+// A value that only one file reads — a gesture's distances, a widget's own
+// sizes, the toast lifetimes — lives in that file, not here.
 QtObject {
     // Real alpha, so Hyprland's blur layerrule has something to show through.
     // Cards sit lighter than the panel so they still read as chips on it.
@@ -26,8 +30,8 @@ QtObject {
     // over a dark backdrop and loses it over a bright one. Measurements:
     // AGENTS.md. 0.10 reproduces bgButton's appearance on the dark case.
     readonly property color bgOverlay: Qt.rgba(1, 1, 1, 0.10)
-    // Theme.qml's bar accent, so the selection belongs to the same shell.
-    readonly property color bgSelected: "#6AA099"
+    // The bar's accent, so the selection belongs to the same shell.
+    readonly property color bgSelected: Theme.accent
     readonly property color borderColor: "#070707"
     readonly property color borderNotification: Qt.rgba(80 / 255, 80 / 255, 80 / 255, 1)
     readonly property color text: "#f5edec"
@@ -44,6 +48,14 @@ QtObject {
     readonly property int popupRadius: 18
     readonly property int controlCenterRadius: 12
 
+    // How far a staged gesture bumps, in px — the one distance every floating
+    // surface shares: the OSD pill's wind-up before it drops, the control
+    // centre's run past its resting place as it arrives, and a control-centre
+    // row's wind-up before it leaves. Each site keeps its own note on why the
+    // number suits it; a toast's wind-up is not this, see
+    // NotificationPopupWindow.qml.
+    readonly property int bump: 18
+
     // ---- control-center metrics ----
     // Every widget is inset 16px from the panel edge; adjacent widgets sit a
     // 32px gutter apart.
@@ -57,38 +69,16 @@ QtObject {
     // Each row's top and bottom inset, so stacked cards sit twice this apart.
     readonly property int listCardMargin: 14
 
-    // The DND switch: 48x29 with a 20px slider.
-    readonly property int switchWidth: 48
-    readonly property int switchHeight: 29
-    readonly property int switchPadding: 4
-
     // Their own knobs, not Theme.fontSize (12) — these surfaces are read at
     // arm's length, the bar at a glance. `fontSize` is the base: summary, time
     // and the DND label.
     readonly property int fontSize: 16
     // One step below the summary — what gives a card its title/detail split.
+    // Action-button chips take it too.
     readonly property int fontSizeBody: 15
-    readonly property int fontSizeAction: 15
     readonly property int fontSizeTitle: 21
 
     readonly property int controlCenterWidth: 500
-    // Drawn past the right screen edge, on top of controlCenterWidth: the
-    // panel is this much wider than it reads, so its opening bump slides that
-    // slack in rather than opening a gap to the edge, and the edge column a
-    // flush margin leaves transparent at fractional scale is covered. Must
-    // stay clear of controlCenterBump; see notes/panels.md.
-    readonly property int controlCenterOverscan: 22
-    // How far past its resting place the panel runs as it arrives, before
-    // easing back into the screen edge. Read directly, like a control-centre
-    // row's wind-up and unlike a toast's: nothing moves underneath it to
-    // cancel part of it.
-    readonly property int controlCenterBump: 18
-    // How far it pulls the other way — further onto the screen — as a wind-up
-    // before it leaves. Bigger than the arrival's bump, as the OSD pill's is:
-    // a wind-up is the whole gesture rather than the tail of one.
-    readonly property int controlCenterDismissBump: 24
-    // Gap above and below the panel, so it floats rather than filling the edge.
-    readonly property int controlCenterMarginV: 50
     // Popup stack width: narrow for an ordinary toast, growing only when the
     // content needs it (see NotificationCard.qml's naturalWidth).
     // NotificationPopupWindow.qml clamps to this range. Don't derive it from
@@ -96,35 +86,11 @@ QtObject {
     // growth to be visible.
     readonly property int popupMinWidth: 380
     readonly property int popupMaxWidth: 500
-    // Slack left of the stack for the slide to bump into on the way in and to
-    // wind up into on the way out, plus room for the cards' shadows: a window
-    // clips its contents. The plate opens the other way, into the gap the
-    // stack keeps from the screen edge. Nothing is drawn here at rest, so it
-    // only widens the surface away from that edge.
-    readonly property int popupOvershoot: 24
-    // How far a toast pulls left as a wind-up before it leaves to the right.
-    // Most of it is cancelled on the way to the eye: the hop runs *under* a
-    // plate still collapsing rightwards, which drags the icon back the other
-    // way, so what reads is the difference — ~19px of this 52. This is the
-    // knob for whether the hop is seen; the aim at the call site is the one
-    // for how long it takes. See notes/notifications.md.
-    readonly property int popupBump: 52
-    // The same wind-up for a control-centre row, which has no plate moving
-    // under it to cancel most of it — this is what a toast's 52 actually
-    // reads as. See notes/notifications.md.
-    readonly property int listDismissBump: 18
 
-    // Album art, sized to carry the widget rather than sit beside the text.
-    readonly property int mprisImageSize: 80
-    readonly property int mprisImageRadius: 14
     // Fixed, not derived from fontSize: this widget's sizing already reads
     // right and shouldn't drift when fontSize changes.
     readonly property int mprisTitleFontSize: 18
     readonly property int mprisArtistFontSize: 15
     readonly property int mprisControlIconSize: 26
 
-    // Toast lifetimes in ms; critical's 0 means "no auto-dismiss".
-    readonly property int timeoutLow: 5000
-    readonly property int timeoutNormal: 10000
-    readonly property int timeoutCritical: 0
 }

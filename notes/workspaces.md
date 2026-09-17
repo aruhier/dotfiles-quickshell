@@ -3,7 +3,7 @@
 ## Workspace hover previews via per-window screencopy (2026-09-11)
 
 `Workspaces.qml` pills open a `WorkspacePreviewPopup` on hover: a
-monitor-aspect canvas (`Theme.workspacePreviewWidth` wide, 640px) with one
+monitor-aspect canvas (`WorkspacePreviewPopup.qml`'s `previewWidth`, 560px) with one
 `Quickshell.Wayland.ScreencopyView` per window, placed from `hyprctl`'s
 `at`/`size`. What was checked before building it, all on Hyprland 0.56.2 /
 Quickshell 0.3.1:

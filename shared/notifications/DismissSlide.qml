@@ -1,7 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import qs.shared.animations
-import qs.shared.notifications
+import qs.themes
 
 // The exit gesture both notification surfaces leave by: a short wind-up to the
 // left, then a slide off the right edge. One spring, because the exit has to
@@ -18,7 +18,7 @@ QtObject {
     // How far left it pulls first. A toast's is far bigger than a panel row's:
     // most of it is cancelled by the plate collapsing the other way underneath
     // it, where a row has nothing moving under it. See notes/notifications.md.
-    property real bump: NotificationTheme.listDismissBump
+    property real bump: NotificationTheme.bump
 
     // Whether the item slides in from `travel` on creation. Off by default.
     property bool playEntry: false

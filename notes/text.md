@@ -168,7 +168,7 @@ covered pixels:
 Only the layered row collapses. `NotificationCenterPanel.qml` used
 `source: panel` with the entire panel as the source, purely to get a drop
 shadow, so all of its text was inside that texture — and the panel's resting
-overscan (`rightMargin: -2`, with `controlCenterMarginV: 50`) put its left
+overscan (`rightMargin: -2`, with `NotificationCenterPanel.qml`'s `marginV: 50`) put its left
 edge at device x 3217.5. `NotificationCard.qml` had always layered just a
 background `Rectangle`, which is why the cards never showed this.
 

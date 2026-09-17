@@ -6,6 +6,7 @@ import Quickshell.Widgets
 import qs.shared
 import qs.services
 import qs.shared.notifications
+import qs.themes
 
 // One row of the control-center list: a per-app group. A group of one renders
 // as a plain NotificationCard; 2+ collapse into a peeking card-stack that

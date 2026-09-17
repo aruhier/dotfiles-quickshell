@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Wayland
 import qs.shared
 import qs.modules
+import qs.themes
 
 // One bar instance per output. Which modules appear where is decided by
 // shell.qml and passed in as `layout`; this file only knows how to render

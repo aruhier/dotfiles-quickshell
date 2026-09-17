@@ -1,7 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
-import qs.shared
 import qs.shared.animations
+import qs.themes
 
 // A spring-physics value driven by FrameAnimation, ticking once per rendered
 // frame. Qt's own Behavior/SpringAnimation rides a shared timer fixed near
@@ -26,9 +26,12 @@ QtObject {
     Component.onDestruction: if (group)
         group.remove(root)
 
-    property real stiffness: Theme.frameSpringStiffness
-    property real damping: Theme.frameSpringDamping
-    property real mass: Theme.frameSpringMass
+    // Constants of the mass-spring-damper ODE integrated below. Defaults
+    // for every module's width easing; callers with their own tuning override
+    // them (WorkspaceFrameSpring.qml).
+    property real stiffness: 460
+    property real damping: 35
+    property real mass: 0.6
     property real epsilon: Theme.springEpsilon
     // Caps the per-tick step so a compositor hiccup can't fling the spring in
     // one huge integration step; long gaps are sub-stepped instead.

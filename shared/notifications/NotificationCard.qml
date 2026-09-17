@@ -8,6 +8,7 @@ import qs.shared
 import qs.services
 import qs.shared.animations
 import qs.shared.notifications
+import qs.themes
 
 // One notification's visual, shared by the popup stack (floating: true) and
 // the control-center list (floating: false). The caller supplies `width`;
@@ -349,7 +350,7 @@ Item {
                             // go through the wght axis — StyledText's axis silently
                             // overrides font.styleName.
                             wght: 800
-                            font.pixelSize: NotificationTheme.fontSizeAction
+                            font.pixelSize: NotificationTheme.fontSizeBody
                         }
 
                         MouseArea {

@@ -4,12 +4,13 @@ A Quickshell status bar with a fixed visual identity (dark bar, teal accent,
 pill-shaped module groups) and a fixed per-monitor module layout. Not meant to
 grow new features beyond what's already here unless asked.
 
-**Source of truth for any visual value is `shared/Theme.qml`** — the palette +
-metrics singleton (colors, padding, radii, border widths, font sizes, spring
-defaults and the distances a gesture covers). It wins over any prose, including
-these notes. A *gesture's own* spring tuning is the exception and stays at its
-call site, next to the comment that says why it is what it is; the one pair two
-surfaces share lives in `NotificationTheme.qml`. See `notes/rendering.md`.
+**Source of truth for any shared visual value is `themes/`** — `Theme.qml`
+(bar palette, type, bar geometry) and `NotificationTheme.qml` (the floating
+surfaces' palette, type, radii, panel insets, and the one gesture bump those
+surfaces share). They win over any prose, including these notes. A value only
+one file reads — a gesture's own distances and springs, a surface's own
+metrics — lives in that file, next to the comment that says why it is what it
+is. Equal values of the same kind are bound, not repeated. See `notes/rendering.md`.
 
 ## Keep this file short
 

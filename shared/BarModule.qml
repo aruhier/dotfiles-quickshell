@@ -1,7 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import qs.shared.animations
-import qs.shared
+import qs.themes
 
 // Base type for a bar module: owns the eased width, the bar-height sizing and
 // the show/hide flag ModuleLoader reads, so a module file holds only what's

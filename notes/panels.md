@@ -271,12 +271,12 @@ the panel's square right edge (with its 1px `borderSubtle` outline) on screen
 for the ~300ms around the peak. Reported as "a bit weird […] the notification
 panel needs to be wider than what it really is so that it doesn't show that
 it's out of the screen", and that is the fix:
-`NotificationTheme.controlCenterOverscan`, 22px of panel drawn *past* the right
+`NotificationCenterPanel.qml`'s `overscan`, 22px of panel drawn *past* the right
 edge, with the resting margin at `-overscan` rather than `-2`. The bump pulls
 that slack in and never reaches the panel's own edge — verified on the burst:
 once the panel is on screen, the screen-edge column is never desktop in any
 frame. The slack is free, being compositor-clipped either way; it is what has
-to grow if `controlCenterBump` ever does. Same trick as the fractional-scale
+to grow if `ControlCenterSlide.qml`'s `bump` (`NotificationTheme.bump`) ever does. Same trick as the fractional-scale
 edge column in the section above, sized for a different job, and it subsumes
 it: one overscan now, not two.
 

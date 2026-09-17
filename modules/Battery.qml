@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Services.UPower
 import qs.shared
 import qs.shared.popup
+import qs.themes
 
 // Battery indicator: capacity plus a level icon, a bolt while charging, a
 // plug while held on the adapter. Warns at 30%, goes critical at 15% (see

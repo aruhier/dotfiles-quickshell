@@ -4,6 +4,7 @@ import Quickshell
 import qs.services
 import qs.shared
 import qs.shared.popup
+import qs.themes
 
 // Notification-center indicator and toggle. The daemon, popup stack and
 // control-center panel live in NotificationService and shared/notifications/;

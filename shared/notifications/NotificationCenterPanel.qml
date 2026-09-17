@@ -8,6 +8,7 @@ import Quickshell.Widgets
 import qs.shared
 import qs.services
 import qs.shared.notifications
+import qs.themes
 
 // The notification control center: click-toggled and pinned open, so it gates
 // off NotificationService.centerOpen rather than PopupCoordinator (which only
@@ -35,6 +36,19 @@ PanelWindow {
     property bool open: false
     property bool closing: false
     visible: open || closing
+
+    // Gap above and below the panel, so it floats rather than filling the edge.
+    readonly property int marginV: 50
+    // Drawn past the right screen edge, on top of NotificationTheme.controlCenterWidth: the
+    // panel is this much wider than it reads, so its opening bump slides that
+    // slack in rather than opening a gap to the edge, and the edge column a
+    // flush margin leaves transparent at fractional scale is covered. Must
+    // stay clear of ControlCenterSlide's bump; see notes/panels.md.
+    readonly property int overscan: 22
+    // The DND switch: 48x29 with a 20px slider.
+    readonly property int switchWidth: 48
+    readonly property int switchHeight: 29
+    readonly property int switchPadding: 4
 
     Connections {
         target: NotificationService
@@ -192,13 +206,13 @@ PanelWindow {
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            anchors.margins: Screens.snap(NotificationTheme.controlCenterMarginV, panelWindow.screen)
+            anchors.margins: Screens.snap(panelWindow.marginV, panelWindow.screen)
             anchors.rightMargin: slide.margin
             // Snapped separately and added, rather than snapping the sum: the
             // left edge lands at `width - edgeOverscan`, so both have to be on
             // the device pixel grid for it to be.
             readonly property real visibleWidth: Screens.snap(NotificationTheme.controlCenterWidth, panelWindow.screen)
-            readonly property real edgeOverscan: Screens.snap(NotificationTheme.controlCenterOverscan, panelWindow.screen)
+            readonly property real edgeOverscan: Screens.snap(panelWindow.overscan, panelWindow.screen)
             width: panel.visibleWidth + panel.edgeOverscan
 
             readonly property real restingRightMargin: -panel.edgeOverscan
@@ -295,19 +309,19 @@ PanelWindow {
                     }
 
                     Rectangle {
-                        Layout.preferredWidth: NotificationTheme.switchWidth
-                        Layout.preferredHeight: NotificationTheme.switchHeight
+                        Layout.preferredWidth: panelWindow.switchWidth
+                        Layout.preferredHeight: panelWindow.switchHeight
                         radius: height / 2
                         color: NotificationService.dnd ? NotificationTheme.bgSelected : NotificationTheme.bg
                         border.width: NotificationService.dnd ? 0 : 1
                         border.color: NotificationTheme.borderColor
 
                         Rectangle {
-                            width: parent.height - NotificationTheme.switchPadding * 2
-                            height: parent.height - NotificationTheme.switchPadding * 2
+                            width: parent.height - panelWindow.switchPadding * 2
+                            height: parent.height - panelWindow.switchPadding * 2
                             radius: width / 2
                             anchors.verticalCenter: parent.verticalCenter
-                            x: NotificationService.dnd ? parent.width - width - NotificationTheme.switchPadding : NotificationTheme.switchPadding
+                            x: NotificationService.dnd ? parent.width - width - panelWindow.switchPadding : panelWindow.switchPadding
                             color: NotificationTheme.bgHover
 
                             Behavior on x {

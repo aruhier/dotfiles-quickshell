@@ -11,9 +11,9 @@ dotfiles side changed with it: the volume
 binds no longer call `swayosd-client`, the brightness binds no longer call
 `brightnessctl`, and three new non-consuming lock-key binds were added.
 
-**It is painted as a notification surface, not as a bar pill.** Metrics live in
-`Theme.qml` with the rest of the shell's, but every colour comes from
-`NotificationTheme.qml` — `bgFloating` plate, `borderSubtle` edge,
+**It is painted as a notification surface, not as a bar pill.** Its geometry
+(`pillWidth`, `pillHeight`, `overshoot`, `bump`, …) is its own, declared at the
+top of `OsdWindow.qml`; every colour comes from `NotificationTheme.qml` — `bgFloating` plate, `borderSubtle` edge,
 `text`/`textDisabled` labels, `bgSelected` fill. The plate takes `bgFloating`
 whole, alpha included: it floats over the desktop the way a toast does, so it
 is the same material and reads as one. (It used to hold its own alpha in
@@ -27,7 +27,7 @@ itself in and out, and Hyprland fading it too double-animates.
 **It rises out of the bottom edge and drops back under it.** That needs a
 surface reaching the edge, so `margins.bottom` is 0 and the resting gap is room
 *inside* the surface: one `travel` property is both the surface height and the
-slide distance (the gap plus `osdHeight`), and the pill's `y` is a pixel spring
+slide distance (the gap plus `pillHeight`), and the pill's `y` is a pixel spring
 between `travel` and 0. Animating the layer-shell margin instead would
 reconfigure the surface every frame. The earlier fade-and-scale is gone —
 nothing here uses opacity except the reveal below — and the surface is far
@@ -37,7 +37,7 @@ control-centre surface gets blur only under its plate.
 
 ### Entry and exit are staged, off spring values rather than timers (2026-09-14)
 
-What rises out of the edge is only the icon — a stadium `2 * osdPadding +
+What rises out of the edge is only the icon — a stadium `2 * pillPadding +
 glyph.width` wide, so the glyph sits dead centre of it whatever the icon's
 advance turns out to be — and the plate springs open horizontally around it as
 it lands. Going away, the plate narrows back to the glyph, the pill hops a few
@@ -58,7 +58,7 @@ a `grim` burst (~17ms/frame, converted back to logical px):
 |---|---|---|
 | `risen` | `slide.value <= 0`, i.e. the pill first reaches its resting line | the widening |
 | `narrowed` | `opened <= 0.2`, i.e. the plate is a fifth from shut | the wind-up |
-| `wound` | `slide.value <= -osdBump` | the drop |
+| `wound` | `slide.value <= -bump` | the drop |
 
 **Where those two thresholds sit is the whole difference between the entry
 reading as one gesture and the exit reading as three.** Reported as "the slide
@@ -87,7 +87,7 @@ the pill ever dropping. A timer-driven sequence has to special-case that.
 
 Four things the stages imply:
 
-- **The surface carries `osdOvershoot` of slack**, 32px, on both axes: either
+- **The surface carries `overshoot` of slack**, 32px, on both axes: either
   side of the widest pill for the expansion to overshoot into, and above the
   pill's resting place for the two bumps. A window clips its contents. It is
   transparent, so it neither blurs nor takes input, and `travel` still means
@@ -97,8 +97,8 @@ Four things the stages imply:
   18.2` over stiffness 136). ζ≈0.68 going up gives the ~10px bump the pill
   lands with; the drop must not undershoot, or the pill would sink past the
   bottom of the screen and bounce back into view.
-- **The wind-up aims past `osdBump`** and stops where the `wound` latch
-  catches it, so the two numbers split the gesture cleanly: `osdBump` is the
+- **The wind-up aims past `bump`** and stops where the `wound` latch
+  catches it, so the two numbers split the gesture cleanly: `bump` is the
   hop's *height*, and the multiplier is its *speed*. A spring tuned for
   `travel` takes ~200ms to settle 18px, ~95ms to pass through them at 2.5x
   and ~150 at 1.5x, and the flip to `travel` decelerates it so hard that the
@@ -129,9 +129,9 @@ This is a plain opacity on unlayered text, not the layer/MultiEffect that
 `notes/text.md` rules out.
 
 **A lock-key pill hugs its word** rather than sitting centred in a 420px
-plate: `openWidth` is `3 * osdPadding + glyph.width + lockLabel.implicitWidth`
+plate: `openWidth` is `3 * pillPadding + glyph.width + lockLabel.implicitWidth`
 for those kinds. A fixed-width plate would have to grow to a width the content
-does not fill, and the glyph has to start at `osdPadding` from the left edge
+does not fill, and the glyph has to start at `pillPadding` from the left edge
 for the collapsed shape to centre it.
 
 **Timings were tuned in three passes, all by request**: both springs slowed
@@ -144,7 +144,7 @@ with the timing.
 **Vertical position is a fraction of the output's height, not a fixed margin**,
 so it lands in the same place on a 1440 and a 2160 panel. swayosd did the same:
 `osd_window.rs:114` is `margin_bottom = mon_height * (1.0 - top_margin)` with
-`top_margin` defaulting to `0.85`, i.e. 15% off the bottom. `Theme.osdBottomEdgeFraction`
+`top_margin` defaulting to `0.85`, i.e. 15% off the bottom. `bottomEdgeFraction`
 is 0.07 — deliberately lower than swayosd sat, by request.
 
 Three services back it. `AudioService` took the default-sink state, the icon

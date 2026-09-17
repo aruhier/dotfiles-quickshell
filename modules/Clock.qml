@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import Quickshell
 import qs.shared
 import qs.shared.popup
+import qs.themes
 
 // Clock with a hover popup showing a native month-grid calendar.
 BarModule {

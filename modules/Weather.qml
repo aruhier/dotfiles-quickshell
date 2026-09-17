@@ -5,6 +5,7 @@ import Quickshell
 import qs.services
 import qs.shared
 import qs.shared.popup
+import qs.themes
 import "../shared/WeatherIcons.js" as WeatherIcons
 
 // Bar icon and temperature, plus a hover popup with current conditions and

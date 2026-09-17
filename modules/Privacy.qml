@@ -7,6 +7,7 @@ import Quickshell.Services.Pipewire
 import qs.shared
 import qs.shared.animations
 import qs.shared.popup
+import qs.themes
 
 // An icon per active privacy-sensitive capture: mic (any open audio-capture
 // stream — Quickshell's PwNode can't tell whether it's actually RUNNING) and
