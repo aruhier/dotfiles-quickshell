@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Widgets
@@ -109,6 +108,7 @@ PanelWindow {
             }
             return -1;
         }
+        readonly property var selectedGroup: focusScope.selectedIndex >= 0 ? NotificationService.notificationGroups[focusScope.selectedIndex] : null
 
         // So dismissing the selected group lands the selection on whatever
         // slid up into that row rather than dropping it.
@@ -147,10 +147,9 @@ PanelWindow {
         // Return on a single-notification row fires its default action, like
         // clicking the body; on a group it toggles expand/collapse.
         function activateSelected() {
-            const groups = NotificationService.notificationGroups;
-            if (focusScope.selectedIndex < 0 || focusScope.selectedIndex >= groups.length)
+            const group = focusScope.selectedGroup;
+            if (!group)
                 return;
-            const group = groups[focusScope.selectedIndex];
             if (group.items.length === 1) {
                 const wrapper = group.items[0];
                 if (wrapper.defaultAction)
@@ -171,8 +170,7 @@ PanelWindow {
         }
 
         function dismissSelected() {
-            const groups = NotificationService.notificationGroups;
-            if (focusScope.selectedIndex < 0 || focusScope.selectedIndex >= groups.length)
+            if (!focusScope.selectedGroup)
                 return;
             // Through the row, so it plays its exit gesture; a row scrolled far
             // enough out of the view has no delegate to ask.
@@ -180,7 +178,7 @@ PanelWindow {
             if (row)
                 row.dismiss();
             else
-                NotificationService.dismissGroup(groups[focusScope.selectedIndex]);
+                NotificationService.dismissGroup(focusScope.selectedGroup);
         }
 
         // Slides in and out by animating rightMargin, rather than toggling
@@ -248,18 +246,8 @@ PanelWindow {
             bottomRightRadius: 0
         }
 
-        // Drop shadow, the same MultiEffect-as-source pattern as
-        // NotificationCard.qml's: `panel` is the source and so paints only
-        // through here, never directly.
-        MultiEffect {
-            anchors.fill: panel
+        DropShadow {
             source: panel
-            shadowEnabled: true
-            shadowColor: "black"
-            shadowOpacity: 0.4
-            shadowHorizontalOffset: 0
-            shadowVerticalOffset: 1
-            shadowBlur: 0.4
         }
 
         // Everything the panel *shows* lives here, a sibling of the shadow's

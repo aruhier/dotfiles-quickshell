@@ -237,9 +237,9 @@ PanelWindow {
         slide.snapTo(osd.travel)
 
     // The pill itself: `osd.pillHeight` of the surface, sliding through the
-    // rest of it. Moved by `x`/`y`/`width` and nothing else — never
-    // `layer`/MultiEffect or an opacity fade over one, since a layer source is
-    // a texture and a texture resamples the text inside it. See AGENTS.md.
+    // rest of it. Moved by `x`/`y`/`width` and nothing else — never `layer`
+    // or an opacity fade over one, since a layer source is a texture and a
+    // texture resamples the text inside it. See AGENTS.md.
     Item {
         id: pill
 
@@ -259,7 +259,9 @@ PanelWindow {
             // Real alpha, like the control centre's plate — the `quickshell-osd`
             // blur layerrule is what gives it something to show through. The
             // toasts' plate colour outright, alpha included: both are floating
-            // surfaces over the desktop and read as one material.
+            // surfaces over the desktop and read as one material. Not their
+            // shadow, though: a HUD is projected onto the screen, not placed
+            // on it. See notes/osd.md.
             color: NotificationTheme.bgFloating
             border.width: 1
             border.color: NotificationTheme.borderSubtle

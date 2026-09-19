@@ -111,8 +111,8 @@ PanelWindow {
             "timeStr": wrapper.timeStr,
             "defaultAction": wrapper.defaultAction,
             "otherActions": wrapper.otherActions,
-            // Not displayed — carried so the card's dismiss paths still have
-            // something to dismiss. Only reachable while `interactive`.
+            // Not displayed — what onDismissRequested below dismisses. Only
+            // reachable while `interactive`.
             "notification": wrapper.notification
         }
     }
@@ -300,7 +300,12 @@ PanelWindow {
                     floating: true
                     radius: NotificationTheme.popupRadius
                     // A closing toast is on its way out regardless.
-                    interactive: !entryRoot.entry.closing
+                    interactive: !entryRoot.closing
+                    // Outright: the exit is staged off `closing`, which
+                    // dismissing sets through the service's popups list. The
+                    // snapshot stands in for the wrapper — dismiss() reads
+                    // only `.notification`, which it carries for this.
+                    onDismissRequested: NotificationService.dismiss(entryRoot.entry.display)
                 }
             }
         }

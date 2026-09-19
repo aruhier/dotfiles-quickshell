@@ -243,6 +243,16 @@ the desktop and +20 over white.
 `NotificationCard.qml`'s action chips — cards are translucent too. Left alone
 because nobody has reported it; `bgOverlay` is the fix if they do.
 
+### No drop shadow on the pill, tried and reverted (2026-09-19)
+
+Tried when `shared/DropShadow.qml` was factored out of the toasts and the
+control centre: the plate `Rectangle` as the effect's source, hidden so the
+effect painted it once (the toasts' double-composite trap, notes/notifications.md).
+Compared at 1.25 scale over the dark desktop, with and without: a few levels
+darker along the bottom edge and nothing else — the 1px `borderSubtle` outline
+and the blur are what define the pill's edge. Removed by request; the toasts
+kept theirs. The pill comment's "never `layer`" rule stands in full again.
+
 ### xkb unlocks a lock key on *release*, so the read has to wait it out
 
 Reported as "it always shows Caps Lock on". Measured against Hyprland's event

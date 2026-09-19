@@ -445,7 +445,9 @@ mid-flight would be destroyed and replaced at rest. So every close path now
 runs the gesture first and dismisses from `finished`: the card's own close
 button stops calling `NotificationService.dismiss()` and emits
 `dismissRequested` instead (a toast still dismisses outright — its exit is
-staged by `NotificationPopupWindow`), the group's two close-all buttons and the
+staged by `NotificationPopupWindow`, which since 2026-09-19 is also where that
+call lives: the card never dismisses anything, whichever surface it is on),
+the group's two close-all buttons and the
 panel's Delete key go through `NotificationGroupCard.dismiss()`, and the panel
 reaches its selected row with `itemAtIndex()` rather than calling the service,
 falling back to the old direct call for a row too far out of view to have a

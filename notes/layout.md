@@ -53,6 +53,11 @@ shared/StyledText.qml every piece of text in the shell. Owns
                       unified (three palettes) — state it at each site
 shared/Icon.qml       StyledText sized off Theme.iconSize with a `sizeRatio`
                       per-glyph bias. Sets no anchors on purpose
+shared/DropShadow.qml the one drop shadow every plate casts (toast, list
+                      card, control centre; the OSD pill tried it and went
+                      without, see notes/osd.md). Its `source` must be a bare
+                      plate — never text — and a plate over the desktop is
+                      hidden so the effect paints it once
 shared/popup/         everything to do with anchored hover popups:
   HoverPopup.qml         base type for a hover-triggered popup (grace-period
                          close, PopupCoordinator registration) — Clock's

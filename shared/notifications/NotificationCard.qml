@@ -1,11 +1,9 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Effects
 import Quickshell
 import Quickshell.Widgets
 import qs.shared
-import qs.services
 import qs.shared.animations
 import qs.shared.notifications
 import qs.themes
@@ -38,10 +36,10 @@ Item {
     // belongs to the group (expand / close-all), not to this notification.
     property bool interactive: true
 
-    // A control-centre card leaves with a gesture rather than vanishing, and
-    // the row it is in decides who plays it — a single-notification row leaves
-    // whole, a card inside an expanded group leaves on its own. A toast
-    // dismisses outright: its exit is staged by the window that owns it.
+    // The card never dismisses anything itself: whoever owns it also owns the
+    // exit. A control-centre row decides who plays the gesture — the row
+    // whole, or one card of an expanded group — and the toast stack dismisses
+    // outright, its exit being staged off the service's list.
     signal dismissRequested
 
     // Whole-card hover, not just mainColumn's, so the actions row reveals the
@@ -135,8 +133,7 @@ Item {
     // Settable: a toast rounds harder than a list card (see popupRadius).
     property int radius: NotificationTheme.cardRadius
 
-    // Split out from `card` so it can be the MultiEffect source for the drop
-    // shadow.
+    // Split out from `card` so it can be the drop shadow's source.
     Rectangle {
         id: background
         x: card.plateX
@@ -145,27 +142,15 @@ Item {
         height: card.plateHeight
         radius: card.radius
         color: card.floating ? NotificationTheme.bgFloating : NotificationTheme.bg
-        // A MultiEffect source is *not* excluded from ordinary scene painting:
-        // left visible, the plate is drawn twice — once here and once through
-        // the effect — and the two alphas compound. A toast's 0.89 lands at
-        // 0.99 that way, which is opaque over a bright window where the OSD's
-        // single pass still shows the blur through. Hidden here, the effect is
-        // the only thing that paints it, shadow and all. Only for a toast: a
-        // control-centre card is over the panel's own plate rather than over
-        // the desktop, and undoing the compounding there would lighten every
-        // row in the list.
+        // Hidden so the shadow's pass is the only one painting it — see
+        // DropShadow.qml. Only for a toast: a control-centre card is over the
+        // panel's own plate rather than over the desktop, and undoing the
+        // compounding there would lighten every row in the list.
         visible: !card.floating
     }
 
-    MultiEffect {
-        anchors.fill: background
+    DropShadow {
         source: background
-        shadowEnabled: true
-        shadowColor: "black"
-        shadowOpacity: 0.4
-        shadowHorizontalOffset: 0
-        shadowVerticalOffset: 1
-        shadowBlur: 0.4
     }
 
     // The content, revealed through the plate rather than laid out inside it:
@@ -197,7 +182,7 @@ Item {
                     if (card.wrapper.defaultAction !== null)
                         card.wrapper.defaultAction.invoke();
                     if (card.floating)
-                        NotificationService.dismiss(card.wrapper);
+                        card.dismissRequested();
                 }
             }
 
@@ -379,12 +364,7 @@ Item {
                 glyphSize: 12
                 interactive: card.interactive
                 opacity: card.hovered && card.interactive ? card.detailOpacity : 0
-                onActivated: {
-                    if (card.floating)
-                        NotificationService.dismiss(card.wrapper);
-                    else
-                        card.dismissRequested();
-                }
+                onActivated: card.dismissRequested()
             }
         }
     }

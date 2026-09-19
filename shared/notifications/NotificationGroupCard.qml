@@ -40,11 +40,6 @@ Item {
 
     implicitHeight: !isGroup ? singleCard.implicitHeight : (expanded ? expandedColumn.implicitHeight + root.selectionOutset * 2 : collapsedStack.implicitHeight)
 
-    // A dismissal here is deferred to an exit gesture: the row winds up left,
-    // slides off the panel's edge, and only then does the notification
-    // actually go. It has to be that way round — the list's model is a plain
-    // array, so any change to it recreates every delegate mid-flight.
-    readonly property alias exiting: rowExit.active
     // A notification landing in an open panel arrives by the exit slide run
     // backwards. Whoever leaves alone arrives alone: the row, or one card of
     // an expanded group. The flag is only up for the pass building this row.
@@ -60,25 +55,32 @@ Item {
         rowExit.start();
     }
 
+    // What leaves the list — the row, or one card of an expanded group — is
+    // dismissed only once its exit has played: the model is a plain array, so
+    // any change to it recreates every delegate mid-flight. Destroyed under
+    // the gesture by another such reset, the click still has to land.
+    component Exit: DismissSlide {
+        id: exit
+        required property var items
+        travel: root.exitTravel
+        onFinished: NotificationService.dismissLater(exit.items)
+        Component.onDestruction: if (exit.active)
+            NotificationService.dismissLater(exit.items)
+    }
+
     // Nothing left to click on a row that is leaving, the way a closing toast
     // goes inert.
-    enabled: !root.exiting
+    enabled: !rowExit.active
 
     transform: Translate {
         x: rowExit.value
     }
 
-    DismissSlide {
+    Exit {
         id: rowExit
-        travel: root.exitTravel
+        items: root.group.items
         playEntry: root.arriving && !root.expanded
-        onFinished: NotificationService.dismissLater(root.group.items)
     }
-
-    // A model reset under the gesture — a notification arriving mid-exit —
-    // destroys this delegate; the click still has to land.
-    Component.onDestruction: if (rowExit.active)
-        NotificationService.dismissLater(root.group.items)
 
     // ---- single notification: no group chrome at all ----
     NotificationCard {
@@ -241,15 +243,11 @@ Item {
                     x: cardExit.value
                 }
 
-                DismissSlide {
+                Exit {
                     id: cardExit
-                    travel: root.exitTravel
+                    items: [groupItemCard.modelData]
                     playEntry: root.arriving && root.expanded && groupItemCard.modelData === root.latest
-                    onFinished: NotificationService.dismissLater([groupItemCard.modelData])
                 }
-
-                Component.onDestruction: if (cardExit.active)
-                    NotificationService.dismissLater([groupItemCard.modelData])
             }
         }
     }

@@ -98,19 +98,24 @@ QtObject {
         root.centerOpen = false;
     }
 
+    // Takes a toast off the stack, on timeout or because the panel opened. A
+    // transient notification isn't in history, so nothing would reference it
+    // after this — dismiss for real (Retainable below cleans up). A
+    // non-transient one just leaves the stack.
+    function releasePopup(wrapper) {
+        wrapper.timer.stop();
+        root.popups = root.popups.filter(w => w !== wrapper);
+        if (root.notifications.indexOf(wrapper) === -1)
+            root.dismiss(wrapper);
+    }
+
     // No toasts while the panel is up: it already lists them, and the stack
     // would cover its top-right corner. Called from onCenterOpenChanged so
     // every path that opens the panel clears the stack.
     function clearPopups() {
-        const toClear = root.popups.slice();
-        root.popups = [];
-        for (const w of toClear) {
-            w.timer.stop();
-            // As the popup timer does: a transient notification isn't in
-            // history, so nothing else would ever dismiss it.
-            if (root.notifications.indexOf(w) === -1 && w.notification)
-                w.notification.dismiss();
-        }
+        // Snapshot: releasePopup() reassigns `popups`.
+        for (const w of root.popups.slice())
+            root.releasePopup(w);
     }
 
     onCenterOpenChanged: {
@@ -209,14 +214,7 @@ QtObject {
             }
             running: false
             repeat: false
-            onTriggered: {
-                root.popups = root.popups.filter(w => w !== wrapper);
-                // A transient notification isn't in history, so nothing would
-                // reference it after this — dismiss for real (Retainable
-                // below cleans up). Non-transient ones just leave the stack.
-                if (root.notifications.indexOf(wrapper) === -1 && wrapper.notification)
-                    wrapper.notification.dismiss();
-            }
+            onTriggered: root.releasePopup(wrapper)
         }
 
         readonly property Connections conn: Connections {
