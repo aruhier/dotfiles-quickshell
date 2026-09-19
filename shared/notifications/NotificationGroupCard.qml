@@ -45,6 +45,10 @@ Item {
     // actually go. It has to be that way round — the list's model is a plain
     // array, so any change to it recreates every delegate mid-flight.
     readonly property alias exiting: rowExit.active
+    // A notification landing in an open panel arrives by the exit slide run
+    // backwards. Whoever leaves alone arrives alone: the row, or one card of
+    // an expanded group. The flag is only up for the pass building this row.
+    readonly property bool arriving: root.latest.arriving
     // Enough to put a leaving row past the list's clip, which is what it
     // actually disappears behind — 16px short of the screen edge, the panel's
     // own padding. Nothing is drawn in that strip, so the cut doesn't read.
@@ -67,6 +71,7 @@ Item {
     DismissSlide {
         id: rowExit
         travel: root.exitTravel
+        playEntry: root.arriving && !root.expanded
         onFinished: NotificationService.dismissLater(root.group.items)
     }
 
@@ -239,6 +244,7 @@ Item {
                 DismissSlide {
                     id: cardExit
                     travel: root.exitTravel
+                    playEntry: root.arriving && root.expanded && groupItemCard.modelData === root.latest
                     onFinished: NotificationService.dismissLater([groupItemCard.modelData])
                 }
 

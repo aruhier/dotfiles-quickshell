@@ -487,6 +487,66 @@ gesture that is already over.
 fades out over the slide exactly as a toast's does.
 
 
+## Arriving in the control centre: the row's exit, run backwards (2026-09-19)
+
+A notification landing while the panel was up used to appear in place. It now
+slides in, by request — "an animation for when new notifications are created. A
+slide left with a small bump". The gesture is `DismissSlide`'s `playEntry`, the
+one a toast arrives by, on the same `travel` a row leaves by: the row starts
+just past the list's clip, slides left, runs past its resting place and settles
+back. Nothing new was tuned — the entry spring is the toast's (58 / 8.4, ζ ≈
+0.71) and the bump falls out of it. Measured on DP-1 with a `grim` burst
+(~29ms/frame, physical px ÷ 1.25), tracking the card's left edge from the frame
+after `notify-send`:
+
+| stage | when |
+|---|---|
+| edge clears the list clip | ~60ms |
+| crosses the resting line | ~380ms |
+| bump peak, 17.6px past the line | ~480ms |
+| back at rest | ~810ms |
+
+**The bump is not `NotificationTheme.bump`, but it lands on it** — 17.6px
+measured against 18. An under damped spring overshoots by a fixed fraction of
+its travel (~4.1% at this ζ), and a row's travel is fixed at 454px, so it is
+as good as a constant here; a toast's smaller bump is the same spring over a
+shorter run. If the panel width ever changes, this changes with it, and the
+staged alternative (aim past a bump line, latch, settle back — what
+`ControlCenterSlide` does) is the fix rather than retuning the spring.
+
+**Who slides is who would leave.** A single row and a collapsed stack move as
+one delegate, peek layers included; in an expanded group only the new card
+slides, under a header and siblings that stay put — the mirror of the
+dismissal rules above, on the same two `DismissSlide` instances. Both cases
+checked on a burst, the expanded one by forcing `expandedGroups` for the app.
+
+**Which delegate plays it is a flag on the wrapper, `arriving`, set from
+`centerOpen` as the notification is prepended.** The list rebuilds every
+delegate inside that assignment (verified: the new row's `Component.onCompleted`
+logs before the statement after the assignment does), so the delegate built
+there reads the flag through `latest.arriving` and hands it to `playEntry`.
+The flag must then go away, or the next rebuild — the next arrival, a dismissal
+— would replay the entry from the edge on a row that was already at rest, and
+that reads as the card jumping. It is cleared with `Qt.callLater` in the
+service, not from the delegate's own `Component.onCompleted`, and the first
+attempt was the latter: **the delegate's `onCompleted` ran before its
+`DismissSlide`'s spring's**, which is the one that reads `playEntry` and
+starts the slide. Completed callbacks fire most-recently-created first, and
+the row's attached `Component` is created after its children's. Clearing the
+flag there flipped the binding to false before the spring had looked, and the
+row appeared at rest — the debug log showed `playEntry=true` from the row's
+handler and a spring still at `value=0 running=false`. Cleared a pass later,
+the binding still flips, but by then the spring is running and nothing reads
+`playEntry` again (`landed` does, and nothing here reads that).
+
+**The rows below jump down, as they jump up on a dismissal.** The new row's
+slot opens on the frame the model changes, and the card slides into it;
+animating the slot open was left out for the reason the exit's gap closes
+instantly (above). Not covered: a row scrolled out of view when it arrives
+never builds a delegate in that pass, so it plays nothing later — by design,
+the flag is gone by then. A toast is never involved: `centerOpen` suppresses
+the stack, so the panel is the only surface an arriving notification lands on.
+
 ## Toasts read as glass, like the OSD (2026-09-14)
 
 Reported as "the popups should be a bit more rounded, and look more like the

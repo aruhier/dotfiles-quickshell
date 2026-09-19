@@ -184,6 +184,10 @@ QtObject {
         readonly property date time: new Date()
         readonly property string timeStr: Qt.formatTime(time, "HH:mm")
 
+        // Set on one landing in an open panel, so the row built for it slides
+        // in; cleared a pass later, so a rebuilt row starts at rest.
+        property bool arriving: false
+
         readonly property list<NotificationAction> allActions: notification ? notification.actions : []
         // `?? null`: the property is typed, and undefined is not one.
         readonly property NotificationAction defaultAction: allActions.find(a => a.identifier === "default") ?? null
@@ -258,8 +262,19 @@ QtObject {
 
             const transient = notif.transient || root.isForcedTransient(wrapper.appName);
 
-            if (!transient)
+            if (!transient) {
+                wrapper.arriving = root.centerOpen;
                 root.notifications = [wrapper, ...root.notifications];
+                // The list rebuilds its rows inside that assignment, and
+                // only those rows play the entry. Cleared a pass later, not by
+                // the row: its spring reads the flag from its own
+                // Component.onCompleted, after the row's. notes/notifications.md.
+                if (wrapper.arriving)
+                    Qt.callLater(() => {
+                        if (root.notifications.indexOf(wrapper) !== -1)
+                            wrapper.arriving = false;
+                    });
+            }
 
             // No toast while the panel is open — it's already in the list.
             if (!root.dnd && !root.centerOpen) {
