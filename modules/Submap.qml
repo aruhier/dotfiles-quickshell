@@ -2,45 +2,40 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell.Hyprland
 import qs.shared
-import qs.themes
 
-// Hyprland submap indicator: hidden on the default submap, an italic pill with
-// the submap name otherwise.
+// Hyprland submap indicator: an italic label, hidden on the default submap.
+// The cream pill and the text colour on it are the group's, not this
+// module's: shell.qml's layout puts it in its own ModuleGroup, which slides
+// away with it.
 BarModule {
     id: root
 
+    property bool active: false
+    // The last submap's name, kept after it ends so the label is still there
+    // while the group collapses over it.
     property string submap: ""
     // A submap name is a mode indicator, not a message.
     readonly property int maxLength: 30
 
-    contentVisible: submap.length > 0
+    contentVisible: active
     contentWidth: label.implicitWidth
-    // Wider than the shared 12: this is a standalone accent pill rather than a
-    // label inside a group, so it carries its own inset.
-    padding: 16
-    // Inset from the bar's full height, so the pill reads as sitting inside
-    // the group rather than filling it.
-    implicitHeight: Theme.barHeight - 4
 
-    Rectangle {
-        anchors.fill: parent
-        color: Theme.accent
-        radius: height / 2
-
-        StyledText {
-            id: label
-            anchors.centerIn: parent
-            text: root.submap
-            font.italic: true
-            bold: true
-            color: Theme.accentText
-        }
+    StyledText {
+        id: label
+        anchors.centerIn: parent
+        text: root.submap
+        font.italic: true
+        bold: true
+        color: root.textColor
     }
 
     Connections {
         target: Hyprland
         function onRawEvent(event) {
-            if (event.name === "submap")
+            if (event.name !== "submap")
+                return;
+            root.active = event.data.length > 0;
+            if (root.active)
                 root.submap = event.data.substring(0, root.maxLength);
         }
     }

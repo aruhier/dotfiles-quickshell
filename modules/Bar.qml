@@ -1,6 +1,5 @@
 pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
 import qs.shared
@@ -9,7 +8,8 @@ import qs.themes
 
 // One bar instance per output. Which modules appear where is decided by
 // shell.qml and passed in as `layout`; this file only knows how to render
-// whatever {left, center, right} list of module names it's handed.
+// whatever {left, center, right} it's handed: a list of module groups for
+// each edge, a list of module names for the center.
 PanelWindow {
     id: barWindow
 
@@ -88,28 +88,24 @@ PanelWindow {
         height: Theme.barHeight
 
         // No outer margin: the first module's glyph bearing already lands its
-        // ink in the right place. Depends on the order (mpd, submap).
-        ModuleGroup {
+        // ink in the right place. Depends on the order (mpd first).
+        ModuleGroupRow {
             edge: Qt.LeftEdge
-            model: barWindow.layout.left
+            groups: barWindow.layout.left
             resolveComponent: barWindow.componentFor
         }
 
-        RowLayout {
+        ModuleRow {
             anchors.centerIn: parent
-            spacing: 10
-
-            Repeater {
-                model: barWindow.layout.center
-                delegate: ModuleLoader { resolveComponent: barWindow.componentFor }
-            }
+            model: barWindow.layout.center
+            resolveComponent: barWindow.componentFor
         }
 
         // This one needs a margin: a module ending in a digit or flush glyph
         // (Clock) has near-zero right bearing.
-        ModuleGroup {
+        ModuleGroupRow {
             edge: Qt.RightEdge
-            model: barWindow.layout.right
+            groups: barWindow.layout.right
             resolveComponent: barWindow.componentFor
             outerMargin: Theme.moduleOuterMargin
         }

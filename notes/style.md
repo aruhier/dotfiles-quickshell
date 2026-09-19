@@ -9,6 +9,16 @@
 - **`.modules-left`/`.modules-right` are flush half-stadium shapes**, not
   floating capsules — rounded only on the side facing center. Needs Qt
   6.7+'s per-corner `Rectangle` radius properties, not a single `radius`.
+  A second group on the same edge (the cream submap group) keeps that
+  shape and tucks under the previous group's cap rather than butting
+  against it flat: a flat seam between two colours was tried first and
+  read as one pill cut in two, while the overlapped cap keeps each group
+  its own pill. The tucked group pads `capRadius + groupEdgePadding` on
+  that side so its text sits 18px from the cap tip, same as the previous
+  group's text on the other side of it. Both of a group's colours come
+  from its layout entry (`color`, `textColor`); the modules inside read
+  `textColor` rather than the theme's group text, so the entry is the one
+  place a coloured group is defined.
 
 - **Workspace color has three states.** Default = teal (`workspaceBg`),
   urgent = pink, active/focused = accent, empty = cream. A populated

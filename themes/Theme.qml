@@ -19,6 +19,12 @@ QtObject {
     readonly property color groupBg: "#424242"
     readonly property color groupText: textBright
 
+    // The submap group's pill: cream, the empty-workspace cap colour, rather
+    // than the accent — a teal pill next to the teal border stripe merged
+    // into it. Pink/orange/red already mean urgent/recording/critical.
+    readonly property color submapBg: textBright
+    readonly property color submapText: workspaceEmptyText
+
     // Hover popup and tooltip chrome: darker than the bar, bordered with
     // `accent`, so a popup reads as a surface over it rather than part of it.
     readonly property color popupBg: "#1e1e1e"
@@ -80,6 +86,8 @@ QtObject {
     // overlay.
     readonly property int barBorderHeight: 3
 
+    // Between modules in a row.
+    readonly property int moduleSpacing: 10
     // Inner pad on a left/right group's center-facing side; the flush edge
     // gets none.
     readonly property int groupEdgePadding: 12

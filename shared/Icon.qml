@@ -6,7 +6,8 @@ import qs.themes
 // A Nerd Font glyph: StyledText's stack sized off Theme.iconSize, since icon
 // glyphs render smaller than Latin text at the same pixelSize — and glyph sets
 // differ again, hence `sizeRatio`. Anchoring stays with the call site: beside a
-// label it wants a per-glyph nudge, in a popup a Layout.alignment.
+// label it wants a per-glyph nudge, in a popup a Layout.alignment. So does
+// colour: a bar module passes its `textColor`, so it follows the group's.
 StyledText {
     property real sizeRatio: 1.0
 

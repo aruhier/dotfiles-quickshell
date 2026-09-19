@@ -40,7 +40,9 @@ themes/NotificationTheme.qml pragma-Singleton palette/metrics for the
                       `notes/notifications.md`
 shared/BarModule.qml  base type for a bar module: eased width (contentWidth +
                       padding through a FrameSpring), bar-height sizing,
-                      clip, and the `contentVisible` flag ModuleLoader reads.
+                      clip, the `contentVisible` flag ModuleLoader reads, and
+                      `textColor`, which ModuleLoader binds to the group's
+                      so a module reads against whichever pill it is in.
                       A module sets `contentWidth` and its content; it must
                       not bind implicitWidth itself. Workspaces.qml and
                       Privacy.qml deliberately don't use it — see
@@ -96,13 +98,23 @@ shared/notifications/ the notification daemon's UI — see
   MprisNowPlayingWidget.qml the control centre's now-playing widget: paging,
                          the slide/pop gestures and the pager dots;
                          MprisNowPlayingContent.qml is one page of it
-shared/ModuleGroup.qml the left/right pill-shaped module group (flush
-                      against a screen edge, rounded only on the
-                      center-facing side); used twice from Bar.qml with
-                      edge: Qt.LeftEdge/Qt.RightEdge
+shared/ModuleGroupRow.qml the strip of module groups against one screen
+                      edge: a Row of ModuleGroups laid out from the edge
+                      inward, overlapping by a cap radius; used twice from
+                      Bar.qml with edge: Qt.LeftEdge/Qt.RightEdge
+shared/ModuleGroup.qml one pill-shaped module group in that strip: rounded
+                      on the center-facing end, square on the other (flush
+                      against the screen, or tucked under the previous
+                      group's cap); takes one layout entry (`spec`) and is
+                      the only reader of its shape; hidden when empty
+shared/ModuleRow.qml  a RowLayout of ModuleLoaders for a list of module
+                      names, with `hasContent` (any module showing) and the
+                      `keepShown`/`textColor` pass-through; ModuleGroup's
+                      content, and the bar's floating center on its own
 shared/ModuleLoader.qml Repeater delegate for one named module: resolves a
-                      module name to a Component and applies the
-                      `contentVisible` Loader-visibility workaround
+                      module name to a Component, applies the
+                      `contentVisible` Loader-visibility workaround, and
+                      hands the group's `textColor` to a module declaring it
 shared/WeatherIcons.js glyph/description lookup table for weather codes
 shared/animations/WidthSpring.qml   Theme.springSpring/springDamping as a
                       one-line `Behavior on implicitWidth { WidthSpring {} }`
@@ -127,27 +139,51 @@ shared/animations/WorkspaceFrameSpring.qml same, with its own faster constants
 Which modules appear where is configured in `shell.qml`, not hardcoded in
 `Bar.qml`: `mainScreens` lists monitor names (check with `hyprctl monitors
 -j`) that get `mainLayout`; every other screen gets `defaultLayout`. Each
-layout is a plain `{left, center, right}` object of module-name strings.
-`shell.qml` calls `layoutFor(modelData.name)` per screen and passes the
-result into `Bar { layout: ... }`.
+layout is a plain `{left, center, right}` object: `left` and `right` are
+lists of module groups, `{modules: [names], color?, textColor?}`, ordered
+from the screen edge inward, both colours defaulting to the shared group
+palette; `center` is a plain list of module names. `shell.qml`
+calls `layoutFor(modelData.name)` per screen and passes the result into
+`Bar { layout: ... }`.
 
-`Bar.qml` only knows how to render whatever list it's handed: a
+`Bar.qml` only knows how to render whatever it's handed: a
 `moduleComponents` string -> `Component` map (add a new module there to
-make it placeable) plus a `Repeater`/`Loader` per group that instantiates
-whatever's named in `layout.left`/`.center`/`.right`. A module only gets
-instantiated at all if some screen's layout actually names it — this is
-what keeps the expensive modules (Tray/Privacy/Weather: icon textures,
-hover popups, network) from paying their cost on screens that don't list
-them.
+make it placeable) plus a `ModuleGroupRow` per edge and a bare
+`ModuleRow` for the center, instantiating whatever's named. A
+module only gets instantiated at all if some screen's layout actually
+names it — this is what keeps the expensive modules (Tray/Privacy/Weather:
+icon textures, hover popups, network) from paying their cost on screens
+that don't list them.
 
-Current layout: every output gets `mpd`, `submap`, `workspaces`,
-`backlight`, `battery`, `volume`, `notifications`, `clock`; only `DP-1` (in
-`mainScreens`) additionally gets `tray`, `privacy`, `weather`.
+Groups on one edge draw as a chain of pills: each keeps its rounded
+center-facing cap, and the next group starts under that cap (earlier
+groups draw on top). A group whose modules all hide springs its width to
+zero, clipped and anchored to the screen-edge side, so the submap group
+slides out from behind the mpd group and retracts back under its cap; once
+collapsed it is left out entirely and the rest close up, so it sits flush
+against the screen when mpd is disconnected. `ModuleGroup` reads its place
+in the visible chain off `Positioner.isFirstItem`/`index`; a Row skips
+hidden children, so no sibling bookkeeping is needed.
+
+Two details make the collapse work. The group decides it is empty from
+`ModuleRow.hasContent`, its modules' `contentVisible` recounted on change,
+not from the row's width — the row keeps its width during the collapse,
+because the group raises `ModuleRow.keepShown` (forwarded to each
+`ModuleLoader`) so the module stays drawn while the pill shrinks over it. And `BarModule` does *not* mirror `contentVisible` onto
+its own `visible` for the same reason: the loader hides it, and a module
+that hid itself would blank a frame before the collapse began. Submap
+keeps its last name in the label after the submap ends, so there is
+something to draw.
+
+Current layout: every output gets `mpd`, then `submap` in its own
+cream group, `workspaces`, `backlight`, `battery`, `volume`,
+`notifications`, `clock`; only `DP-1` (in `mainScreens`) additionally gets
+`tray`, `privacy`, `weather`.
 
 **Left/right group edge-spacing tuning is order-sensitive.** `leftGroup`'s
 comment about the first module's glyph bearing covering
 `moduleOuterMargin`, and `rightGroup`'s comment about needing it explicitly,
-both assume the *default* left order (`mpd`, `submap`) and right order
+both assume the *default* left order (`mpd` first) and right order
 (`clock` last). Reordering a screen's layout so a different module lands at
 the flush screen edge may need re-tuning those margins for that edge.
 

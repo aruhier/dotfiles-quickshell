@@ -93,9 +93,9 @@ Item {
     readonly property bool screenShareActive: capturingApps.some(app => app.screen)
 
     // Plain bool, not read back through `visible` — see BarModule.qml's
-    // `contentVisible` for why (Loader/visible deadlock).
+    // `contentVisible` for why (Loader/visible deadlock), and why it's not
+    // mirrored onto `visible` here either.
     readonly property bool contentVisible: micActive || screenShareActive
-    visible: contentVisible
 
     // Unconditional — see BarModule.qml for why gating width on the same
     // property as `visible` breaks visibility.

@@ -3,7 +3,6 @@ import QtQuick
 import Quickshell
 import qs.services
 import qs.shared
-import qs.themes
 
 // Volume indicator — a thin view over AudioService, which owns the default
 // sink and the writes.
@@ -31,6 +30,7 @@ BarModule {
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
             sizeRatio: root.iconSizeRatio
+            color: root.textColor
             text: AudioService.icon
         }
 
@@ -38,7 +38,7 @@ BarModule {
             anchors.verticalCenter: parent.verticalCenter
             // Muted replaces the whole format: icon only, no percent.
             visible: !root.muted
-            color: Theme.groupText
+            color: root.textColor
             text: root.pct + "%"
         }
     }

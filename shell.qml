@@ -18,6 +18,7 @@ import qs.services
 import qs.shared
 import qs.shared.notifications
 import qs.shared.osd
+import qs.themes
 
 // One Bar per output, with the per-monitor module layout configured below.
 ShellRoot {
@@ -25,19 +26,32 @@ ShellRoot {
 
     // Which modules appear where, per output. Screens in `mainScreens` (names
     // from `hyprctl monitors -j`) get `mainLayout`, the rest `defaultLayout`.
-    // Module names must match a key in Bar.qml's `moduleComponents`.
+    // `left` and `right` are lists of module groups, ordered from the screen
+    // edge inward; adjacent groups are drawn attached, as one pill, and a
+    // group with nothing to show is left out. A group is
+    // `{modules, color?, textColor?}`; both colours default to the shared
+    // group palette. `center` is a plain module list. Module names must match
+    // a key in Bar.qml's `moduleComponents`.
     readonly property var mainScreens: ["DP-1", "eDP-1"]
 
     readonly property var mainLayout: ({
-        left: ["mpd", "submap"],
+        left: [
+            { modules: ["mpd"] },
+            // The submap is a mode the bar has entered, so it gets its own
+            // colour rather than sitting inside the mpd group as a chip.
+            { modules: ["submap"], color: Theme.submapBg, textColor: Theme.submapText }
+        ],
         center: ["workspaces"],
-        right: ["tray", "backlight", "battery", "volume", "privacy", "notifications", "weather", "clock"]
+        right: [{ modules: ["tray", "backlight", "battery", "volume", "privacy", "notifications", "weather", "clock"] }]
     })
 
     readonly property var defaultLayout: ({
-        left: ["mpd", "submap"],
+        left: [
+            { modules: ["mpd"] },
+            { modules: ["submap"], color: Theme.submapBg, textColor: Theme.submapText }
+        ],
         center: ["workspaces"],
-        right: ["backlight", "battery", "volume", "notifications", "clock"]
+        right: [{ modules: ["backlight", "battery", "volume", "notifications", "clock"] }]
     })
 
     function layoutFor(screenName) {

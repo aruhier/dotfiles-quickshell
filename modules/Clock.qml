@@ -37,12 +37,13 @@ BarModule {
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
             sizeRatio: root.iconSizeRatio
+            color: root.textColor
             text: "󰃭"
         }
 
         StyledText {
             anchors.verticalCenter: parent.verticalCenter
-            color: Theme.groupText
+            color: root.textColor
             text: Qt.formatDateTime(root.now, "ddd dd MMM  hh:mm")
         }
     }

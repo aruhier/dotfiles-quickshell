@@ -120,7 +120,7 @@ BarModule {
     // fading eats contrast (Theme.critical is 4.4:1 on groupBg, 1.6:1 at 0.3);
     // the bold label carries more of the signal than the fade does.
     property real blinkOpacity: 1
-    readonly property color textColor: criticalBlink ? Theme.critical : Theme.groupText
+    readonly property color labelColor: criticalBlink ? Theme.critical : root.textColor
 
     SequentialAnimation {
         id: pulse
@@ -197,7 +197,7 @@ BarModule {
             // Label only: the Nerd Font fallback has no bold face and Qt
             // would smear a synthetic one. See StyledText.qml for `bold`.
             bold: root.criticalBlink
-            color: root.textColor
+            color: root.labelColor
             text: root.percent + "%"
         }
 
@@ -224,7 +224,7 @@ BarModule {
                 anchors.centerIn: parent
                 rotation: root.rotateIcon ? 90 : 0
                 sizeRatio: root.iconSizeRatio
-                color: root.textColor
+                color: root.labelColor
                 text: root.icon
             }
         }

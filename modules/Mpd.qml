@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import qs.services
 import qs.shared
-import qs.themes
 
 // MPD now-playing indicator (via mpc, since mpd isn't exposed over MPRIS
 // here) — a thin view over MpdService, which owns the polling.
@@ -45,13 +44,14 @@ BarModule {
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
             sizeRatio: root.iconSizeRatio
+            color: root.textColor
             text: root.playbackState === "playing" ? "󰐊" : root.playbackState === "paused" ? "󰏤" : "󰓛"
         }
 
         StyledText {
             anchors.verticalCenter: parent.verticalCenter
             visible: root.hasTrack
-            color: Theme.groupText
+            color: root.textColor
             text: root.hasTrack ? root.truncate(root.artist, root.artistLen) + " - " + root.truncate(root.title, root.titleLen) : ""
         }
     }

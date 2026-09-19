@@ -41,11 +41,20 @@ such chrome, and an alias here would silently reparent each module's
 `MouseArea`/`Timer`/`PwObjectTracker` into a nested item and change what
 `anchors.fill: parent` means.
 
-Three modules don't use it, on purpose: **Workspaces.qml** rounds its spring
+Two modules don't use it, on purpose: **Workspaces.qml** rounds its spring
 output and drives five coupled springs off one `SpringGroup`; **Privacy.qml**
-springs its per-app icons rather than its own width; **Submap.qml** does use it
-but overrides `padding` and `implicitHeight` and puts its accent pill in a
-child Rectangle. A base type doesn't have to be universal.
+springs its per-app icons rather than its own width. A base type doesn't have
+to be universal. (**Submap.qml** used to override `padding` and
+`implicitHeight` for an accent chip of its own; the pill and its text
+colour are now its `ModuleGroup`'s, set in `shell.qml`'s layout.)
+
+A module's text colour is `root.textColor`, never `Theme.groupText`
+directly: `ModuleLoader` binds it to the group's `textColor`, so a module
+placed in a coloured group (the cream submap one) reads against it without
+knowing. `Icon` still defaults to `Theme.groupText` for the popups, so a
+bar glyph passes `color: root.textColor` explicitly. A module that draws its
+own chip keeps picking its own pair, as the old Submap did; a state colour
+(Battery's critical red) overrides with `textColor` as the fallback.
 
 ### `pragma ComponentBehavior: Bound`, everywhere
 
@@ -89,12 +98,12 @@ a green run — which meant a genuine missing property anywhere would have been
 downgraded to chatter, *and* left 28 lines of noise on every run, so clean and
 broken looked identical. Instead every category stays fatal and `scripts/lint.sh`
 carries an explicit list of individual known-unfixable findings, each with its
-reason (`--all` prints them). 21 are suppressed today: 19 are gaps in
+reason (`--all` prints them). 25 are suppressed today: 22 are gaps in
 Quickshell's own qmltypes — `PanelWindowInterface` is literally
 `isCreatable: false` in `quickshell-window.qmltypes`, and `Margins`, `Edges`,
 `PopupAnchor`, `PopupAdjustment`, `QProcess::ExitStatus` and the
-`NotificationAction` list type aren't exported — and 2 are deliberate
-duck-typing (`Loader.item` in ModuleLoader, `Repeater.itemAt()` in
+`NotificationAction` list type aren't exported — and 3 are deliberate
+duck-typing (`Loader.item` in ModuleLoader, twice, `Repeater.itemAt()` in
 NotificationPopupWindow), where the type-safe alternative would mean forcing
 every placeable module onto one base class that Workspaces shouldn't be on.
 

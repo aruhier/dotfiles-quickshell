@@ -65,13 +65,14 @@ BarModule {
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
             sizeRatio: root.iconSizeRatio
+            color: root.textColor
             text: root.current ? WeatherIcons.iconFor(root.current.code, root.current.isDay) : root.errored ? "?" : ""
         }
 
         StyledText {
             anchors.verticalCenter: parent.verticalCenter
             visible: root.current !== null
-            color: Theme.groupText
+            color: root.textColor
             text: root.current ? root.displayTemp(root.current.tempC) : ""
         }
     }
