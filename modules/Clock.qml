@@ -12,26 +12,23 @@ BarModule {
 
     contentWidth: content.implicitWidth
 
-    property date now: new Date()
+    // On the minute, since that's the label's resolution; SystemClock aligns
+    // its ticks to the boundary itself.
+    readonly property date now: clock.date
+
+    SystemClock {
+        id: clock
+        precision: SystemClock.Minutes
+    }
 
     // Icon vertical nudge / size bias — see Mpd.qml.
     readonly property real iconVerticalOffset: 1
     readonly property real iconSizeRatio: 1.0
 
-    // On the minute, since that's the label's resolution. The interval binds
-    // to `now`, and writing a running Timer's interval restarts it, so each
-    // fire realigns to the next boundary instead of drifting.
-    Timer {
-        interval: 60000 - (root.now.getSeconds() * 1000 + root.now.getMilliseconds())
-        running: true
-        repeat: true
-        onTriggered: root.now = new Date()
-    }
-
     Row {
         id: content
         anchors.centerIn: parent
-        spacing: 6
+        spacing: Theme.iconLabelSpacing
 
         Icon {
             anchors.verticalCenter: parent.verticalCenter

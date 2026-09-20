@@ -266,7 +266,7 @@ PanelWindow {
         // — the whole subtree inside it is resampled. Qt rounds glyph
         // positions for ordinary items, so unlayered text is immune at any
         // offset; text *inside* a layer is not, and this panel used to put its
-        // entire contents in one. Measured: AGENTS.md.
+        // entire contents in one. Measured: notes/text.md.
         Item {
             // Fills what reads, not the overscan: the slack past the screen
             // edge is background, so the layout's padding still measures from

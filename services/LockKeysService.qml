@@ -9,7 +9,7 @@ import Quickshell.Io
 // raises no inotify event, so there is nothing to subscribe to, and polling
 // would cost at idle for a value that changes a few times a day. A Hyprland
 // bindn on each lock key calls the `osd` IPC handler, which refreshes just
-// before it shows the OSD. See AGENTS.md.
+// before it shows the OSD. See notes/osd.md.
 //
 // One `cat` per read, and not FileView: FileView only loads synchronously
 // once, so neither re-pointing one at each node nor reload()-ing a fixed one
@@ -131,8 +131,8 @@ QtObject {
             id: readCollector
             // Applied here rather than from onExited, and refreshed() is
             // emitted from inside it: whoever shows an OSD for this reads the
-            // state apply() sets, and the two handlers' order against each
-            // other isn't guaranteed.
+            // state apply() sets. (Quickshell does emit streamFinished before
+            // exited; keeping the apply with its data just doesn't lean on it.)
             onStreamFinished: root.apply(readCollector.text)
         }
         onExited: root.flush()

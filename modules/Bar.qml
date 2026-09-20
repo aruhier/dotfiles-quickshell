@@ -61,6 +61,9 @@ PanelWindow {
         left: true
         right: true
     }
+    // Not the window's height — layer-shell adds the reverse-edge margin to
+    // the exclusive zone, so this is 1px of reserved gap under the border
+    // stripe (windows tile at 26 + gaps_out, the surface is 25 tall).
     margins.bottom: 1
     implicitHeight: Theme.barHeight + Theme.barBorderHeight
     exclusionMode: ExclusionMode.Auto

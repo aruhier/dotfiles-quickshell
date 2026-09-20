@@ -166,8 +166,9 @@
 
 ## Visual polish beyond the base design
 
-- Every module eases `implicitWidth` (`Theme.qml`'s `resizeDuration`) on
-  content-size changes, which reflows the whole bar smoothly for free.
+- Every module eases `implicitWidth` through a `FrameSpring` (see
+  notes/rendering.md) on content-size changes, which reflows the whole bar
+  smoothly for free.
 - `Workspaces.qml`'s focus highlight is a single shared `selection`
   Rectangle that slides/resizes between delegates, with labels kept as a
   separate static top layer so only the square moves.

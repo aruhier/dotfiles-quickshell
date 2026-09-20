@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import qs.services
 import qs.shared
+import qs.themes
 
 // Screen-brightness indicator — a thin view over BacklightService, which owns
 // the actual /sys/class/backlight reading. Hides itself when there's no
@@ -22,7 +23,7 @@ BarModule {
     Row {
         id: content
         anchors.centerIn: parent
-        spacing: 6
+        spacing: Theme.iconLabelSpacing
 
         StyledText {
             anchors.verticalCenter: parent.verticalCenter

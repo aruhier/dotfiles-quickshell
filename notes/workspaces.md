@@ -31,9 +31,15 @@ Quickshell 0.3.1:
   the physical mode size, so divide `scale` back out (and swap axes on odd
   `transform`s).
 - **Paint order**: hyprctl lists windows in creation order, which says
-  nothing about stacking, so the popup sorts tiled < floating <
-  fullscreen, each by `focusHistoryID` descending (0 = most recent, drawn
-  last).
+  nothing about stacking, so the popup stacks tiled < floating <
+  fullscreen, each by `focusHistoryID` descending (0 = most recent, on
+  top) — as each delegate's `z`, not by sorting the model (2026-09-20).
+  The Repeater's model is the bare `toplevels.values`, which only changes
+  when a window comes or goes; filtering and ordering it off
+  `lastIpcObject` meant the refresh on open rewrote every entry, rebuilt
+  the array, and recreated every `ScreencopyView` — two capture set-ups
+  per hover. Hidden/unmapped windows keep a delegate, invisible and not
+  `live`.
 - **Empty workspaces get no popup at all** (`HoverPopupArea.popupEnabled`),
   rather than a popup that's built, never becomes visible, and so never
   hits the `onVisibleChanged` teardown.

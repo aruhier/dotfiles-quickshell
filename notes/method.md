@@ -42,8 +42,11 @@ pixel-count comparisons need the scale factor divided back out.
 
 **Capture note:** always grab a few px of vertical slack past the nominal
 bar height — an exact-height crop can appear to be missing a bottom border
-that's actually just outside the capture (the window is 1px taller than
-`barHeight + barBorderHeight` due to `margins.bottom: 1`).
+at fractional scale, where the last row lands on a partial device pixel.
+(An earlier version of this note blamed `margins.bottom: 1` for making the
+window 1px taller; it doesn't — the surface is exactly `barHeight +
+barBorderHeight`, and the margin grows the *exclusive zone* by 1px instead,
+`hyprctl monitors` reserved `[0,26,0,0]` against a 25px layer. See Bar.qml.)
 
 **Working method:** capture the same geometry, diff the aggregate
 group-edge position first, then crop matching sub-regions to compare

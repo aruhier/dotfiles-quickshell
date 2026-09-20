@@ -58,10 +58,10 @@ Item {
 
     // Whole-card hover, not just mainColumn's, so the actions row reveals the
     // close button too. Drives the close button's opacity.
-    property bool hovered: false
+    readonly property bool hovered: hoverHandler.hovered
 
     HoverHandler {
-        onHoveredChanged: card.hovered = hovered
+        id: hoverHandler
     }
 
     // The output this card is on, so the opening can keep its edges on the
@@ -105,7 +105,7 @@ Item {
     // The plate's rect. Every edge is snapped, not just the size: the plate
     // carries a 1px border and a corner radius on all four sides, and an edge
     // on half a device pixel renders at half intensity and crawls as it moves.
-    // See AGENTS.md on the pixel grid.
+    // See notes/text.md on the pixel grid.
     readonly property real plateWidth: Screens.snap(openWidth, card.screen)
     readonly property real plateHeight: Screens.snap(collapsedHeight + opened * (height - collapsedHeight), card.screen)
     readonly property real plateX: pinnedX >= 0 ? pinnedX : Screens.snap((width - plateWidth) / 2, card.screen)

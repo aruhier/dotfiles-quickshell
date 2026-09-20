@@ -4,6 +4,7 @@ import Quickshell
 import qs.services
 import qs.shared
 import qs.shared.popup
+import qs.themes
 
 // Notification-center indicator and toggle. The daemon, popup stack and
 // control-center panel live in NotificationService and shared/notifications/;
@@ -26,9 +27,9 @@ BarModule {
         "dnd-none": "󰂛"
     })
     readonly property var iconColors: ({
-        "notification": "#F98AA4",
+        "notification": Theme.urgent,
         "none": root.textColor,
-        "dnd-notification": "#F98AA4",
+        "dnd-notification": Theme.urgent,
         "dnd-none": "#9c9ca4"
     })
 

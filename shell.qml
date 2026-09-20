@@ -3,11 +3,11 @@
 // Qt's default animation driver paces every GUI-thread animation off the
 // refresh rate of the screen it thinks the window is on (always the primary
 // one, for layer-shell) and caps it near 60Hz. The simple driver has neither.
-// Takes effect at process start only, not on reload. Measurements: AGENTS.md.
+// Takes effect at process start only, not on reload. Measurements: notes/rendering.md.
 //@ pragma Env QSG_USE_SIMPLE_ANIMATION_DRIVER=1
 // Vulkan RHI instead of the default OpenGL: ~170MB RSS against ~257MB here,
 // since the GL backend's per-window cost scales badly. Nothing else changes.
-// See AGENTS.md.
+// See notes/rendering.md.
 //@ pragma Env QSG_RHI_BACKEND=vulkan
 pragma ComponentBehavior: Bound
 import QtQuick
@@ -58,8 +58,9 @@ ShellRoot {
         return root.mainScreens.indexOf(screenName) !== -1 ? root.mainLayout : root.defaultLayout;
     }
 
-    // Fallback for the shared windows below, before they have a real output.
-    readonly property var mainScreen: Screens.byName(root.mainScreens[0])
+    // Fallback for the shared windows below, before they have a real output;
+    // any output at all on a machine with none of the named ones.
+    readonly property var mainScreen: Screens.byName(root.mainScreens[0]) ?? Quickshell.screens[0] ?? null
 
     // One shared panel, opened from a per-output indicator, so it follows the
     // clicked screen — until the first-ever click, when there is none.

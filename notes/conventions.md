@@ -128,8 +128,9 @@ output, so if it ever gains a way to leave those alone, revisit.
   request; also note `mpd-mpris.service` is currently *inactive* on this
   machine, so it would need enabling first, and the bar module would then show
   any MPRIS player rather than MPD specifically.
-- **Deleting `WidthSpring.qml`/`WorkspaceSpring.qml`.** Still unreferenced, but
-  they're a deliberate documented fallback; not this pass's call to reverse.
+- **Deleting `WidthSpring.qml`/`WorkspaceSpring.qml`.** Was kept as a
+  documented fallback for a while; deleted in 60cd6e2 once FrameSpring had
+  proven itself.
 - **DMS's `Ref.qml` / `addRef`/`removeRef` service refcounting.** Buys nothing
   here — Quickshell instantiates `pragma Singleton` lazily, so a service whose
   module isn't in any screen's layout never starts in the first place.

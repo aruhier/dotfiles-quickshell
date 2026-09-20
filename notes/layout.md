@@ -121,22 +121,17 @@ shared/ModuleLoader.qml Repeater delegate for one named module: resolves a
                       `contentVisible` Loader-visibility workaround, and
                       hands the group's `textColor` to a module declaring it
 shared/WeatherIcons.js glyph/description lookup table for weather codes
-shared/animations/WidthSpring.qml   Theme.springSpring/springDamping as a
-                      one-line `Behavior on implicitWidth { WidthSpring {} }`
-                      — Behavior/SpringAnimation-based, unused after the
-                      FrameSpring rollout below but kept as a fallback
-shared/animations/WorkspaceSpring.qml same, but Theme.workspaceSpring*
-                      — the SpringAnimation-based Workspaces.qml variant,
-                      also unused now, also kept as a fallback
 shared/animations/FrameSpring.qml   FrameAnimation-driven spring (real
                       per-frame timing, not Behavior/SpringAnimation's
                       ~60Hz-capped QUnifiedTimer clock — see "capped near
-                      60Hz" below) — every module's width-change easing
-                      now uses this instead of WidthSpring.qml
+                      60Hz" in notes/rendering.md) — every module's
+                      width-change easing uses this. The old
+                      Behavior/SpringAnimation types (WidthSpring,
+                      WorkspaceSpring) were deleted in 60cd6e2
 shared/animations/WorkspaceFrameSpring.qml same, with its own faster constants
-                      — Workspaces.qml's own faster FrameSpring variant,
-                      kept separate for the same reason WorkspaceSpring.qml
-                      was
+                      for Workspaces.qml
+shared/animations/PressSpring.qml   the press-scale bump on clickable icons
+shared/animations/SpringGroup.qml   one shared clock for coupled springs
 ```
 
 ## Per-screen module layout
@@ -182,8 +177,8 @@ something to draw.
 
 Current layout: every output gets `mpd`, then `submap` in its own
 cream group, `workspaces`, `backlight`, `battery`, `volume`,
-`notifications`, `clock`; only `DP-1` (in `mainScreens`) additionally gets
-`tray`, `privacy`, `weather`.
+`notifications`, `clock`; the outputs in `mainScreens` (`DP-1`, `eDP-1`)
+additionally get `tray`, `privacy`, `weather`.
 
 **Left/right group edge-spacing tuning is order-sensitive.** `leftGroup`'s
 comment about the first module's glyph bearing covering

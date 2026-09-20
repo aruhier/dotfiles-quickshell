@@ -41,7 +41,7 @@ BarModule {
     // Gated on contentVisible as well: with no battery present UPower's
     // display device reports 0%, which reads as "critical" and left the blink
     // below running forever behind a hidden module. A running animation keeps
-    // every window in the process rendering every frame — see AGENTS.md.
+    // every window in the process rendering every frame — see notes/rendering.md.
     readonly property bool criticalBlink: contentVisible && level === "critical" && !charging
 
     // ---- icons ----
@@ -130,7 +130,7 @@ BarModule {
         // help — a 5x longer cycle measured identically — so the lever is how
         // long it runs, not how fast. Three cycles is ~7s, long enough to pull
         // the eye; the red text below carries the warning after that. See
-        // AGENTS.md.
+        // notes/battery.md.
         loops: 3
 
         NumberAnimation {
@@ -188,7 +188,7 @@ BarModule {
     Row {
         id: content
         anchors.centerIn: parent
-        spacing: 6
+        spacing: Theme.iconLabelSpacing
         // Whole row: percentage and icon must pulse together.
         opacity: root.blinkOpacity
 
@@ -246,7 +246,7 @@ BarModule {
         Tooltip {
             anchorItem: root
             show: hover.containsMouse && root.contentVisible
-            text: root.detailText === "" ? root.estimateText : root.estimateText + "<br><br>" + root.detailText
+            text: root.detailText === "" ? root.estimateText : root.estimateText + "\n\n" + root.detailText
         }
     }
 }

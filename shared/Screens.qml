@@ -15,7 +15,7 @@ import Quickshell.Hyprland
 // A shell running unsnapped is exactly what this repo shipped before
 // 2026-09-12: thin borders soften on a fractionally scaled output, nothing
 // else. Text does not depend on any of this — see the MultiEffect rule in
-// AGENTS.md.
+// notes/text.md.
 QtObject {
     function byName(name) {
         const screens = Quickshell.screens;
@@ -54,7 +54,7 @@ QtObject {
     // Rounds a logical length so it lands on a whole device pixel. Anything
     // that offsets a whole subtree needs this: below an off-grid container
     // every glyph stem and 1px border renders blended across two physical
-    // columns at half intensity. See AGENTS.md.
+    // columns at half intensity. See notes/text.md.
     //
     // Per-scale and not a rounder constant on purpose — the multiple that
     // stays on the grid is the denominator of the scale (4 at 1.25, 3 at

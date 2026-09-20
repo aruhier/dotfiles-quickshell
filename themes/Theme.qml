@@ -32,7 +32,9 @@ QtObject {
     readonly property color workspaceBg: "#9BBFBA"
     readonly property color workspaceEmptyBg: textBright
     readonly property color workspaceEmptyText: "#252527"
-    readonly property color workspaceUrgent: "#F98BA4"
+    // Pink means urgent: a workspace, or the bell with notifications waiting.
+    readonly property color urgent: "#F98BA4"
+    readonly property color workspaceUrgent: urgent
     // A workspace active on its own monitor but not system-focused: between
     // workspaceBg and accent. See Workspaces.qml.
     readonly property color workspaceActiveBg: Qt.tint(workspaceBg, Qt.rgba(accent.r, accent.g, accent.b, 0.5))
@@ -88,6 +90,8 @@ QtObject {
 
     // Between modules in a row.
     readonly property int moduleSpacing: 10
+    // Between a module's icon and its label.
+    readonly property int iconLabelSpacing: 6
     // Inner pad on a left/right group's center-facing side; the flush edge
     // gets none.
     readonly property int groupEdgePadding: 12

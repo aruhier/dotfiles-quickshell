@@ -117,10 +117,11 @@ untested outside the one value this bug happened to be caught on.
 
 Added a spring slide in/out on the right edge for
 `NotificationCenterPanel.qml`: `panel.anchors.rightMargin` animates between
-its resting `-2` and fully off-screen (`-panel.width - 2`) via `Behavior on
-anchors.rightMargin { SpringAnimation { spring: Theme.springSpring;
-damping: Theme.springDamping; ... } }`, the same shared spring every
-module's `implicitWidth` already eases through.
+its resting margin and fully off-screen (`-panel.width - 2`). Originally a
+`Behavior on anchors.rightMargin { SpringAnimation { spring:
+Theme.springSpring; ... } }` sharing the modules' width spring; both are gone
+— it is now `ControlCenterSlide` driving a `FrameSpring`, the staged gesture
+described below.
 
 **The window has to stay mapped for the whole close animation, not just
 while `NotificationService.centerOpen` is true** — unmapping the instant

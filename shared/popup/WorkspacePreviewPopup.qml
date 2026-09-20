@@ -11,7 +11,7 @@ import qs.themes
 // ScreencopyView per window at the window's real position on its monitor.
 // Composed window by window because Hyprland can capture outputs and windows
 // but not workspaces — which is also why an off-screen workspace works, since
-// each window is re-rendered offscreen for its capture. See AGENTS.md.
+// each window is re-rendered offscreen for its capture. See notes/workspaces.md.
 HoverPopup {
     id: popup
 
@@ -37,15 +37,28 @@ HoverPopup {
     readonly property int previewWidth: 560
     readonly property real scaleFactor: monitorWidth > 0 ? popup.previewWidth / monitorWidth : 0
 
-    // Bottom-to-top paint order: tiled, floating, fullscreen, each group
-    // least-recently-focused first (focusHistoryID 0 = most recent). The IPC
-    // order is creation order, which says nothing about stacking.
-    readonly property var windows: workspace.toplevels.values.filter(t => t.lastIpcObject.mapped && !t.lastIpcObject.hidden).sort((a, b) => {
-        const layer = ipc => ipc.fullscreen ? 2 : ipc.floating ? 1 : 0;
-        return layer(a.lastIpcObject) - layer(b.lastIpcObject) || b.lastIpcObject.focusHistoryID - a.lastIpcObject.focusHistoryID;
-    })
+    // The workspace's windows, whatever their state: this is the Repeater's
+    // model, and it must only change when a window comes or goes. Which are
+    // shown and how they stack is decided per delegate off `lastIpcObject`,
+    // which the refresh above rewrites for every window — as the model, that
+    // rebuilt every ScreencopyView on open, two capture set-ups per hover.
+    readonly property var windows: workspace.toplevels.values
+    readonly property int shownCount: windows.filter(t => popup.shows(t.lastIpcObject)).length
 
-    visible: _open && monitor !== null && windows.length > 0
+    function shows(ipc) {
+        return ipc.mapped && !ipc.hidden;
+    }
+
+    // Bottom-to-top: tiled, floating, fullscreen, each group least-recently-
+    // focused first (focusHistoryID 0 = most recent). The IPC order is
+    // creation order, which says nothing about stacking. Kept positive: a
+    // child with z < 0 paints behind its parent, under the backdrop.
+    function stackOrder(ipc) {
+        const layer = ipc.fullscreen ? 2 : ipc.floating ? 1 : 0;
+        return layer * 1000 + Math.max(0, 999 - ipc.focusHistoryID);
+    }
+
+    visible: _open && monitor !== null && shownCount > 0
 
     implicitWidth: popup.previewWidth + 2 * padding
     implicitHeight: body.implicitHeight + 2 * padding
@@ -70,6 +83,8 @@ HoverPopup {
 
                     readonly property var ipc: view.modelData.lastIpcObject
 
+                    visible: popup.shows(ipc)
+                    z: popup.stackOrder(ipc)
                     x: Math.round((ipc.at[0] - popup.monitorX) * popup.scaleFactor)
                     y: Math.round((ipc.at[1] - popup.monitorY) * popup.scaleFactor)
                     width: Math.round(ipc.size[0] * popup.scaleFactor)
@@ -77,8 +92,8 @@ HoverPopup {
 
                     captureSource: view.modelData.wayland
                     // The view dies with the popup, so nothing captures once
-                    // it's closed.
-                    live: true
+                    // it's closed; a hidden window's doesn't capture at all.
+                    live: view.visible
                 }
             }
         }

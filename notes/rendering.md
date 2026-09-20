@@ -38,17 +38,17 @@ reports the true elapsed `frameTime` — rather than `QUnifiedTimer`'s fixed
 ~60Hz GUI-thread ticker.
 
 Stiffness/damping/mass default to Hyprland's own spring config
-(`FrameSpring.qml`'s own `stiffness/damping/mass` = 460/35/0.6), **not**
-`Theme.springSpring/springDamping` — those tune Qt's `SpringAnimation` formula
-specifically and do not share Hyprland's unit convention despite the same
-underlying ODE shape. FrameSpring implements that ODE directly, so Hyprland's
-physical constants are the correct values here.
+(`FrameSpring.qml`'s own `stiffness/damping/mass` = 460/35/0.6), **not** the
+old `Theme.springSpring/springDamping` (since removed) — those tuned Qt's
+`SpringAnimation` formula specifically and did not share Hyprland's unit
+convention despite the same underlying ODE shape. FrameSpring implements that
+ODE directly, so Hyprland's physical constants are the correct values here.
 
 It is in use everywhere a module's `implicitWidth` is eased (Submap, Backlight,
 Clock, Tray, Volume, NotificationCenter, Mpd, Weather, Privacy's `PrivacyIcon`),
 across Workspaces.qml's whole spring set, and on the notification panel's slide.
 `WidthSpring.qml`/`WorkspaceSpring.qml` (the old `Behavior`/`SpringAnimation`
-types) are unused but deliberately kept as a fallback.
+types) were kept as a fallback for a while, then deleted in 60cd6e2.
 
 ### Bind `to:`, don't drive it by hand
 

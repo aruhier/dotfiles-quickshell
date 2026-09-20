@@ -59,7 +59,7 @@ BarModule {
     Row {
         id: content
         anchors.centerIn: parent
-        spacing: 6
+        spacing: Theme.iconLabelSpacing
 
         Icon {
             anchors.verticalCenter: parent.verticalCenter

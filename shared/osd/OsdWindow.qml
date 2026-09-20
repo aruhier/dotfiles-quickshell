@@ -106,7 +106,7 @@ PanelWindow {
     // height, plus the gap it rests above the bottom of the output. That gap is
     // snapped for the same reason as the toast stack's margins — an off-grid
     // offset puts every glyph below it on a fraction of a device pixel. See
-    // AGENTS.md.
+    // notes/text.md.
     readonly property real travel: Screens.snap((osd.screen ? osd.screen.height : 1080) * osd.bottomEdgeFraction, osd.screen) + osd.pillHeight
 
     // The two widths the pill springs between. Collapsed is the glyph and its
@@ -239,7 +239,7 @@ PanelWindow {
     // The pill itself: `osd.pillHeight` of the surface, sliding through the
     // rest of it. Moved by `x`/`y`/`width` and nothing else — never `layer`
     // or an opacity fade over one, since a layer source is a texture and a
-    // texture resamples the text inside it. See AGENTS.md.
+    // texture resamples the text inside it. See notes/text.md.
     Item {
         id: pill
 

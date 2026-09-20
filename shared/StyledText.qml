@@ -15,7 +15,7 @@ Text {
     // designed and `font.bold` gets a synthesised smear off the 400 outline.
     // The axis below sets FreeType variation coords directly, and silently
     // overrides all three if a site sets one anyway. Details and measurements:
-    // AGENTS.md, "Text weight goes through Inter's `wght` axis".
+    // notes/text.md, "Text weight goes through Inter's `wght` axis".
     property bool bold: false
     property int wght: bold ? Theme.fontWeightBold : Theme.fontWeight
 
@@ -23,7 +23,7 @@ Text {
     // Required explicitly: Qt Quick's native text path loads glyphs fully
     // unhinted, and fontconfig's system-wide hintslight never reaches a
     // QQuickText. Don't "upgrade" to PreferFullHinting — it is crisper but
-    // mangles Inter at 12px; see AGENTS.md, "Text is unhinted unless an item
+    // mangles Inter at 12px; see notes/text.md, "Text is unhinted unless an item
     // says so".
     font.hintingPreference: Font.PreferVerticalHinting
     renderType: Text.NativeRendering

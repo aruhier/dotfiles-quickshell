@@ -6,7 +6,7 @@ import qs.themes
 // A spring-physics value driven by FrameAnimation, ticking once per rendered
 // frame. Qt's own Behavior/SpringAnimation rides a shared timer fixed near
 // 60Hz whatever the output does, which is visibly stuttery at 240Hz; see
-// AGENTS.md's "capped near 60Hz" section.
+// notes/rendering.md's "capped near 60Hz" section.
 //
 // Usage: bind the consuming property to `.value` and set `to`. The imperative
 // snapTo()/retarget() API stays for springs with no single resting expression
@@ -34,7 +34,9 @@ QtObject {
     property real mass: 0.6
     property real epsilon: Theme.springEpsilon
     // Caps the per-tick step so a compositor hiccup can't fling the spring in
-    // one huge integration step; long gaps are sub-stepped instead.
+    // one huge leap: a longer gap is clamped, not caught up, so a 200ms stall
+    // advances the spring 33ms. The sub-stepping below is for accuracy within
+    // a tick, not for covering gaps.
     property real maximumFrameTime: 1 / 30
     property real integrationStep: 1 / 240
 

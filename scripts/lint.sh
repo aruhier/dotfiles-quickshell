@@ -91,6 +91,11 @@ SUPPRESSED = [
     ("*", "unresolved-type",
      'Type "QList<qs::service::notifications::NotificationAction*>"',
      "NotificationAction list type is not exported"),
+    ("shared/popup/WorkspacePreviewPopup.qml", "unresolved-type",
+     'Type "qs::wayland::toplevel::Toplevel" of property "wayland" not found',
+     "HyprlandToplevel.wayland is the C++ Toplevel, which the hyprland "
+     "qmltypes do not export; checked at all only since the Repeater's model "
+     "became the typed toplevel list rather than a filtered var"),
 
     # --- deliberate duck-typing in this shell -------------------------------
     ("shared/ModuleLoader.qml", "missing-property",

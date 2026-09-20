@@ -122,9 +122,9 @@ Item {
         anchors.right: parent.right
         implicitHeight: frontCard.implicitHeight + root.peekOffset * root.peekCount
 
-        property bool hovered: false
+        readonly property bool hovered: stackHover.hovered
         HoverHandler {
-            onHoveredChanged: collapsedStack.hovered = hovered
+            id: stackHover
         }
 
         // Furthest-back first, so the front card paints over them.

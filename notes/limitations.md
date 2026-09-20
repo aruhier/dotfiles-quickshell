@@ -4,8 +4,9 @@
 
 - **`Privacy.qml`** shows a mic icon and a screen-share icon, both computed
   inline (no dedicated service — see `notes/privacy.md`).
-- **`Mpd.qml`** polls `mpc` on a timer since mpd isn't exposed over MPRIS
-  here and Quickshell has no built-in mpd client.
+- **`Mpd.qml`** shells out to `mpc` (`mpc idleloop player` for events, `mpc
+  status`/`current` on each) since Quickshell has no built-in mpd client; the
+  bar's mpd module is not MPRIS-based, unlike the control centre's widget.
 - **`Weather.qml`** natively implements the bar icon+temperature and a
   popup with current/hourly/daily forecast.
 - **`Tray.qml`'s icon order isn't stable** — nothing sorts tray icons

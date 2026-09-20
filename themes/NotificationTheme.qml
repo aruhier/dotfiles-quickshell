@@ -28,7 +28,7 @@ QtObject {
     // absolute colour. Every plate here is translucent, so its rendered
     // luminance follows the window behind it — a fixed grey holds its contrast
     // over a dark backdrop and loses it over a bright one. Measurements:
-    // AGENTS.md. 0.10 reproduces bgButton's appearance on the dark case.
+    // notes/osd.md. 0.10 reproduces bgButton's appearance on the dark case.
     readonly property color bgOverlay: Qt.rgba(1, 1, 1, 0.10)
     // The bar's accent, so the selection belongs to the same shell.
     readonly property color bgSelected: Theme.accent

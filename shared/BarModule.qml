@@ -26,7 +26,7 @@ Item {
     // Set false to disappear entirely rather than shrink to zero width. A
     // plain bool that ModuleLoader reads, never read back through `visible`:
     // a Loader mirroring its item's `visible` deadlocks the first time it goes
-    // false and can never observe a return to true. See AGENTS.md.
+    // false and can never observe a return to true. See notes/qml-gotchas.md.
     //
     // Not mirrored onto this item's own `visible`: the loader hides it, and a
     // collapsing ModuleGroup keeps the loader shown so the module stays drawn
