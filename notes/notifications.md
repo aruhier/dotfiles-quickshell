@@ -593,6 +593,50 @@ with.
 Verified with `notify-send -p` then `-r <id>`: the toast's summary and body
 change in place; with the first toast expired, the update toasts again.
 
+## The panel's list is incremental (2026-09-20)
+
+`NotificationService.notificationGroups` was a JS array rebuilt on every
+change, so every change recreated every row delegate — each with its own
+`DropShadow` texture — and the two sections above are largely about living
+with that: the deferred dismissal, the `arriving` flag cleared a pass later.
+The panel's `ListView` now reads `groupModel`, a `ListModel` of `NotifGroup`
+objects with `insert`/`move`/`remove` (`insertWrapper`, `removeWrapper`,
+`raiseWrapper`); `notificationGroups` remains as the same rows in a list for
+indexed access (the keyboard selection), since `groupModel.get(i)` sets up no
+binding. A group's `items` list is still reassigned whole, so an expanded
+group's cards are rebuilt on a change to *that* group — bounded to one row.
+
+**What changed for the gestures.** A row is now kept across arrivals, so
+`playEntry` (read once, at the spring's creation) no longer covers an arrival
+into an existing group: `DismissSlide.enter()` plays the same slide on demand,
+and the group card calls it from `onLatestChanged` (kept row) or
+`Component.onCompleted` (new row). The `arriving` flag is *consumed* by
+whoever plays it rather than cleared a pass later — `ListView` builds a new
+row's delegate at its next polish, which is after a `Qt.callLater` fires
+(probed), so a timed clear would beat it. An arrival nobody played (row out of
+view) is dropped when the panel closes. `dismissLater` stays: dismissing from
+inside a spring's frame callback is unchanged, and an expanded group's cards
+are still rebuilt under a card mid-exit. `Exit` now snapshots its wrappers
+when the gesture starts and latches `done` on `finished`: the
+`Component.onDestruction` resubmission fires on every finished row's teardown
+too (`active` stays latched), and reading the group's live list from there
+segfaulted the engine once the group was an object that could be dead.
+
+**What changed for lifetimes.** `ListView` releases a removed row later than
+the service drops its wrapper, and a dropped wrapper is a dead QObject —
+not null from JS, throws on any property read. `NotificationCard.w` and
+`NotificationGroupCard.latestLive` gate every read on membership in
+`notifications`, the same liveness test `dismissLater` uses; a toast reads a
+snapshot and skips the test; `NotificationService.isLive()` is the one
+place that asks, since even `indexOf` throws on a dead object. `NotifGroup`s
+are never destroyed for the same reason — cached by key, emptied instead —
+which is also why `peekCount` clamps at 0. `forceLayout()` on removal was
+tried first and did not help: the delegate outlived even a deferred
+`destroy()`.
+
+**Row order.** A group rises on an arrival or a replacement; it no longer
+drops when its newest member is dismissed, as the rebuilt array had it.
+
 ## Toasts read as glass, like the OSD (2026-09-14)
 
 Reported as "the popups should be a bit more rounded, and look more like the

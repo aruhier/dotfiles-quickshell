@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Widgets
+import qs.services
 import qs.shared
 import qs.shared.animations
 import qs.shared.notifications
@@ -15,6 +16,19 @@ Item {
     id: card
 
     required property var wrapper
+    // What the card reads. A row's wrapper is live only while listed: the
+    // list releases a row later than the service drops its wrapper. A toast
+    // reads a snapshot instead (NotificationPopupWindow.qml), never dropped.
+    readonly property var w: card.floating || NotificationService.isLive(card.wrapper) ? card.wrapper : card.empty
+    readonly property var empty: ({
+            "summary": "",
+            "body": "",
+            "appIcon": "",
+            "image": "",
+            "timeStr": "",
+            "defaultAction": null,
+            "otherActions": []
+        })
     property bool floating: false
     // Keyboard selection in the control-center list; never set on popups.
     property bool selected: false
@@ -176,11 +190,11 @@ Item {
             // whole card — later siblings still win the hit-test.
             MouseArea {
                 anchors.fill: parent
-                enabled: card.interactive && (card.floating || card.wrapper.defaultAction !== null)
+                enabled: card.interactive && (card.floating || card.w.defaultAction !== null)
                 cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                 onClicked: {
-                    if (card.wrapper.defaultAction !== null)
-                        card.wrapper.defaultAction.invoke();
+                    if (card.w.defaultAction !== null)
+                        card.w.defaultAction.invoke();
                     if (card.floating)
                         card.dismissRequested();
                 }
@@ -209,16 +223,16 @@ Item {
 
                         Image {
                             anchors.fill: parent
-                            visible: card.wrapper.image !== ""
-                            source: card.wrapper.image
+                            visible: card.w.image !== ""
+                            source: card.w.image
                             fillMode: Image.PreserveAspectCrop
                             asynchronous: true
                         }
 
                         IconImage {
                             anchors.fill: parent
-                            visible: card.wrapper.image === ""
-                            source: Quickshell.iconPath(card.wrapper.appIcon, "dialog-information")
+                            visible: card.w.image === ""
+                            source: Quickshell.iconPath(card.w.appIcon, "dialog-information")
                         }
                     }
 
@@ -238,7 +252,7 @@ Item {
                             StyledText {
                                 id: summaryText
                                 Layout.fillWidth: true
-                                text: card.wrapper.summary
+                                text: card.w.summary
                                 color: NotificationTheme.text
                                 bold: true
                                 font.pixelSize: NotificationTheme.fontSize
@@ -250,7 +264,7 @@ Item {
                                 // Control-center rows only: a toast is current by
                                 // definition, so its time says nothing.
                                 visible: !card.floating
-                                text: card.wrapper.timeStr
+                                text: card.w.timeStr
                                 color: NotificationTheme.text
                                 // Matches the summary beside it.
                                 bold: true
@@ -261,8 +275,8 @@ Item {
                         StyledText {
                             id: bodyText
                             Layout.fillWidth: true
-                            visible: card.wrapper.body !== ""
-                            text: card.wrapper.body
+                            visible: card.w.body !== ""
+                            text: card.w.body
                             color: NotificationTheme.text
                             font.pixelSize: NotificationTheme.fontSizeBody
                             // Qt leads Inter tightly (~19.4px at this size); wrapped
@@ -291,12 +305,12 @@ Item {
                 anchors.topMargin: card.actionsTopMargin
                 anchors.leftMargin: card.actionsMargin
                 anchors.rightMargin: card.actionsMargin
-                visible: card.wrapper.otherActions.length > 0
+                visible: card.w.otherActions.length > 0
                 spacing: 8
 
                 Repeater {
                     id: actionsRepeater
-                    model: card.wrapper.otherActions
+                    model: card.w.otherActions
 
                     Rectangle {
                         id: actionButton

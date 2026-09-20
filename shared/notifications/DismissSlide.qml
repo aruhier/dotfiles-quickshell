@@ -46,6 +46,18 @@ QtObject {
 
     signal finished
 
+    // The arrival, on an item that already exists — a panel row whose group
+    // just gained a notification, which the list keeps rather than rebuilds
+    // (see NotificationGroupCard.qml). `playEntry` is the same slide for an
+    // item built for it, read once by the spring's own Component.onCompleted.
+    function enter() {
+        if (root.active)
+            return;
+        root.landed = false;
+        slide.snapTo(root.travel);
+        slide.retarget(0);
+    }
+
     function start() {
         if (root.active)
             return;

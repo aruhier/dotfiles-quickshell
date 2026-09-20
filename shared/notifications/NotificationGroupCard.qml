@@ -27,10 +27,12 @@ Item {
     // items[0] is always the group's newest — notificationGroups builds each
     // group in newest-first order.
     readonly property var latest: group.items[0]
+    // Liveness as in NotificationCard.w.
+    readonly property bool latestLive: NotificationService.isLive(root.latest)
     readonly property bool expanded: root.isGroup && NotificationService.isGroupExpanded(root.group.key)
 
     // The front card plus up to 2 peeking behind it.
-    readonly property int peekCount: Math.min(count - 1, 2)
+    readonly property int peekCount: Math.max(0, Math.min(count - 1, 2))
     readonly property int peekOffset: 6
 
     // Gap between an expanded group's content and its selection ring.
@@ -42,8 +44,17 @@ Item {
 
     // A notification landing in an open panel arrives by the exit slide run
     // backwards. Whoever leaves alone arrives alone: the row, or one card of
-    // an expanded group. The flag is only up for the pass building this row.
-    readonly property bool arriving: root.latest.arriving
+    // an expanded group. The flag is consumed by whichever plays it, and
+    // checked both when this row is built (a new group, or one scrolled into
+    // view) and when its newest changes under a row the list kept.
+    function playArrival() {
+        if (!root.latestLive || !root.latest.arriving || root.expanded)
+            return;
+        root.latest.arriving = false;
+        rowExit.enter();
+    }
+    Component.onCompleted: playArrival()
+    onLatestChanged: playArrival()
     // Enough to put a leaving row past the list's clip, which is what it
     // actually disappears behind — 16px short of the screen edge, the panel's
     // own padding. Nothing is drawn in that strip, so the cut doesn't read.
@@ -56,16 +67,25 @@ Item {
     }
 
     // What leaves the list — the row, or one card of an expanded group — is
-    // dismissed only once its exit has played: the model is a plain array, so
-    // any change to it recreates every delegate mid-flight. Destroyed under
-    // the gesture by another such reset, the click still has to land.
+    // dismissed only once its exit has played. A change to the group's items
+    // recreates its cards mid-flight; destroyed under the gesture, the click
+    // still has to land.
     component Exit: DismissSlide {
         id: exit
         required property var items
         travel: root.exitTravel
-        onFinished: NotificationService.dismissLater(exit.items)
-        Component.onDestruction: if (exit.active)
-            NotificationService.dismissLater(exit.items)
+        // Snapshot at start: `items` binds to a group whose list has moved
+        // on by the time a finished row is torn down.
+        property var pending: []
+        property bool done: false
+        onActiveChanged: if (exit.active)
+            exit.pending = exit.items.slice()
+        onFinished: {
+            exit.done = true;
+            NotificationService.dismissLater(exit.pending);
+        }
+        Component.onDestruction: if (exit.active && !exit.done)
+            NotificationService.dismissLater(exit.pending)
     }
 
     // Nothing left to click on a row that is leaving, the way a closing toast
@@ -79,7 +99,6 @@ Item {
     Exit {
         id: rowExit
         items: root.group.items
-        playEntry: root.arriving && !root.expanded
     }
 
     // ---- single notification: no group chrome at all ----
@@ -194,12 +213,12 @@ Item {
             IconImage {
                 Layout.preferredWidth: 18
                 Layout.preferredHeight: 18
-                source: Quickshell.iconPath(root.latest.appIcon, "dialog-information")
+                source: Quickshell.iconPath(root.latestLive ? root.latest.appIcon : "", "dialog-information")
             }
 
             StyledText {
                 Layout.fillWidth: true
-                text: root.latest.appName
+                text: root.latestLive ? root.latest.appName : ""
                 color: NotificationTheme.text
                 bold: true
                 font.pixelSize: NotificationTheme.fontSize
@@ -246,7 +265,15 @@ Item {
                 Exit {
                     id: cardExit
                     items: [groupItemCard.modelData]
-                    playEntry: root.arriving && root.expanded && groupItemCard.modelData === root.latest
+                }
+
+                // The cards are rebuilt on every change to the group, so the
+                // one built for the arrival is the one that plays it.
+                Component.onCompleted: {
+                    if (!root.expanded || !groupItemCard.modelData.arriving)
+                        return;
+                    groupItemCard.modelData.arriving = false;
+                    cardExit.enter();
                 }
             }
         }

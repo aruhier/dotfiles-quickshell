@@ -20,6 +20,13 @@ ColumnLayout {
     visible: MprisService.activePlayer !== null
     spacing: 8
 
+    // Whether the panel is mapped. Neither gesture below runs unseen: a
+    // running spring re-renders every mapped window for its duration
+    // (notes/rendering.md), and tracks change all day with the panel shut —
+    // a bounce nobody saw cost three bars a frame loop per song. Null until
+    // the panel has first been shown, hence the `?? false`.
+    readonly property bool mapped: root.Window.window?.visible ?? false
+
     RowLayout {
         Layout.fillWidth: true
         spacing: 4
@@ -44,6 +51,8 @@ ColumnLayout {
             // the index delta's sign is ambiguous on wrap.
             readonly property int watchedIndex: MprisService.index
             onWatchedIndexChanged: {
+                if (!root.mapped)
+                    return;
                 mprisSlideSpring.value = MprisService.slideDirection * mprisClip.width;
                 mprisSlideSpring.retarget(0);
             }
@@ -53,7 +62,7 @@ ColumnLayout {
             // two effects never stack.
             readonly property string trackKey: MprisService.activePlayer ? MprisService.activePlayer.trackTitle + "|" + MprisService.activePlayer.trackArtist : ""
             onTrackKeyChanged: {
-                if (MprisService.suppressPop)
+                if (MprisService.suppressPop || !root.mapped)
                     return;
                 mprisPopSpring.value = 0.94;
                 mprisPopSpring.retarget(1);

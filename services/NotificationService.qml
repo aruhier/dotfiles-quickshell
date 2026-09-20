@@ -1,6 +1,7 @@
 pragma Singleton
 pragma ComponentBehavior: Bound
 import QtQuick
+import QtQml.Models
 import Quickshell
 import Quickshell.Services.Notifications
 import qs.shared
@@ -19,27 +20,85 @@ QtObject {
     // Visible toasts: a subset of notifications, plus transient ones.
     property list<NotifWrapper> popups: []
 
-    // Control-center-only, grouped by app (key = desktop_entry ?? app_name).
-    // One stable pass over a newest-first list puts each group at its newest
-    // member's position, so a group rises as it gets new notifications with no
-    // separate sort. Popups never group — they read `popups` directly.
-    readonly property var notificationGroups: {
-        const groups = [];
-        const byKey = {};
-        for (const w of root.notifications) {
-            const key = w.groupKey;
-            let g = byKey[key];
-            if (!g) {
-                g = {
-                    "key": key,
-                    "items": []
-                };
-                byKey[key] = g;
-                groups.push(g);
-            }
-            g.items.push(w);
+    // Control-center-only, grouped by app (key = desktop_entry ?? app_name),
+    // newest group first. Popups never group — they read `popups` directly.
+    // Two views of the same rows, kept in step below: `groupModel` for the
+    // panel's ListView, incremental so a change touches one row's delegate
+    // rather than rebuilding all (notes/notifications.md); `notificationGroups`
+    // for indexed access, since `groupModel.get(i)` sets up no binding.
+    readonly property ListModel groupModel: ListModel {}
+    property list<NotifGroup> notificationGroups: []
+    // Every group ever made, by key. Never destroyed: a released row can
+    // outlive its removal, and a dead group under it crashed the engine.
+    property var groupsByKey: ({})
+
+    function groupFor(key) {
+        let group = root.groupsByKey[key];
+        if (!group) {
+            group = root.groupComponent.createObject(root, {
+                "key": key
+            }) as NotifGroup;
+            root.groupsByKey[key] = group;
         }
-        return groups;
+        return group;
+    }
+
+    function groupIndex(group) {
+        return root.notificationGroups.indexOf(group);
+    }
+
+    function moveGroupToFront(group) {
+        const at = root.groupIndex(group);
+        if (at <= 0)
+            return;
+        root.groupModel.move(at, 0, 1);
+        root.notificationGroups = [group, ...root.notificationGroups.filter(g => g !== group)];
+    }
+
+    // Newest first in history and in its group; the group rises to the top.
+    function insertWrapper(wrapper) {
+        root.notifications = [wrapper, ...root.notifications];
+
+        const group = root.groupFor(wrapper.groupKey);
+        const listed = group.items.length > 0;
+        wrapper.group = group;
+        group.items = [wrapper, ...group.items];
+        if (listed) {
+            root.moveGroupToFront(group);
+            return;
+        }
+        root.groupModel.insert(0, {
+            "group": group
+        });
+        root.notificationGroups = [group, ...root.notificationGroups];
+    }
+
+    // A group left empty goes too. Row order is otherwise kept: a group
+    // doesn't drop because its newest member was dismissed.
+    function removeWrapper(wrapper) {
+        root.notifications = root.notifications.filter(w => w !== wrapper);
+
+        const group = wrapper.group;
+        if (!group)
+            return;
+        group.items = group.items.filter(w => w !== wrapper);
+        if (group.items.length > 0)
+            return;
+        root.groupModel.remove(root.groupIndex(group));
+        root.notificationGroups = root.notificationGroups.filter(g => g !== group);
+    }
+
+    // What a replacement does to a listed notification. Every step is a
+    // no-op when already at the front, so a stream of updates rebuilds nothing.
+    function raiseWrapper(wrapper) {
+        if (root.notifications.indexOf(wrapper) > 0)
+            root.notifications = [wrapper, ...root.notifications.filter(w => w !== wrapper)];
+        const group = wrapper.group;
+        if (!group)
+            return;
+        if (group.items.indexOf(wrapper) > 0)
+            group.items = [wrapper, ...group.items.filter(w => w !== wrapper)];
+        root.moveGroupToFront(group);
     }
 
     // UI-only, not persisted. Here rather than on NotificationGroupCard so
@@ -119,8 +178,14 @@ QtObject {
     }
 
     onCenterOpenChanged: {
-        if (root.centerOpen)
+        if (root.centerOpen) {
             root.clearPopups();
+        } else {
+            // An arrival no row played (landed out of view, no delegate) is
+            // dropped on close, so the next open shows every row at rest.
+            for (const w of root.notifications)
+                w.arriving = false;
+        }
     }
 
     function clearAll() {
@@ -151,7 +216,7 @@ QtObject {
         const pending = wrappers.slice();
         Qt.callLater(() => {
             for (const w of pending) {
-                if (root.notifications.indexOf(w) !== -1)
+                if (root.isLive(w))
                     root.dismiss(w);
             }
         });
@@ -163,6 +228,17 @@ QtObject {
         const toDismiss = group.items.slice();
         for (const w of toDismiss)
             root.dismiss(w);
+    }
+
+    // Whether a wrapper is still listed. A dropped one is a dead QObject —
+    // not null, and even `indexOf` throws on it — so this is the one place
+    // that asks, and it answers false rather than throwing.
+    function isLive(wrapper) {
+        try {
+            return root.notifications.indexOf(wrapper) !== -1;
+        } catch (e) {
+            return false;
+        }
     }
 
     // Apps whose notifications are status blips, not things to come back to:
@@ -179,10 +255,7 @@ QtObject {
     // with the timer restarted so a stream of updates keeps the toast up.
     function bump(wrapper) {
         wrapper.time = new Date();
-
-        const at = root.notifications.indexOf(wrapper);
-        if (at > 0)
-            root.notifications = [wrapper, ...root.notifications.filter(w => w !== wrapper)];
+        root.raiseWrapper(wrapper);
 
         if (!root.dnd && !root.centerOpen) {
             root.popupScreen = Screens.focused();
@@ -237,8 +310,13 @@ QtObject {
             });
         }
 
-        // Set on one landing in an open panel, so the row built for it slides
-        // in; cleared a pass later, so a rebuilt row starts at rest.
+        // Its NotifGroup, from insertWrapper(). `var`: NotifGroup is declared
+        // after this component and holds a list of these.
+        property var group: null
+
+        // Set on landing in an open panel; cleared by the row that plays the
+        // arrival, not a pass later — ListView builds a new delegate at its
+        // next polish, after a Qt.callLater would have fired (verified).
         property bool arriving: false
 
         readonly property list<NotificationAction> allActions: notification ? notification.actions : []
@@ -269,7 +347,7 @@ QtObject {
             target: wrapper.notification ? wrapper.notification.Retainable : null
 
             function onDropped() {
-                root.notifications = root.notifications.filter(w => w !== wrapper);
+                root.removeWrapper(wrapper);
                 root.popups = root.popups.filter(w => w !== wrapper);
                 wrapper.destroy();
             }
@@ -316,6 +394,17 @@ QtObject {
         NotifWrapper {}
     }
 
+    // One panel row: an app's notifications, newest first. An object, so a
+    // delegate keeps it across changes to `items`.
+    component NotifGroup: QtObject {
+        required property string key
+        property list<NotifWrapper> items: []
+    }
+
+    property Component groupComponent: Component {
+        NotifGroup {}
+    }
+
     property NotificationServer server: NotificationServer {
         bodySupported: true
         bodyMarkupSupported: false
@@ -342,16 +431,7 @@ QtObject {
 
             if (!transient) {
                 wrapper.arriving = root.centerOpen;
-                root.notifications = [wrapper, ...root.notifications];
-                // The list rebuilds its rows inside that assignment, and
-                // only those rows play the entry. Cleared a pass later, not by
-                // the row: its spring reads the flag from its own
-                // Component.onCompleted, after the row's. notes/notifications.md.
-                if (wrapper.arriving)
-                    Qt.callLater(() => {
-                        if (root.notifications.indexOf(wrapper) !== -1)
-                            wrapper.arriving = false;
-                    });
+                root.insertWrapper(wrapper);
             }
 
             // No toast while the panel is open — it's already in the list —

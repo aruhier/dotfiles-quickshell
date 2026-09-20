@@ -77,6 +77,14 @@ PanelWindow {
     // the user closes, not once the slide-out spring settles.
     WlrLayershell.keyboardFocus: NotificationService.centerOpen ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 
+    // A closing panel takes no input. The full-screen surface stays mapped
+    // for the slide-out (~600ms), and without this the click-outside area
+    // below kept swallowing clicks meant for the window underneath for that
+    // long, each a no-op closeCenter(). Null is "the whole window", as it must
+    // be while open for that area to work.
+    mask: panelWindow.closing ? closingMask : null
+    readonly property Region closingMask: Region {}
+
     onVisibleChanged: if (visible) {
         focusScope.forceActiveFocus();
         // Pre-select the first row, so Up/Down works without a priming press.
@@ -383,20 +391,20 @@ PanelWindow {
                         rightMargin: notificationListView.cardInset
                         topMargin: Screens.snap(NotificationTheme.listCardMargin, panelWindow.screen)
                         bottomMargin: Screens.snap(NotificationTheme.listCardMargin, panelWindow.screen)
-                        model: NotificationService.notificationGroups
+                        model: NotificationService.groupModel
 
+                        // The model's `group` role fills the card's required
+                        // property of that name.
                         delegate: NotificationGroupCard {
                             id: listCard
-                            required property var modelData
                             // Not `ListView.view.width` alone — that's the
                             // full viewport, so cards overflowed the view's
                             // margins and got clipped.
                             width: ListView.view.width - notificationListView.leftMargin - notificationListView.rightMargin
-                            group: listCard.modelData
-                            selected: focusScope.selectedKey === listCard.modelData.key
+                            selected: focusScope.selectedKey === listCard.group.key
                             // Clicking a row moves the keyboard selection
                             // there too, so the highlight follows the mouse.
-                            onSelectRequested: focusScope.selectedKey = listCard.modelData.key
+                            onSelectRequested: focusScope.selectedKey = listCard.group.key
                         }
                     }
                 }

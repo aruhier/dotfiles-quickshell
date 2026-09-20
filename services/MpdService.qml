@@ -12,9 +12,29 @@ QtObject {
     property string artist: ""
     property string title: ""
 
+    // Never restarts a read in flight: `running = false` terminates it, and
+    // the partial stdout that leaves still reaches the collector — for
+    // `mpc status` that means no `volume:` line, read as "disconnected", so
+    // the module collapsed and re-expanded whenever idleloop emitted two
+    // lines close together (a state change and a seek). A refresh during a
+    // read is noted and the read re-run once it exits, so the last state
+    // always lands.
     function refresh() {
-        statusProc.running = false;
-        statusProc.running = true;
+        root.rerun(statusProc);
+    }
+
+    function rerun(proc) {
+        if (proc.running)
+            proc.dirty = true;
+        else
+            proc.running = true;
+    }
+
+    function rerunIfDirty(proc) {
+        if (!proc.dirty)
+            return;
+        proc.dirty = false;
+        proc.running = true;
     }
 
     function applyStatus(text) {
@@ -48,25 +68,30 @@ QtObject {
             return;
         }
 
-        currentTrackProc.running = false;
-        currentTrackProc.running = true;
+        root.rerun(currentTrackProc);
     }
 
     property Process statusProc: Process {
         id: statusProc
+        // A refresh() asked for while this was running; see rerun().
+        property bool dirty: false
         command: ["mpc", "status"]
         stdout: StdioCollector {
             id: statusCollector
             onStreamFinished: root.applyStatus(statusCollector.text)
         }
+        // The stream has ended by the time this fires (Quickshell emits
+        // streamEnded before exited), so the re-run follows the apply.
         onExited: (code, status) => {
             if (code !== 0)
                 root.playbackState = "disconnected";
+            root.rerunIfDirty(statusProc);
         }
     }
 
     property Process currentTrackProc: Process {
         id: currentTrackProc
+        property bool dirty: false
         command: ["mpc", "current", "-f", "%artist%\t%title%"]
         stdout: StdioCollector {
             id: currentCollector
@@ -76,6 +101,7 @@ QtObject {
                 root.title = parts[1] || "";
             }
         }
+        onExited: root.rerunIfDirty(currentTrackProc)
     }
 
     // Restricted to "player", the only subsystem displayed here.
