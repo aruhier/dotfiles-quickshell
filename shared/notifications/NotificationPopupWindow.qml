@@ -91,29 +91,46 @@ PanelWindow {
     // spring, since Repeater destroys a delegate the instant its row leaves
     // the model (see removeDisplayPopup).
     //
-    // `display` snapshots the wrapper's fields once, on creation, and the card
-    // binds to that instead of the wrapper: an app closing its own
-    // notification over D-Bus can free it out from under a live binding, and
-    // Retainable.lock() doesn't cover that path — a burst of them logged a
-    // page of null-property errors.
+    // `display` snapshots the wrapper's fields, and the card binds to that
+    // instead of the wrapper: an app closing its own notification over D-Bus
+    // can free it out from under a live binding, and Retainable.lock() doesn't
+    // cover that path — a burst of them logged a page of null-property errors.
+    // Taken on creation and again on each replacement the service has applied
+    // (`updated`), which is the only way a field changes after that.
     component PopupEntry: QtObject {
+        id: entry
+
         required property var wrapper
         property bool closing: false
         property var display: null
 
-        Component.onCompleted: display = {
-            "summary": wrapper.summary,
-            "body": wrapper.body,
-            "appName": wrapper.appName,
-            "appIcon": wrapper.appIcon,
-            "image": wrapper.image,
-            "urgency": wrapper.urgency,
-            "timeStr": wrapper.timeStr,
-            "defaultAction": wrapper.defaultAction,
-            "otherActions": wrapper.otherActions,
-            // Not displayed — what onDismissRequested below dismisses. Only
-            // reachable while `interactive`.
-            "notification": wrapper.notification
+        function snapshot() {
+            entry.display = {
+                "summary": wrapper.summary,
+                "body": wrapper.body,
+                "appName": wrapper.appName,
+                "appIcon": wrapper.appIcon,
+                "image": wrapper.image,
+                "urgency": wrapper.urgency,
+                "timeStr": wrapper.timeStr,
+                "defaultAction": wrapper.defaultAction,
+                "otherActions": wrapper.otherActions,
+                // Not displayed — what onDismissRequested below dismisses. Only
+                // reachable while `interactive`.
+                "notification": wrapper.notification
+            };
+        }
+
+        Component.onCompleted: snapshot()
+
+        // A closing toast keeps what it left with; the update re-toasts it
+        // as a new entry instead (see indexOfWrapper).
+        readonly property Connections updates: Connections {
+            target: entry.closing ? null : entry.wrapper
+
+            function onUpdated() {
+                entry.snapshot();
+            }
         }
     }
 
@@ -129,9 +146,12 @@ PanelWindow {
         PopupEntry {}
     }
 
+    // Only live entries count: a wrapper re-toasted while its last toast is
+    // still sliding out gets a fresh entry, since an exit can't be unwound.
     function indexOfWrapper(w) {
         for (let i = 0; i < displayPopupsModel.count; i++) {
-            if (displayPopupsModel.get(i).entry.wrapper === w)
+            const entry = displayPopupsModel.get(i).entry;
+            if (!entry.closing && entry.wrapper === w)
                 return i;
         }
         return -1;

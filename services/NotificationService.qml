@@ -171,6 +171,32 @@ QtObject {
         return appName === "blueman" || appName === "NetworkManager Applet";
     }
 
+    // A replacement (`replaces_id`, e.g. `notify-send -r` or a progress
+    // notification) updates the Notification in place: the server emits no
+    // `notification` for it, so this is what an update does that a plain
+    // property binding can't — it is treated as an arrival. Its time is now,
+    // its group rises, and it toasts again under the same rule as a new one,
+    // with the timer restarted so a stream of updates keeps the toast up.
+    function bump(wrapper) {
+        wrapper.time = new Date();
+
+        const at = root.notifications.indexOf(wrapper);
+        if (at > 0)
+            root.notifications = [wrapper, ...root.notifications.filter(w => w !== wrapper)];
+
+        if (!root.dnd && !root.centerOpen) {
+            root.popupScreen = Screens.focused();
+            if (root.popups.indexOf(wrapper) === -1)
+                root.popups = [...root.popups, wrapper];
+            if (wrapper.timer.interval > 0)
+                wrapper.timer.restart();
+            else
+                wrapper.timer.stop();
+        }
+
+        wrapper.updated();
+    }
+
     // ---- notification wrapper ----
 
     component NotifWrapper: QtObject {
@@ -186,8 +212,30 @@ QtObject {
         readonly property string groupKey: notification ? (notification.desktopEntry || notification.appName) : ""
         readonly property string image: notification ? notification.image : ""
         readonly property int urgency: notification ? notification.urgency : NotificationUrgency.Normal
-        readonly property date time: new Date()
+        // Reset by bump(): a replaced notification is as new as its update.
+        property date time: new Date()
         readonly property string timeStr: Qt.formatTime(time, "HH:mm")
+
+        // After bump() has applied a replacement — what the toast re-snapshots
+        // on (NotificationPopupWindow.qml's PopupEntry).
+        signal updated
+
+        // One bump per replacement, not one per changed field: the server
+        // sets every property in one update group, so the notifications land
+        // together, and the pass they are coalesced into is also after the
+        // group ends. The liveness check is for a wrapper dropped in between.
+        property bool updatePending: false
+        function noteUpdate() {
+            if (wrapper.updatePending)
+                return;
+            wrapper.updatePending = true;
+            Qt.callLater(() => {
+                if (root.notifications.indexOf(wrapper) === -1 && root.popups.indexOf(wrapper) === -1)
+                    return;
+                wrapper.updatePending = false;
+                root.bump(wrapper);
+            });
+        }
 
         // Set on one landing in an open panel, so the row built for it slides
         // in; cleared a pass later, so a rebuilt row starts at rest.
@@ -228,6 +276,38 @@ QtObject {
 
             function onAboutToDestroy() {
                 wrapper.destroy();
+            }
+        }
+
+        // Every field a replacement can change that is shown or timed. Each
+        // only fires when its value differs, so a progress update that keeps
+        // its summary still lands via body, hints or image.
+        readonly property Connections updates: Connections {
+            target: wrapper.notification
+
+            function onSummaryChanged() {
+                wrapper.noteUpdate();
+            }
+            function onBodyChanged() {
+                wrapper.noteUpdate();
+            }
+            function onAppIconChanged() {
+                wrapper.noteUpdate();
+            }
+            function onImageChanged() {
+                wrapper.noteUpdate();
+            }
+            function onUrgencyChanged() {
+                wrapper.noteUpdate();
+            }
+            function onActionsChanged() {
+                wrapper.noteUpdate();
+            }
+            function onHintsChanged() {
+                wrapper.noteUpdate();
+            }
+            function onExpireTimeoutChanged() {
+                wrapper.noteUpdate();
             }
         }
     }
@@ -274,8 +354,12 @@ QtObject {
                     });
             }
 
-            // No toast while the panel is open — it's already in the list.
-            if (!root.dnd && !root.centerOpen) {
+            // No toast while the panel is open — it's already in the list —
+            // nor for one the server re-emits across a hot reload
+            // (`keepOnReload`, the default): it was toasted the first time,
+            // and it lands here with `centerOpen` false because the singleton
+            // is fresh. History keeps it either way.
+            if (!root.dnd && !root.centerOpen && !notif.lastGeneration) {
                 root.popupScreen = Screens.focused();
                 root.popups = [...root.popups, wrapper];
                 if (wrapper.timer.interval > 0)

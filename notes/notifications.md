@@ -549,6 +549,50 @@ never builds a delegate in that pass, so it plays nothing later — by design,
 the flag is gone by then. A toast is never involved: `centerOpen` suppresses
 the stack, so the panel is the only surface an arriving notification lands on.
 
+## A replacement is an arrival (2026-09-20)
+
+A `Notify` carrying a `replaces_id` that matches a live notification does
+not produce a new one: Quickshell's server (0.3.1,
+`src/services/notifications/server.cpp`) calls `updateProperties()` on the
+existing `Notification` and emits nothing — no `notification` signal, only the
+per-field `*Changed` notifies. Before this the panel's live bindings followed
+the update, but nothing else did: `time` stood, the group stayed put, and a
+toast showed the first summary and body until it timed out, since
+`PopupEntry.display` is a one-shot snapshot (below). An update to a
+notification whose toast had already expired showed nothing at all. Progress
+notifications, media players and `notify-send -r` all go through this path.
+
+`NotifWrapper` now listens to every field a replacement can change that is
+shown or timed (summary, body, icon, image, urgency, actions, hints, expire
+timeout) and coalesces them into one `NotificationService.bump()`. Coalesced
+via `Qt.callLater` with a pending flag rather than handled per signal: the
+server sets every field inside one property update group, so all the notifies
+land together, and a bump per field would rebuild the panel and re-snapshot
+the toast several times over. The deferred pass is also after the group ends,
+so `bump()` sees the whole update. Its liveness check is for a wrapper dropped
+between the notify and the pass — a destroyed QObject throws on property
+access, so the list membership test comes before anything else.
+
+`bump()` does what an arrival does: resets `time`, moves the wrapper to the
+front of history when it isn't there already (a new array only when the order
+actually changes — a progress stream updating every second would otherwise
+rebuild every panel row every second), and under the same rule as a new
+notification (`!dnd && !centerOpen`) puts it back on the stack if it left and
+restarts its timer. Then it emits `updated`, which is what the toast
+re-snapshots on. Not set: `arriving`. A bumped row already exists in the
+panel; a rebuild shows it at rest.
+
+**A toast mid-exit gets a fresh entry, not a rescue.** `indexOfWrapper()`
+skips closing entries, so a wrapper re-added to `popups` while its last toast
+is still sliding out gets a new `PopupEntry` below it. The exit can't be
+unwound — `DismissSlide.start()` is latched — and the update is content the
+user hasn't seen, so a new entry is the honest thing. The closing entry's
+`updates` connection is cut (`target: null`) so it leaves showing what it left
+with.
+
+Verified with `notify-send -p` then `-r <id>`: the toast's summary and body
+change in place; with the first toast expired, the update toasts again.
+
 ## Toasts read as glass, like the OSD (2026-09-14)
 
 Reported as "the popups should be a bit more rounded, and look more like the

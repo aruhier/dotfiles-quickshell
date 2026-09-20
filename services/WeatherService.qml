@@ -82,20 +82,45 @@ QtObject {
             root.fetchForecast();
     }
 
+    // The request in flight, and the timer that gives up on it. QML's
+    // XMLHttpRequest has no `timeout` (checked: undefined on Qt 6.11), and a
+    // socket stalled by a suspend or a captive portal never reaches DONE on
+    // its own — which left `loading` true for the life of the process, so
+    // refresh() returned early forever and the popup's spin never stopped.
+    // `abort()` completes the request as DONE with status 0, so it takes the
+    // ordinary error path below and the next refresh() retries.
+    property var xhr: null
+    readonly property Timer requestTimeout: Timer {
+        interval: 15000
+        onTriggered: root.xhr?.abort()
+    }
+
+    function request(url, onDone) {
+        const xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState !== XMLHttpRequest.DONE)
+                return;
+            root.requestTimeout.stop();
+            root.xhr = null;
+            root.loading = false;
+            onDone(xhr);
+        };
+        root.xhr = xhr;
+        root.loading = true;
+        root.requestTimeout.restart();
+        xhr.open("GET", url);
+        xhr.send();
+    }
+
     function fetchForecast() {
         if (isNaN(root.latitude) || isNaN(root.longitude)) {
             root.errored = true;
             return;
         }
 
-        root.loading = true;
         const url = "https://api.open-meteo.com/v1/forecast?latitude=" + root.latitude + "&longitude=" + root.longitude + "&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day" + "&hourly=temperature_2m,precipitation_probability,weather_code,is_day" + "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset" + "&timezone=auto&forecast_days=7";
 
-        const xhr = new XMLHttpRequest();
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState !== XMLHttpRequest.DONE)
-                return;
-            root.loading = false;
+        root.request(url, xhr => {
             try {
                 if (xhr.status !== 200)
                     throw new Error("http " + xhr.status);
@@ -105,9 +130,7 @@ QtObject {
             } catch (e) {
                 root.errored = true;
             }
-        };
-        xhr.open("GET", url);
-        xhr.send();
+        });
     }
 
     // Coordinates come from QS_WEATHER_LAT/QS_WEATHER_LON if set, otherwise
@@ -122,12 +145,7 @@ QtObject {
             return;
         }
 
-        root.loading = true;
-        const xhr = new XMLHttpRequest();
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState !== XMLHttpRequest.DONE)
-                return;
-            root.loading = false;
+        root.request("http://ip-api.com/json/?fields=lat,lon,city,country", xhr => {
             try {
                 if (xhr.status !== 200)
                     throw new Error("http " + xhr.status);
@@ -145,9 +163,7 @@ QtObject {
                 return;
             }
             root.fetchForecast();
-        };
-        xhr.open("GET", "http://ip-api.com/json/?fields=lat,lon,city,country");
-        xhr.send();
+        });
     }
 
     Component.onCompleted: refresh()
