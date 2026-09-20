@@ -106,7 +106,7 @@ Rectangle {
                     popupEnabled: wsDelegate.windows > 0
                     onClicked: {
                         cancel();
-                        wsDelegate.modelData.activate();
+                        root.focusOnCurrentMonitor(wsDelegate.modelData.id);
                     }
                 }
 
@@ -198,6 +198,12 @@ Rectangle {
             color: wsLabel.modelData.focused ? Theme.accentText : Theme.workspaceEmptyText
             bold: wsLabel.modelData.focused || (bgItem && bgItem.activeOnThisScreen)
         }
+    }
+
+    // Not activate(): it lacks on_current_monitor, and sends the name as a
+    // selector, where a numeric name like "8" reads as id 8.
+    function focusOnCurrentMonitor(id: int) {
+        Hyprland.dispatch(`hl.dsp.focus({ workspace = ${id}, on_current_monitor = true })`);
     }
 
     // Index of the focused workspace, -1 if none — findIndex's own miss value.
