@@ -125,10 +125,12 @@ PanelWindow {
             focusScope.lastSelectedIndex = focusScope.selectedIndex
 
         // Covers dismissal from any source: the mouse can shrink the list out
-        // from under a keyboard selection.
+        // from under a keyboard selection. On the groups' signal, not
+        // `notifications`': the service updates `notifications` first, and a
+        // handler on that still sees the dismissed group listed.
         Connections {
             target: NotificationService
-            function onNotificationsChanged() {
+            function onNotificationGroupsChanged() {
                 if (focusScope.selectedIndex >= 0)
                     return;
                 const groups = NotificationService.notificationGroups;
