@@ -2,6 +2,7 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
+import Quickshell.Networking
 
 // Shared weather state: one geolocation lookup and one Open-Meteo fetch cycle
 // for the whole process, rather than one per bar. Weather.qml just reads these
@@ -115,6 +116,7 @@ QtObject {
     function fetchForecast() {
         if (isNaN(root.latitude) || isNaN(root.longitude)) {
             root.errored = true;
+            root.scheduleNext();
             return;
         }
 
@@ -130,6 +132,7 @@ QtObject {
             } catch (e) {
                 root.errored = true;
             }
+            root.scheduleNext();
         });
     }
 
@@ -160,6 +163,7 @@ QtObject {
             } catch (e) {
                 // Coords stay NaN; the next refresh() retries the lookup.
                 root.errored = true;
+                root.scheduleNext();
                 return;
             }
             root.fetchForecast();
@@ -168,11 +172,50 @@ QtObject {
 
     Component.onCompleted: refresh()
 
-    // Refresh every 15 minutes.
-    property Timer refreshTimer: Timer {
-        interval: 900000
-        running: true
-        repeat: true
+    // One timer for both the regular cycle and retries, rescheduled at the end
+    // of every cycle so a recovery or a manual refresh puts the next fetch a
+    // full interval out. A failure retries after 30s, doubling up to the
+    // regular 15 minutes. A successful geolocation doesn't end a cycle: the
+    // forecast fetch it chains into does.
+    readonly property int refreshInterval: 900000
+    readonly property int retryInterval: 30000
+    property int failures: 0
+
+    readonly property Timer nextFetch: Timer {
         onTriggered: root.refresh()
+    }
+
+    function scheduleNext() {
+        root.failures = root.errored ? root.failures + 1 : 0;
+        // No point retrying while NetworkManager reports no network at all;
+        // onConnectivityChanged resumes when that changes.
+        if (root.errored && root.connectivity === NetworkConnectivity.None) {
+            root.nextFetch.stop();
+            return;
+        }
+        root.nextFetch.interval = root.errored ? Math.min(root.retryInterval * 2 ** (root.failures - 1), root.refreshInterval) : root.refreshInterval;
+        root.nextFetch.restart();
+    }
+
+    // Only None pauses retries: NM's Portal and Limited can be false alarms
+    // (a DNS blocker's page, an unreachable check URL), and the requests here
+    // are tiny. Unknown is every startup until NM answers, or no NM at all.
+    readonly property int connectivity: Networking.connectivity
+
+    // Suspend stops the monotonic clock nextFetch runs on, and a dropped link
+    // leaves the data errored. On any change, refetch if the data is errored
+    // or stale by the wall clock, else re-arm for the wall-clock remainder.
+    // Reads `connectivity` itself: bindings on it haven't updated yet here.
+    onConnectivityChanged: {
+        if (root.connectivity === NetworkConnectivity.None || root.loading)
+            return;
+        const age = Date.now() - root.lastUpdated;
+        if (root.errored || age >= root.refreshInterval) {
+            root.failures = 0;
+            root.refresh();
+        } else {
+            root.nextFetch.interval = root.refreshInterval - age;
+            root.nextFetch.restart();
+        }
     }
 }
