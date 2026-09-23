@@ -47,6 +47,8 @@ QtObject {
     // that a stadium would bow its sides.
     readonly property int popupRadius: 18
     readonly property int controlCenterRadius: 12
+    // Album art and notification images.
+    readonly property int imageRadius: 14
 
     // How far a staged gesture bumps, in px — the one distance every floating
     // surface shares: the OSD pill's wind-up before it drops, the control

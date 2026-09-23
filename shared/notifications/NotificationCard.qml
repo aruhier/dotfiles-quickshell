@@ -221,12 +221,20 @@ Item {
                         // Centered against the whole text column.
                         Layout.alignment: Qt.AlignVCenter
 
-                        Image {
+                        // Only the image is clipped: an app icon carries
+                        // its own shape.
+                        ClippingRectangle {
                             anchors.fill: parent
                             visible: card.w.image !== ""
-                            source: card.w.image
-                            fillMode: Image.PreserveAspectCrop
-                            asynchronous: true
+                            radius: NotificationTheme.imageRadius
+                            color: "transparent"
+
+                            Image {
+                                anchors.fill: parent
+                                source: card.w.image
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                            }
                         }
 
                         IconImage {

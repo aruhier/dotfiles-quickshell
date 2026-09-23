@@ -19,14 +19,13 @@ RowLayout {
 
     // Album art, sized to carry the widget rather than sit beside the text.
     readonly property int imageSize: 80
-    readonly property int imageRadius: 14
 
     spacing: 14
 
     ClippingRectangle {
         Layout.preferredWidth: root.imageSize
         Layout.preferredHeight: root.imageSize
-        radius: root.imageRadius
+        radius: NotificationTheme.imageRadius
         color: NotificationTheme.bg
 
         Image {
