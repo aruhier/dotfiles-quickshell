@@ -57,6 +57,15 @@ QtObject {
             root.playbackState = "disconnected";
             return;
         }
+        // A read started before idleloop's last exit may predate mpd going
+        // down, so only a fresh one proves mpd is up.
+        if (statusProc.idleExits === root.idleExits) {
+            root.failures = 0;
+            if (!idleProc.running) {
+                restartTimer.stop();
+                idleProc.running = true;
+            }
+        }
         if (stateLine && stateLine.indexOf("[playing]") === 0) {
             root.playbackState = "playing";
         } else if (stateLine && stateLine.indexOf("[paused]") === 0) {
@@ -75,6 +84,9 @@ QtObject {
         id: statusProc
         // A refresh() asked for while this was running; see rerun().
         property bool dirty: false
+        // root.idleExits when this read started; see applyStatus().
+        property int idleExits: 0
+        onRunningChanged: if (running) idleExits = root.idleExits
         command: ["mpc", "status"]
         stdout: StdioCollector {
             id: statusCollector
@@ -113,13 +125,25 @@ QtObject {
             splitMarker: "\n"
             onRead: (line) => root.refresh()
         }
-        onExited: restartTimer.start()
+        onExited: {
+            root.idleExits++;
+            root.failures++;
+            restartTimer.interval = Math.min(root.retryInterval * 2 ** (root.failures - 1), root.maxRetryInterval);
+            restartTimer.start();
+        }
     }
 
-    // idleloop exits when mpd isn't running or drops the connection.
+    // idleloop exits when mpd isn't running or drops the connection. Retries
+    // after 5s, doubling up to 30s while mpd stays down; a status read that
+    // reaches mpd resets the backoff and restarts idleloop at once, so a drop
+    // retries quickly again.
+    readonly property int retryInterval: 5000
+    readonly property int maxRetryInterval: 30000
+    property int failures: 0
+    property int idleExits: 0
+
     property Timer restartTimer: Timer {
         id: restartTimer
-        interval: 5000
         onTriggered: {
             idleProc.running = true;
             root.refresh();
