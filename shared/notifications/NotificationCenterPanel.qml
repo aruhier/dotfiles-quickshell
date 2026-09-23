@@ -3,7 +3,6 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Widgets
 import qs.shared
 import qs.services
 import qs.shared.notifications
@@ -350,12 +349,11 @@ PanelWindow {
                         opacity: 0.5
                         spacing: 8
 
-                        IconImage {
+                        Icon {
                             Layout.alignment: Qt.AlignHCenter
-                            Layout.preferredWidth: 64
-                            Layout.preferredHeight: 64
-                            implicitSize: 64
-                            source: Quickshell.iconPath("notification-disabled-symbolic", "dialog-information-symbolic")
+                            font.pixelSize: 64
+                            color: NotificationTheme.text
+                            text: "󱉴"
                         }
 
                         StyledText {
