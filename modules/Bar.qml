@@ -37,9 +37,18 @@ PanelWindow {
         return (entries ?? []).some(e => typeof e === "number" ? e === ws.id : e === ws.name);
     }
 
+    // Exactly one tiled window here. A tab group counts once, by its first
+    // member: inactive tabs aren't `hidden`. A window whose state isn't fetched
+    // yet isn't counted: a floating dialog would otherwise bring the bar back
+    // until shell.qml's refresh lands.
+    readonly property bool singleTiled: barWindow.workspace !== null && barWindow.workspace.toplevels.values.filter(t => barWindow.countsAsTile(t.lastIpcObject)).length === 1
+    function countsAsTile(ipc) {
+        return ipc.floating === false && !ipc.hidden && (!ipc.grouped?.length || ipc.grouped[0] === ipc.address);
+    }
+
     // The three levels, each falling back to the one before; the IPC's
     // `toggle` reads them to decide whether to clear an override or set one.
-    readonly property bool hiddenByRule: barWindow.workspace !== null && (barWindow.matchesWorkspace(barWindow.hideOn["*"], barWindow.workspace) || barWindow.matchesWorkspace(barWindow.hideOn[barWindow.modelData.name], barWindow.workspace))
+    readonly property bool hiddenByRule: barWindow.singleTiled && (barWindow.matchesWorkspace(barWindow.hideOn["*"], barWindow.workspace) || barWindow.matchesWorkspace(barWindow.hideOn[barWindow.modelData.name], barWindow.workspace))
     readonly property bool hiddenForWorkspace: (barWindow.workspace !== null && barWindow.workspace.name in barWindow.workspaceOverrides) ? barWindow.workspaceOverrides[barWindow.workspace.name] : barWindow.hiddenByRule
     // null follows the workspace; true/false forces every workspace here.
     readonly property var outputOverride: barWindow.modelData.name in barWindow.outputOverrides ? barWindow.outputOverrides[barWindow.modelData.name] : null
@@ -151,6 +160,13 @@ PanelWindow {
     property bool reservesSpace: true
     onFullyRetractedChanged: if (barWindow.fullyRetracted && barWindow.retracted)
         barWindow.reservesSpace = false
+
+    // With the space given up over a lone tiled window, that window takes
+    // the whole screen, in the same resize.
+    EdgeRelease {
+        output: barWindow.modelData.name
+        workspaceName: !barWindow.reservesSpace && barWindow.singleTiled ? barWindow.workspace.name : ""
+    }
 
     // Name -> Component for everything shell.qml's layouts can place. Two of
     // them need this bar's screen, so they're bound rather than bare.
