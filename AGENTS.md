@@ -47,4 +47,5 @@ and say *why* (see `notes/conventions.md`).
 | `notes/privacy.md` | Mic vs. screencast detection by PipeWire media class |
 | `notes/autohide.md` | Per-workspace bar hiding for OLED: rules, IPC overrides, delay/slide/peek, special workspaces |
 | `notes/workspaces.md` | Hover previews via per-window screencopy |
+| `notes/review.md` | "Full review" on request: two read-only agents, one Quickshell/Hyprland correctness, one code quality |
 | `notes/method.md` | How to screenshot and verify visually, probe a running shell, and measure CPU/frames without fooling yourself |
