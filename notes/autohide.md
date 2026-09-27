@@ -99,8 +99,9 @@ Three modes: shown (reserves space), hidden, peek (overlay, reserves nothing).
   after the bar is built, so without `settleFirstWorkspace()` a shell started
   on a hide-listed workspace would show the bar, wait, then resize every
   window. A reload hides this — the data is already there.
-- **IPC calls skip the delay** (`skipDelay()`) and flash the OSD's `message`
-  kind with the new state, on the target output.
+- **IPC calls skip the delay** (`skipDelay()`). The `visibility*` calls
+  also flash the OSD's `message` kind with the new state, on the target
+  output.
 - **Peek** is the same slide without reserving space. Trigger is a 1px input
   strip (`mask`) at y=0: 250ms rest, restarted when the cursor runs
   more than 40px along the edge (outputs sit side by side, so the top edge is
@@ -114,8 +115,21 @@ Three modes: shown (reserves space), hidden, peek (overlay, reserves nothing).
   not a show, since reserving space would resize every window on open and
   again on close. Closing it hands the peek to the grace timer, so the bar
   doesn't vanish from under a cursor already on it.
-- `peeking` is derived (`hiddenAfterDelay && (peekLatched || panelOpenHere)`),
-  not written by handlers: an earlier stored flag reset in `onHiddenChanged`
+- **Timed peek** (`qs ipc call bar peek <seconds> <monitor>`): the same
+  peek, held by `peekTimed` for that long. At the end it goes with no grace,
+  unlike the panel's hand-over, unless the cursor is on the bar — even one
+  the peek slid the bar under — then it hands over to `peekLatched`.
+  - During the hide delay it skips the delay, so the peek lasts the full time.
+  - On a shown bar it returns "nothing to peek". A second call restarts it
+    with the new time. No OSD: the bar showing up is the feedback.
+  - Ends early when the bar is shown for real, or on a `hide` (or a `toggle`
+    landing on hidden) — at once, even under the cursor. A cursor or panel
+    peek stays. `auto` or a masked `unhide` ending hidden don't end it.
+  - Capped at a day: `Timer.interval` is an int, and an overflowed one never
+    fires.
+- `peeking` is derived
+  (`hiddenAfterDelay && (peekLatched || panelOpenHere || peekTimed)`), not
+  written by handlers: an earlier stored flag reset in `onHiddenChanged`
   could leave the bar's state wrong for one turn.
 - The spring is stiff (900/46.5) because a fade on FrameSpring's default
   tuning, when space was released after it, measured ~550ms to release.
@@ -232,6 +246,9 @@ unless another output's bar still holds it (a moved workspace).
 
 ## Rejected
 
+- **Timed peek waiting out the hide delay.** Its timer ran alongside the
+  delay, so the peek came out shorter than asked or never showed, and a
+  leftover `peekTimed` could peek the next hide unasked.
 - **Hide after N minutes without a workspace switch.** Resizes windows at an
   arbitrary moment, mid-reading; the per-workspace rule targets the actual
   case (a Firefox workspace left up for hours).

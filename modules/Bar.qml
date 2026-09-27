@@ -117,9 +117,37 @@ PanelWindow {
     readonly property bool panelOpenHere: NotificationService.centerOpen && NotificationService.centerScreen === barWindow.modelData
 
     // Pulled in over the windows while hidden: by the cursor resting on the
-    // top edge (latched until the grace timer lets go) or by the panel.
+    // top edge (latched until the grace timer lets go), by the panel, or for
+    // a set time over IPC (`peekFor`).
     property bool peekLatched: false
-    readonly property bool peeking: barWindow.hiddenAfterDelay && (barWindow.peekLatched || barWindow.panelOpenHere)
+    property bool peekTimed: false
+    readonly property bool peeking: barWindow.hiddenAfterDelay && (barWindow.peekLatched || barWindow.panelOpenHere || barWindow.peekTimed)
+    // False when there's nothing to peek: the bar is shown and staying so.
+    // A pending hide delay is cut short, like any IPC call, so the peek lasts
+    // the time asked for. Set before `skipDelay()`, so the bar never starts to
+    // retract.
+    function peekFor(ms) {
+        if (!barWindow.shouldHide)
+            return false;
+        barWindow.peekTimed = true;
+        peekTimedTimer.interval = ms;
+        peekTimedTimer.restart();
+        barWindow.skipDelay();
+        return true;
+    }
+    function endTimedPeek() {
+        barWindow.peekTimed = false;
+        peekTimedTimer.stop();
+    }
+    // Only a cursor already on the bar keeps it past the time asked for.
+    Timer {
+        id: peekTimedTimer
+        onTriggered: {
+            if (barWindow.peekHeld)
+                barWindow.peekLatched = true;
+            barWindow.peekTimed = false;
+        }
+    }
     // The panel closing hands its peek to the grace timer, so the bar doesn't
     // vanish from under a cursor already on it.
     onPanelOpenHereChanged: if (!barWindow.panelOpenHere && barWindow.hiddenAfterDelay)
@@ -148,8 +176,12 @@ PanelWindow {
 
     // Out of sight above the top edge: hidden and not peeking.
     readonly property bool retracted: barWindow.hiddenAfterDelay && !barWindow.peeking
-    onHiddenAfterDelayChanged: if (!barWindow.hiddenAfterDelay)
-        barWindow.peekLatched = false
+    onHiddenAfterDelayChanged: {
+        if (!barWindow.hiddenAfterDelay) {
+            barWindow.peekLatched = false;
+            barWindow.endTimedPeek();
+        }
+    }
 
     // Every change is the same gesture: the bar lives just above the top edge
     // and slides down out of it, for a rule, an IPC call or a peek alike.

@@ -22,8 +22,8 @@ Scope {
     property var barOutputOverrides: ({})
     property var barWorkspaceOverrides: ({})
 
-    // Backs both `bar` IPC calls; scope is "output" or "workspace". Returns
-    // what `qs ipc call` prints.
+    // Backs `visibility` and `visibility_workspace`; scope is "output" or
+    // "workspace". Returns what `qs ipc call` prints.
     function applyBarOverride(scope, action, monitorName) {
         const bar = ipc.barOn(monitorName);
         if (!bar)
@@ -67,6 +67,10 @@ Scope {
         else
             ipc.barOutputOverrides = overrides;
         bar.skipDelay();
+        // Asking for hidden means now, not when a timed peek runs out. Only
+        // an ask: `auto` or a masked `unhide` ending hidden leaves it be.
+        if (value === true)
+            bar.endTimedPeek();
 
         const state = bar.shouldHide ? "hidden" : "shown";
         const label = perWorkspace ? `workspace ${ws.name}` : output;
@@ -76,6 +80,20 @@ Scope {
         const masked = (perWorkspace && bar.outputOverride !== null) ? ", output override wins" : "";
         OsdService.showMessage("󰍹", `Bar ${state} · ${label} · ${source}${masked}`, !bar.shouldHide, bar.modelData);
         return `${output}: ${state} (${label}: ${source}${masked})`;
+    }
+
+    // Capped at a day: Timer.interval is an int, and an overflowed one never
+    // fires, leaving the peek up.
+    function barPeek(seconds, monitorName) {
+        if (!(seconds > 0 && seconds <= 86400))
+            return ipc.barIpcError(`seconds must be in (0, 86400], got ${seconds}`);
+        const bar = ipc.barOn(monitorName);
+        if (!bar)
+            return ipc.barIpcError(`no bar on monitor "${monitorName}"`);
+        const output = bar.modelData.name;
+        if (!bar.peekFor(Math.max(1, Math.round(seconds * 1000))))
+            return `${output}: shown, nothing to peek`;
+        return `${output}: peeking for ${seconds}s`;
     }
 
     function barIpcError(message) {
@@ -108,13 +126,16 @@ Scope {
         }
     }
 
-    // Auto-hide overrides, e.g.
+    // Auto-hide overrides and peek, e.g.
     //   bind = SUPER, B, exec, qs ipc call bar visibility toggle ACTIVE
     //   qs ipc call bar visibility_workspace hide DP-1
     // action: hide | unhide | toggle | auto; monitor: a name, or ACTIVE for the
     // focused one. `visibility` covers every workspace on that output;
     // `visibility_workspace` covers its current workspace, wherever that
     // workspace goes. The output's setting outranks the workspace's.
+    // `peek` brings a hidden bar over the windows for that many seconds without
+    // reserving space, like resting the cursor on the top edge:
+    //   qs ipc call bar peek 3 ACTIVE
     IpcHandler {
         target: "bar"
 
@@ -124,6 +145,10 @@ Scope {
 
         function visibility_workspace(action: string, monitor: string): string {
             return ipc.applyBarOverride("workspace", action, monitor);
+        }
+
+        function peek(seconds: real, monitor: string): string {
+            return ipc.barPeek(seconds, monitor);
         }
     }
 
