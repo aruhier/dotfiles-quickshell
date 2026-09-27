@@ -74,6 +74,8 @@ PanelWindow {
     property bool hiddenAfterDelay: false
     onShouldHideChanged: {
         if (barWindow.shouldHide) {
+            if (barWindow.settleFullscreen())
+                return;
             hideDelayTimer.restart();
         } else {
             hideDelayTimer.stop();
@@ -97,11 +99,29 @@ PanelWindow {
         }
     }
 
+    // Over a fullscreen window the delay would only draw the bar across it
+    // during the switch. Hidden at once, like a cold start.
+    readonly property bool fullscreenHere: barWindow.workspace?.hasFullscreen ?? false
+    onFullscreenHereChanged: barWindow.settleFullscreen()
+    // Asked of the workspace directly: mid-switch, `shouldHide` can still hold
+    // the previous one's answer.
+    function settleFullscreen() {
+        if (!barWindow.fullscreenHere || barWindow.hiddenAfterDelay || !barWindow.shouldHideOn(barWindow.workspace))
+            return false;
+        hideDelayTimer.stop();
+        barWindow.hiddenAfterDelay = true;
+        slide.snapTo(-barWindow.implicitHeight);
+        return true;
+    }
+
     // Hyprland's state arrives after the bar is built on a cold start, so the
     // first workspace is applied as is: loading on a hide-listed workspace
     // must not show the bar for a delay and then resize every window.
     property bool workspaceKnown: false
-    onWorkspaceChanged: barWindow.settleFirstWorkspace()
+    onWorkspaceChanged: {
+        barWindow.settleFirstWorkspace();
+        barWindow.settleFullscreen();
+    }
     Component.onCompleted: barWindow.settleFirstWorkspace()
     function settleFirstWorkspace() {
         if (barWindow.workspaceKnown || barWindow.workspace === null)

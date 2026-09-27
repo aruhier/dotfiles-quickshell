@@ -99,6 +99,23 @@ Three modes: shown (reserves space), hidden, peek (overlay, reserves nothing).
   after the bar is built, so without `settleFirstWorkspace()` a shell started
   on a hide-listed workspace would show the bar, wait, then resize every
   window. A reload hides this — the data is already there.
+- **A fullscreen workspace skips the delay too** (`settleFullscreen()`):
+  arriving on one that should hide, or a window going fullscreen during the
+  delay, hides the bar at once, snapped, like a cold start. Otherwise a round
+  trip drew the bar over the incoming fullscreen window during the switch,
+  then faded it out, and kept the space reserved ~1.1s. Measured on DP-1 with
+  one fullscreen `foot` on a hide-listed workspace: the bar is now gone from
+  the first frame, the space released ~115ms after the switch. Hyprland never
+  resized the fullscreen window either way (`3072×1728` throughout). The cost:
+  the outgoing workspace loses its bar at the start of the slide, not the end.
+  On a workspace that keeps the bar nothing moves, and the user wanted that
+  here too. Read from `HyprlandWorkspace.hasFullscreen`, so only Hyprland's
+  own fullscreen counts. Firefox's F11 gets it, on dwindle and scrolling
+  alike, even after the fake-fullscreen bind (checked). A window once stuck
+  at `fullscreen 0, fullscreenClient 2` (tiled, so the bar did resize it) is
+  not seen; restarting Firefox cleared it, cause unknown. Handling that would
+  mean reading `lastIpcObject`, which no event refreshes for a client-only
+  change.
 - **IPC calls skip the delay** (`skipDelay()`). The `visibility*` calls
   also flash the OSD's `message` kind with the new state, on the target
   output.
