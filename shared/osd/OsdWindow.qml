@@ -39,9 +39,9 @@ PanelWindow {
         kind = requestedKind
 
     // Volume and backlight draw a level track; a lock key has no level, so it
-    // draws its state as a word instead.
+    // draws its state as a word instead, and so does a message.
     readonly property bool level: kind === "volume" || kind === "brightness"
-    readonly property bool lockOn: !level && LockKeysService.state(kind)
+    readonly property bool lockOn: !level && (kind === "message" ? OsdService.messageOn : LockKeysService.state(kind))
 
     readonly property real value: kind === "volume" ? AudioService.pct / AudioService.maxPct : kind === "brightness" ? BacklightService.percent / 100 : 0
 
@@ -55,6 +55,8 @@ PanelWindow {
             return "󰘲";
         case "numlock":
             return "󰎠";
+        case "message":
+            return OsdService.messageGlyph;
         default:
             return "󰌌";
         }
@@ -70,6 +72,8 @@ PanelWindow {
             return osd.lockOn ? "Caps Lock on" : "Caps Lock off";
         case "numlock":
             return osd.lockOn ? "Num Lock on" : "Num Lock off";
+        case "message":
+            return OsdService.messageText;
         default:
             return osd.lockOn ? "Scroll Lock on" : "Scroll Lock off";
         }

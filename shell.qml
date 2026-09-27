@@ -12,6 +12,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import qs.modules
 import qs.services
@@ -58,6 +59,96 @@ ShellRoot {
         return root.mainScreens.indexOf(screenName) !== -1 ? root.mainLayout : root.defaultLayout;
     }
 
+    // Workspaces the bar hides on, to spare an OLED. "*" applies to every
+    // output, a monitor name to that one only, and the two add up. A number
+    // is a workspace id, a string its name — they differ here (id 1 is "a").
+    // Arriving on one, the bar waits `barHideDelay` ms before it goes, so a
+    // workspace passed through doesn't resize every window twice. See
+    // notes/autohide.md.
+    readonly property var barHideOn: ({
+        "*": [1]
+    })
+    readonly property int barHideDelay: 1000
+
+    // Set over IPC: name -> hidden. Kept here rather than on each bar so an
+    // output's survives it being unplugged. Workspaces are keyed by name
+    // because Hyprland hands a named workspace a new id each time it's created.
+    property var barOutputOverrides: ({})
+    property var barWorkspaceOverrides: ({})
+
+    // "ACTIVE" is the focused output.
+    function barOn(monitorName) {
+        const name = monitorName === "ACTIVE" ? Screens.focused()?.name : monitorName;
+        const bars = barVariants.instances;
+        for (let i = 0; i < bars.length; i++) {
+            if (bars[i].modelData.name === name)
+                return bars[i];
+        }
+        return null;
+    }
+
+    // Backs both `bar` IPC calls; scope is "output" or "workspace". Returns
+    // what `qs ipc call` prints.
+    function applyBarOverride(scope, action, monitorName) {
+        const bar = root.barOn(monitorName);
+        if (!bar)
+            return root.barIpcError(`no bar on monitor "${monitorName}"`);
+        const output = bar.modelData.name;
+        const ws = bar.workspace;
+        const perWorkspace = scope === "workspace";
+        if (perWorkspace && !ws)
+            return root.barIpcError(`no workspace on ${output}`);
+
+        // What this level shows now, and what it falls back to without an
+        // override. A toggle landing on the fallback clears the override
+        // instead of setting one, so two toggles always return to auto.
+        const current = perWorkspace ? bar.hiddenForWorkspace : bar.shouldHide;
+        const fallback = perWorkspace ? bar.hiddenByRule : bar.hiddenForWorkspace;
+        let value;
+        switch (action) {
+        case "hide":
+            value = true;
+            break;
+        case "show":
+            value = false;
+            break;
+        case "auto":
+            value = null;
+            break;
+        case "toggle":
+            value = (!current === fallback) ? null : !current;
+            break;
+        default:
+            return root.barIpcError(`unknown action "${action}" — hide, show, toggle or auto`);
+        }
+
+        const key = perWorkspace ? ws.name : output;
+        const overrides = Object.assign({}, perWorkspace ? root.barWorkspaceOverrides : root.barOutputOverrides);
+        if (value === null)
+            delete overrides[key];
+        else
+            overrides[key] = value;
+        if (perWorkspace)
+            root.barWorkspaceOverrides = overrides;
+        else
+            root.barOutputOverrides = overrides;
+        bar.skipDelay();
+
+        const state = bar.shouldHide ? "hidden" : "shown";
+        const label = perWorkspace ? `workspace ${ws.name}` : output;
+        const source = value === null ? "auto" : "forced";
+        // An output override outranks a workspace one, so say when it's what
+        // the screen is actually showing.
+        const masked = (perWorkspace && bar.outputOverride !== null) ? ", output override wins" : "";
+        OsdService.showMessage("󰍹", `Bar ${state} · ${label} · ${source}${masked}`, !bar.shouldHide, bar.modelData);
+        return `${output}: ${state} (${label}: ${source}${masked})`;
+    }
+
+    function barIpcError(message) {
+        console.warn("bar ipc: " + message);
+        return "error: " + message;
+    }
+
     // Fallback for the shared windows below, before they have a real output;
     // any output at all on a machine with none of the named ones.
     readonly property var mainScreen: Screens.byName(root.mainScreens[0]) ?? Quickshell.screens[0] ?? null
@@ -88,6 +179,37 @@ ShellRoot {
 
         function clear(): void {
             NotificationService.clearAll();
+        }
+    }
+
+    // Auto-hide overrides, e.g.
+    //   bind = SUPER, B, exec, qs ipc call bar visibility toggle ACTIVE
+    //   qs ipc call bar visibility_workspace hide DP-1
+    // action: hide | show | toggle | auto; monitor: a name, or ACTIVE for the
+    // focused one. `visibility` covers every workspace on that output;
+    // `visibility_workspace` covers its current workspace, wherever that
+    // workspace goes. The output's setting outranks the workspace's.
+    IpcHandler {
+        target: "bar"
+
+        function visibility(action: string, monitor: string): string {
+            return root.applyBarOverride("output", action, monitor);
+        }
+
+        function visibility_workspace(action: string, monitor: string): string {
+            return root.applyBarOverride("workspace", action, monitor);
+        }
+    }
+
+    // Moving a workspace to another output makes Hyprland switch the old
+    // output to a new one, but Quickshell credits that switch to the focused
+    // output, leaving a bar on a workspace it no longer shows.
+    Connections {
+        target: Hyprland
+        function onRawEvent(event: HyprlandEvent): void {
+            // v1 and v2 both fire per move; one refresh is enough.
+            if (event.name === "moveworkspacev2")
+                Hyprland.refreshMonitors();
         }
     }
 
@@ -139,6 +261,7 @@ ShellRoot {
     }
 
     Variants {
+        id: barVariants
         model: Quickshell.screens
 
         // `bar.modelData`, never a bare `modelData`: unqualified, it resolves
@@ -148,11 +271,17 @@ ShellRoot {
         Bar {
             id: bar
             layout: root.layoutFor(bar.modelData.name)
+            hideOn: root.barHideOn
+            hideDelay: root.barHideDelay
+            outputOverrides: root.barOutputOverrides
+            workspaceOverrides: root.barWorkspaceOverrides
         }
     }
 
     NotificationPopupWindow {
+        id: toasts
         screen: NotificationService.popupScreen || root.mainScreen
+        barReservesSpace: root.barOn(toasts.screen?.name)?.reservesSpace ?? true
     }
 
     NotificationCenterPanel {

@@ -23,7 +23,10 @@ PanelWindow {
     // Snapped to the device pixel grid, like the control center's margins: an
     // off-grid margin puts the stack on a fraction of a device pixel and every
     // glyph in it renders smeared. See NotificationCenterPanel.qml.
-    margins.top: Screens.snap(Theme.barHeight + 10, popupWindow.screen)
+    margins.top: Screens.snap((popupWindow.barReservesSpace ? Theme.barHeight : 0) + 10, popupWindow.screen)
+    // False where that output's bar has given up its space (auto-hide), so
+    // the stack keeps its gap to the edge rather than to nothing.
+    property bool barReservesSpace: true
     // The gap to the screen edge is room *inside* the surface, not a
     // layer-shell margin: the plate springs past its full width as it opens,
     // and a window clips its contents.

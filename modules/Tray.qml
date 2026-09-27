@@ -76,15 +76,21 @@ BarModule {
                     anchor.item: trayIcon
                     anchor.edges: Edges.Bottom | Edges.Left
                     anchor.gravity: Edges.Bottom | Edges.Right
+                    onOpened: PopupCoordinator.trayMenuOwner = trayIcon
+                    onClosed: if (PopupCoordinator.trayMenuOwner === trayIcon)
+                        PopupCoordinator.trayMenuOwner = null
                 }
 
                 // An app quitting while its tooltip shows would otherwise
                 // leave hoveredIcon pointing at a destroyed delegate.
+                // Same for a menu left open: its `closed` may never come.
                 Component.onDestruction: {
                     if (root.hoveredIcon === trayIcon) {
                         root.hoveredIcon = null;
                         root.hoveredItem = null;
                     }
+                    if (PopupCoordinator.trayMenuOwner === trayIcon)
+                        PopupCoordinator.trayMenuOwner = null;
                 }
             }
         }

@@ -10,17 +10,30 @@ QtObject {
     id: root
 
     // "" while hidden; otherwise "volume", "brightness", "capslock",
-    // "numlock" or "scrolllock".
+    // "numlock", "scrolllock" or "message".
     property string kind: ""
     property var screen: null
 
-    function show(kind) {
-        // Every trigger is a keybind, which has no widget to report a screen,
-        // so the OSD lands on the focused output. Keeping the last one is what
-        // makes the hide animation finish on the screen it started on.
-        root.screen = Screens.focused() || root.screen;
+    // What a "message" shows; lock-key styled, `on` lighting the glyph.
+    property string messageGlyph: ""
+    property string messageText: ""
+    property bool messageOn: false
+
+    // `screen` is optional. Every other trigger is a keybind, which has no
+    // widget to report a screen, so the OSD lands on the focused output.
+    // Keeping the last one is what makes the hide animation finish on the
+    // screen it started on.
+    function show(kind, screen) {
+        root.screen = screen || Screens.focused() || root.screen;
         root.kind = kind;
         hideTimer.restart();
+    }
+
+    function showMessage(glyph, text, on, screen) {
+        root.messageGlyph = glyph;
+        root.messageText = text;
+        root.messageOn = on;
+        root.show("message", screen);
     }
 
     function hide() {

@@ -45,5 +45,6 @@ and say *why* (see `notes/conventions.md`).
 | `notes/battery.md` | UPower port from waybar, and the no-battery blink that cost 3.2% CPU |
 | `notes/backlight.md` | `BacklightService` sysfs reads and inotify |
 | `notes/privacy.md` | Mic vs. screencast detection by PipeWire media class |
+| `notes/autohide.md` | Per-workspace bar hiding for OLED: rules, IPC overrides, delay/slide/peek, special workspaces |
 | `notes/workspaces.md` | Hover previews via per-window screencopy |
 | `notes/method.md` | How to screenshot and verify visually, probe a running shell, and measure CPU/frames without fooling yourself |

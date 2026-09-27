@@ -9,6 +9,10 @@ QtObject {
     id: root
 
     property var activeOwner: null
+    // The tray icon whose menu is open, or null. Not an owner — menus close
+    // themselves — but the bar holds a peek open for one, as it does for
+    // activeOwner.
+    property var trayMenuOwner: null
 
     // owner: the requesting HoverPopup, which exposes close().
     function activate(owner) {
