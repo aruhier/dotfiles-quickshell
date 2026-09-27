@@ -41,18 +41,32 @@ PanelWindow {
     // member: inactive tabs aren't `hidden`. A window whose state isn't fetched
     // yet isn't counted: a floating dialog would otherwise bring the bar back
     // until shell.qml's refresh lands.
-    readonly property bool singleTiled: barWindow.workspace !== null && barWindow.workspace.toplevels.values.filter(t => barWindow.countsAsTile(t.lastIpcObject)).length === 1
+    readonly property bool singleTiled: barWindow.singleTiledOn(barWindow.workspace)
+    function singleTiledOn(ws) {
+        return ws !== null && ws.toplevels.values.filter(t => barWindow.countsAsTile(t.lastIpcObject)).length === 1;
+    }
     function countsAsTile(ipc) {
         return ipc.floating === false && !ipc.hidden && (!ipc.grouped?.length || ipc.grouped[0] === ipc.address);
     }
 
     // The three levels, each falling back to the one before; the IPC's
     // `toggle` reads them to decide whether to clear an override or set one.
-    readonly property bool hiddenByRule: barWindow.singleTiled && (barWindow.matchesWorkspace(barWindow.hideOn["*"], barWindow.workspace) || barWindow.matchesWorkspace(barWindow.hideOn[barWindow.modelData.name], barWindow.workspace))
-    readonly property bool hiddenForWorkspace: (barWindow.workspace !== null && barWindow.workspace.name in barWindow.workspaceOverrides) ? barWindow.workspaceOverrides[barWindow.workspace.name] : barWindow.hiddenByRule
+    // Functions of the workspace, since EdgeRelease also asks them about one
+    // the output has left.
+    readonly property bool hiddenByRule: barWindow.hiddenByRuleOn(barWindow.workspace)
+    function hiddenByRuleOn(ws) {
+        return barWindow.singleTiledOn(ws) && (barWindow.matchesWorkspace(barWindow.hideOn["*"], ws) || barWindow.matchesWorkspace(barWindow.hideOn[barWindow.modelData.name], ws));
+    }
+    readonly property bool hiddenForWorkspace: barWindow.hiddenForWorkspaceOn(barWindow.workspace)
+    function hiddenForWorkspaceOn(ws) {
+        return (ws !== null && ws.name in barWindow.workspaceOverrides) ? barWindow.workspaceOverrides[ws.name] : barWindow.hiddenByRuleOn(ws);
+    }
     // null follows the workspace; true/false forces every workspace here.
     readonly property var outputOverride: barWindow.modelData.name in barWindow.outputOverrides ? barWindow.outputOverrides[barWindow.modelData.name] : null
-    readonly property bool shouldHide: barWindow.outputOverride !== null ? barWindow.outputOverride : barWindow.hiddenForWorkspace
+    readonly property bool shouldHide: barWindow.shouldHideOn(barWindow.workspace)
+    function shouldHideOn(ws) {
+        return barWindow.outputOverride !== null ? barWindow.outputOverride : barWindow.hiddenForWorkspaceOn(ws);
+    }
 
     // `shouldHide`, late by `hideDelay` on the way to hidden: a workspace only
     // passed through never gives up the bar's space, so windows don't resize
@@ -162,10 +176,29 @@ PanelWindow {
         barWindow.reservesSpace = false
 
     // With the space given up over a lone tiled window, that window takes
-    // the whole screen, in the same resize.
+    // the whole screen, in the same resize. Leaving the workspace keeps its
+    // release while it would still hide the bar here, so a round trip changes
+    // no rule: back on it, the window sits flush under the bar until it goes.
+    property HyprlandWorkspace releasedWorkspace: null
+    // Asked of the workspace directly, not of `shouldHide`: mid-switch that can
+    // still hold the previous workspace's answer.
+    readonly property HyprlandWorkspace releasable: !barWindow.reservesSpace && barWindow.shouldHideOn(barWindow.workspace) && barWindow.singleTiledOn(barWindow.workspace) ? barWindow.workspace : null
+    onReleasableChanged: if (barWindow.releasable !== null)
+        barWindow.releasedWorkspace = barWindow.releasable
+    readonly property bool releaseHolds: barWindow.releasedWorkspace !== null && barWindow.releasedWorkspace.monitor?.name === barWindow.modelData.name && barWindow.shouldHideOn(barWindow.releasedWorkspace) && barWindow.singleTiledOn(barWindow.releasedWorkspace)
+    // Later, not in the handler: writing an input of the binding that is
+    // still notifying is a binding loop.
+    onReleaseHoldsChanged: if (!barWindow.releaseHolds)
+        Qt.callLater(barWindow.dropStaleRelease)
+    function dropStaleRelease() {
+        if (!barWindow.releaseHolds)
+            barWindow.releasedWorkspace = barWindow.releasable;
+    }
+    // The workspace hidden on now comes first, so a kept release dropped by a
+    // transient state can't take the current one with it.
     EdgeRelease {
         output: barWindow.modelData.name
-        workspaceName: !barWindow.reservesSpace && barWindow.singleTiled ? barWindow.workspace.name : ""
+        workspaceName: barWindow.releasable?.name ?? (barWindow.releaseHolds ? barWindow.releasedWorkspace.name : "")
     }
 
     // Name -> Component for everything shell.qml's layouts can place. Two of

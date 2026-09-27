@@ -118,11 +118,11 @@ Switching `exclusionMode` Auto↔Ignore live is a plain commit in Quickshell,
 no remap. The hidden surface stays mapped and transparent; nothing renders
 at rest.
 
-## Edge-to-edge window (`bar_released`)
+## Edge-to-edge window (`quickshell.bar_autohide`)
 
 When the bar gives up its space over exactly one tiled window, that window
 also loses `gaps_out`, border and rounding. `shared/EdgeRelease.qml` (one per
-Bar) calls `bar_released(output, name)` in
+Bar) calls `quickshell.bar_autohide(output, name)` in
 `~/.config/hypr/conf/workspaces.lua` (not in this repo) with `hyprctl eval`
 on every change, passing `nil` once the bar takes its space back. The Lua
 side keeps the per-output state and restores the previous workspace itself,
@@ -134,28 +134,65 @@ unless another output's bar still holds it (a moved workspace).
   would drop the gaps at once and release the bar's space 1s later — two
   resizes. Gated on `reservesSpace`, both happen in one.
 - **Peek changes nothing**: it doesn't touch `reservesSpace`.
+- **Leaving keeps the release** (`releasedWorkspace`): the workspace stays
+  flush while it would still hide the bar here — same output, `shouldHideOn`,
+  one tiled window — and is reverted the moment any of that stops holding,
+  even unseen. A round trip 1→4→1 thus makes no call: back on it, the window
+  sits flush under the reserved bar (Hyprland lays out every workspace of the
+  output against the zone, `LayoutManager::invalidateMonitorGeometries`), and
+  grows after the delay. Measured on DP-2: 0 calls, `0,26 2560x1414` then
+  `0,0 2560x1440`. The Lua side holds one workspace per output, so going
+  from one hide-listed workspace straight to another still moves the rule.
+  Peeking the bar over the still-released window on return was weighed
+  first; the user chose this. The zone is per output, so the peek would only
+  move the resize into the workspace slide, and it covers the tabs (Rejected).
 - **Selected by name** (`name:<name>`), which matches numbered workspaces by
   their name too (checked: `name:7` hits id 9). `r[from-to]` would reject
   the negative ids of named workspaces: `Workspace.cpp` fails the selector
   when a bound is < 1, and only logs it at debug level.
-- **Measured in Hyprland 0.56.2**: a runtime `hl.workspace_rule` with the same
-  selector *merges* into the existing rule instead of appending, so the calls
-  don't pile up. `enabled = false` is ignored, so the revert sets
-  `gaps_out = hl.get_config("general.gaps_out")` and `no_border`/
-  `no_rounding = false`. Both directions land exactly on a visible
-  workspace (full `3072×1728` on DP-1, `2564,30` back), with no extra call:
-  the rule change schedules Hyprland's prop refresh itself.
+- **One rule per workspace, toggled** (Hyprland 0.56.2): the first release of
+  a name creates its rule, and the Lua file keeps the handle
+  `hl.workspace_rule` returns; after that only `rule:set_enabled()` is called.
+  A disabled rule is skipped by every lookup (`WorkspaceRuleManager.cpp`),
+  so the revert falls back to the config's gaps with no values copied in.
+  Rules can't be deleted from Lua, only cleared by a config reload, which
+  also resets the table of handles. `enabled = false` in the table is
+  ignored: `replaceOrAdd` merges it into the enabled rule with the same
+  selector, and `mergeLeft` doesn't carry the flag. Measured: one `name:a`
+  rule through open/close of a second window and a round trip. Both
+  directions land exactly on a visible workspace (full `3072×1728` on DP-1,
+  `2564,30` back), with no extra call: the rule change schedules Hyprland's
+  prop refresh itself.
   `hl.exec_scheduled_prop_refresh_immediately()` was called after it at
   first, from a test on an unseen workspace that came back 2px off. That
   test proved nothing about visible ones: the window was left unseen. Without
   the call, both directions were exact on a visible workspace, and even the
   unseen one corrected itself ~1.5s later. Removed.
-- **Reverts usually land off screen**: switching away is what makes the bar
-  reserve again, so the revert reaches a workspace that's already hidden.
-  Harmless: `Monitor::changeWorkspace` recalculates the layout on the way
-  back. Recorded at 50ms resolution: the window lands at `2564,30` in the
-  same sample as the switch, then at `2560,0` full size ~1.3s later, in one
-  resize.
+- **Every runtime rule re-places persistent workspaces** (0.56.2): each
+  `hl.workspace_rule` schedules `REFRESH_MONITOR_STATES`, which runs
+  `ensurePersistentWorkspacesPresent()`. That moves every persistent
+  workspace to its rule's monitor, or to the *focused* one if the rule has
+  none. Workspace 1, pinned to DP-1 and focused on DP-2 via
+  `on_current_monitor`, jumped back to DP-1 as soon as its bar released it.
+  `set_edges` first re-points the rules of all persistent workspaces (1 to
+  `last_persistent` in the Lua file; Lua can't read rules back) at the monitor
+  each is on, so the refresh finds nothing to move. A config reload still
+  sends 1-3 home. 4-8 were left unpinned at first, which the rule's empty
+  monitor turns into "the focused one" (`WorkspacePlacementController.cpp`):
+  a second window opened on DP-2's `a` reverted it and pulled all of 4-8 to
+  DP-2, `f` off DP-1 with them. Pinning them has a cost: the pin is only as
+  fresh as the last call, and Hyprland's other refreshes (a monitor
+  reconnecting, scrolling fullscreen) send them back to it. Clearing a monitor
+  from a rule isn't possible: `mergeLeft` skips empty fields. A monitor name
+  that doesn't exist would make the refresh skip them, but also drop their
+  persistence. Toggling a rule schedules the same refresh
+  (`LuaWorkspaceRule.cpp`), so the handles don't avoid it. Still so on
+  upstream `main` at `4bb6844b` (2026-09-27): the fallback to the focused
+  monitor is in `state/workspace/PlacementController.cpp`, for workspaces
+  that already exist too.
+- **Reverts usually land off screen**: they come from a hidden workspace
+  gaining a window, an override, or a move to another output. Harmless:
+  every workspace of the output is re-laid out on each change anyway.
 - **`Hyprland.dispatch` can't carry it**: in Lua mode it wraps the string in
   `hl.dispatch(...)`, which errors after running the rule, so it would only
   work by accident. Hence the `hyprctl` process. A failed call (non-zero

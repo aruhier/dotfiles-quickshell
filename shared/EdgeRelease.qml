@@ -4,10 +4,10 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 
-// Tells the Hyprland config's `bar_released` which workspace, if any, a bar
-// has given its space to, so a lone tiled window there loses gaps, border and
-// rounding. One call in flight at a time, always the latest state. See
-// notes/autohide.md.
+// Tells the Hyprland config's `quickshell.bar_autohide` which workspace, if
+// any, a bar has given its space to, so a lone tiled window there loses gaps,
+// border and rounding. One call in flight at a time, always the latest state.
+// See notes/autohide.md.
 Scope {
     id: root
 
@@ -16,7 +16,7 @@ Scope {
     property string workspaceName: ""
 
     // A JSON string is a valid Lua string literal.
-    readonly property string call: `bar_released(${JSON.stringify(root.output)}, ${root.workspaceName ? JSON.stringify(root.workspaceName) : "nil"})`
+    readonly property string call: `quickshell.bar_autohide(${JSON.stringify(root.output)}, ${root.workspaceName ? JSON.stringify(root.workspaceName) : "nil"})`
     property string sentCall: ""
     onCallChanged: Qt.callLater(root.send)
     // Also undoes a release left behind by a shell that died hidden.
