@@ -108,10 +108,8 @@ PanelWindow {
             return;
         barWindow.workspaceKnown = true;
         barWindow.skipDelay();
-        if (barWindow.hiddenAfterDelay) {
+        if (barWindow.hiddenAfterDelay)
             slide.snapTo(-barWindow.implicitHeight);
-            barWindow.reservesSpace = false;
-        }
     }
 
     // The notification panel belongs to the bar, so it brings the bar with it
@@ -150,10 +148,8 @@ PanelWindow {
 
     // Out of sight above the top edge: hidden and not peeking.
     readonly property bool retracted: barWindow.hiddenAfterDelay && !barWindow.peeking
-    onHiddenAfterDelayChanged: if (!barWindow.hiddenAfterDelay) {
-        barWindow.peekLatched = false;
-        barWindow.reservesSpace = true;
-    }
+    onHiddenAfterDelayChanged: if (!barWindow.hiddenAfterDelay)
+        barWindow.peekLatched = false
 
     // Every change is the same gesture: the bar lives just above the top edge
     // and slides down out of it, for a rule, an IPC call or a peek alike.
@@ -168,12 +164,10 @@ PanelWindow {
 
     // The spring lands exactly on its target.
     readonly property bool fullyRetracted: slide.value <= -barWindow.implicitHeight
-    // Space is given up only once the bar is out of sight, so windows grow
-    // into an empty strip instead of under a moving bar. Reserved again the
-    // moment it shows, so windows move down with it.
-    property bool reservesSpace: true
-    onFullyRetractedChanged: if (barWindow.fullyRetracted && barWindow.retracted)
-        barWindow.reservesSpace = false
+    // Given up as the slide starts and taken back as it starts down, so
+    // windows grow up and move down with the bar: one motion either way. The
+    // bar is above them and opaque, so a window growing under it is covered.
+    readonly property bool reservesSpace: !barWindow.hiddenAfterDelay
 
     // With the space given up over a lone tiled window, that window takes
     // the whole screen, in the same resize. Leaving the workspace keeps its

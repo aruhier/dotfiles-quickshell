@@ -74,14 +74,22 @@ Three modes: shown (reserves space), hidden, peek (overlay, reserves nothing).
   preferred one motion, and every other surface here slides too. The spring
   is critically damped (~170ms) with no bump either way: the bar is flush
   with the edge, so an overshoot would open a sliver of gap above it.
-- **Rule-driven hide waits `barHideDelay` (1s)**, then slides up, then
-  gives up the space — so windows grow into an empty strip and a workspace
-  only passed through never resizes anything. The delay restarts while
+- **Rule-driven hide waits `barHideDelay` (1s)**, then slides up — so a
+  workspace only passed through never resizes anything. The delay restarts while
   anything holds a peek (below): the cursor on the bar, or something it
   opened. Started at 1.5s; the user shortened it to 1s. It's
   one number in `shell.qml`.
-- **Showing is immediate**: space reserved at once, so windows move down with
-  the bar as it comes down — one direction, not two unrelated motions.
+- **Space follows `hiddenAfterDelay`, not the slide**: given up as the bar
+  starts up, reserved as it starts down, so windows move with the bar both
+  ways. The bar is on Top and opaque, so a window growing under it is
+  covered. Hiding used to release only once the bar was out of sight
+  ("windows grow into an empty strip"): measured with grim bursts on DP-1,
+  the bar left by ~60ms, then a wallpaper strip stood still ~300ms before
+  the window grew — two motions. Now the space goes ~11ms after the IPC call
+  and the strip shrinks from ~70ms and is closed by ~160ms: Hyprland's
+  `windowsMove` (speed 3, ~300ms) trails the ~170ms spring, so it doesn't
+  quite track the bar's edge. Matching them was left for if it shows.
+- **Showing is immediate**: the switch was made to see it.
 - **Cold start applies the first workspace as is.** Hyprland's state arrives
   after the bar is built, so without `settleFirstWorkspace()` a shell started
   on a hide-listed workspace would show the bar, wait, then resize every
@@ -104,9 +112,8 @@ Three modes: shown (reserves space), hidden, peek (overlay, reserves nothing).
 - `peeking` is derived (`hiddenAfterDelay && (peekLatched || panelOpenHere)`),
   not written by handlers: an earlier stored flag reset in `onHiddenChanged`
   could leave the bar's state wrong for one turn.
-- Space release after an IPC hide measures ~300ms end to end, IPC round
-  trip included. The fade that came before it, on FrameSpring's default
-  tuning, measured ~550ms — hence the stiffer 900/46.5.
+- The spring is stiff (900/46.5) because a fade on FrameSpring's default
+  tuning, when space was released after it, measured ~550ms to release.
 - Toasts drop their bar offset on an output whose bar isn't reserving space.
   The move is a margin change, so it jumps rather than slides, and during a
   peek the bar can overlap a toast; both accepted. The control centre needs
