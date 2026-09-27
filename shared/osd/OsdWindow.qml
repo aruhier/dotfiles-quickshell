@@ -27,6 +27,15 @@ PanelWindow {
 
     readonly property bool showing: OsdService.kind !== ""
 
+    // The output to show on. The window's `screen` follows it, and the
+    // geometry reads it rather than `screen`: retargeting a mapped layer
+    // surface makes Quickshell destroy and rebuild it, firing `screen` before
+    // the new surface is shown; `travel` then re-runs `visible`, whose
+    // setVisible(true) re-enters that half-finished rebuild and fires
+    // `screen` again inside `travel`'s own update — a binding loop.
+    required property var targetScreen
+    screen: osd.targetScreen
+
     // The last non-empty kind, not OsdService.kind itself: that goes back to ""
     // the moment the hide timer fires, while the window is still on screen for
     // the length of the exit spring, so binding the content to it directly
@@ -111,14 +120,14 @@ PanelWindow {
     // snapped for the same reason as the toast stack's margins — an off-grid
     // offset puts every glyph below it on a fraction of a device pixel. See
     // notes/text.md.
-    readonly property real travel: Screens.snap((osd.screen ? osd.screen.height : 1080) * osd.bottomEdgeFraction, osd.screen) + osd.pillHeight
+    readonly property real travel: Screens.snap((osd.targetScreen ? osd.targetScreen.height : 1080) * osd.bottomEdgeFraction, osd.targetScreen) + osd.pillHeight
 
     // The two widths the pill springs between. Collapsed is the glyph and its
     // padding and nothing else, so the glyph sits dead centre of it whatever
     // the icon's advance is; open is the full plate — fixed for a level, and
     // hugging the word for a lock key, which has no track to fill.
-    readonly property real collapsedWidth: Screens.snap(2 * osd.pillPadding + glyph.width, osd.screen)
-    readonly property real openWidth: Screens.snap(osd.level ? osd.pillWidth : 3 * osd.pillPadding + glyph.width + lockLabel.implicitWidth, osd.screen)
+    readonly property real collapsedWidth: Screens.snap(2 * osd.pillPadding + glyph.width, osd.targetScreen)
+    readonly property real openWidth: Screens.snap(osd.level ? osd.pillWidth : 3 * osd.pillPadding + glyph.width + lockLabel.implicitWidth, osd.targetScreen)
 
     // How far along the expansion the pill is, 0..1. Drives the reveal of
     // everything past the glyph.
@@ -145,7 +154,7 @@ PanelWindow {
     // the left edge — and with it every glyph — lands on the device pixel grid.
     // Wider than the widest pill by `overshoot`, which is the room the
     // expansion spring needs to overshoot into: a window clips its contents.
-    implicitWidth: Screens.snap(osd.pillWidth + osd.overshoot, osd.screen)
+    implicitWidth: Screens.snap(osd.pillWidth + osd.overshoot, osd.targetScreen)
     // Same slack again above the pill's resting place, for the rise to bump
     // into. `travel` stays the distance the pill covers, not the surface's
     // height, so nothing else here has to know about the extra room.
@@ -251,7 +260,7 @@ PanelWindow {
         // snap keeps both edges of the 1px border on the device pixel grid at
         // rest, whatever width the kind settled on.
         width: expand.value
-        x: Screens.snap((parent.width - width) / 2, osd.screen)
+        x: Screens.snap((parent.width - width) / 2, osd.targetScreen)
         height: osd.pillHeight
         // `slide` is the offset below the resting place, so the resting place
         // itself is the slack the bump needs above it.
