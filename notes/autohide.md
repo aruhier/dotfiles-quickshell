@@ -107,8 +107,9 @@ at rest.
   Covers the Firefox tabs just switched to.
 - **Flip the reserved space during Hyprland's workspace slide.** No hook.
 
-## Gotcha: the action `show`
+## Why `unhide`, not `show`
 
 `qs ipc call bar visibility show DP-1` fails — Quickshell's CLI parser takes
-`show` as its `qs ipc show` subcommand even in argument position. Pass `--`
-before the arguments: `qs ipc call bar visibility -- show DP-1`.
+`show` as its `qs ipc show` subcommand even in argument position (`--` before
+the arguments gets it through). The action was renamed to `unhide` rather
+than leave that trap in every keybind.

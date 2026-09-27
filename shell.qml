@@ -109,7 +109,7 @@ ShellRoot {
         case "hide":
             value = true;
             break;
-        case "show":
+        case "unhide":
             value = false;
             break;
         case "auto":
@@ -119,7 +119,7 @@ ShellRoot {
             value = (!current === fallback) ? null : !current;
             break;
         default:
-            return root.barIpcError(`unknown action "${action}" — hide, show, toggle or auto`);
+            return root.barIpcError(`unknown action "${action}" — hide, unhide, toggle or auto`);
         }
 
         const key = perWorkspace ? ws.name : output;
@@ -185,7 +185,7 @@ ShellRoot {
     // Auto-hide overrides, e.g.
     //   bind = SUPER, B, exec, qs ipc call bar visibility toggle ACTIVE
     //   qs ipc call bar visibility_workspace hide DP-1
-    // action: hide | show | toggle | auto; monitor: a name, or ACTIVE for the
+    // action: hide | unhide | toggle | auto; monitor: a name, or ACTIVE for the
     // focused one. `visibility` covers every workspace on that output;
     // `visibility_workspace` covers its current workspace, wherever that
     // workspace goes. The output's setting outranks the workspace's.
@@ -289,6 +289,6 @@ ShellRoot {
     }
 
     OsdWindow {
-        screen: OsdService.screen || root.mainScreen
+        targetScreen: OsdService.screen || root.mainScreen
     }
 }
