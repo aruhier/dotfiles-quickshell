@@ -14,7 +14,11 @@ Weather.qml stays a relative path (JS resources have no module form here).
 ```
 shell.qml             Variants{ model: Quickshell.screens } → one Bar per
                       output; also owns the per-screen layout config (which
-                      modules, which screens get which set)
+                      modules, which screens get which set) and the bar
+                      auto-hide config
+Ipc.qml               every `qs ipc call` target (notifications, osd, bar)
+                      and the bar's auto-hide overrides, which only IPC
+                      writes; instantiated once from shell.qml
 modules/Bar.qml       PanelWindow per output; left/center/right groups,
                       rendered generically from the {left,center,right}
                       `layout` shell.qml hands it — no per-module or
@@ -82,7 +86,7 @@ shared/popup/         everything to do with anchored hover popups:
                          time process-wide
 shared/osd/OsdWindow.qml the on-screen display: one shared bottom-centre
                       pill for volume/backlight/lock keys, driven by the `osd`
-                      IPC handler in shell.qml. Replaces swayosd — see
+                      IPC handler in Ipc.qml. Replaces swayosd — see
                       `notes/osd.md`
 shared/notifications/ the notification daemon's UI — see
                       `notes/notifications.md` for why this is a separate

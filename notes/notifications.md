@@ -78,6 +78,7 @@ missing properties/types.
 ## IPC for the notification panel (2026-09-03)
 
 `shell.qml` now has a top-level `IpcHandler { target: "notifications" }`
+(since moved to `Ipc.qml` with the other IPC targets)
 exposing `toggle()`/`open()`/`close()`/`clear()`, so a Hyprland keybind can
 drive the control-center panel the same way the bar indicator's click does:
 

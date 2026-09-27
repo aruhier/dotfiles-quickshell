@@ -287,7 +287,7 @@ PanelWindow {
 
                 // ---- header ----
                 // No Clear All button by choice; clearing is reachable over
-                // IPC only (see shell.qml).
+                // IPC only (see Ipc.qml).
                 StyledText {
                     text: "Notifications"
                     color: NotificationTheme.text

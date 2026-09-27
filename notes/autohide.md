@@ -1,8 +1,9 @@
 # Bar auto-hide
 
 Hides the bar on chosen workspaces, to keep a static strip off an OLED.
-Config and IPC live in `shell.qml` (`barHideOn`, `barHideDelay`, the `bar`
-IpcHandler); the state machine lives in `modules/Bar.qml`.
+Config lives in `shell.qml` (`barHideOn`, `barHideDelay`), the `bar`
+IpcHandler and the override maps in `Ipc.qml`, the state machine in
+`modules/Bar.qml`.
 
 ## Model
 
@@ -20,7 +21,7 @@ Output beats workspace because the user asked for the output call to hide
 "completely". `toggle` sets the opposite of what that level shows now, except
 that it clears the override instead when the level below would already give
 that state — two toggles always get back to auto. Overrides are in memory: a
-reload drops them. Both maps live in `shell.qml`, keyed by name, so an output
+reload drops them. Both maps live in `Ipc.qml`, keyed by name, so an output
 override survives the monitor being unplugged (it was on the Bar instance at
 first, and died with it).
 
