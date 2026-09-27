@@ -34,11 +34,12 @@ Scope {
         if (perWorkspace && !ws)
             return ipc.barIpcError(`no workspace on ${output}`);
 
-        // What this level shows now, and what it falls back to without an
-        // override. A toggle landing on the fallback clears the override
-        // instead of setting one, so two toggles always return to auto.
+        const key = perWorkspace ? ws.name : output;
+        const overrides = Object.assign({}, perWorkspace ? ipc.barWorkspaceOverrides : ipc.barOutputOverrides);
+        // Toggle leaves auto by forcing the opposite of what this level shows
+        // now, and any toggle while forced goes back to auto — even when auto
+        // shows the same thing, so the press changes nothing visible.
         const current = perWorkspace ? bar.hiddenForWorkspace : bar.shouldHide;
-        const fallback = perWorkspace ? bar.hiddenByRule : bar.hiddenForWorkspace;
         let value;
         switch (action) {
         case "hide":
@@ -51,14 +52,12 @@ Scope {
             value = null;
             break;
         case "toggle":
-            value = (!current === fallback) ? null : !current;
+            value = (key in overrides) ? null : !current;
             break;
         default:
             return ipc.barIpcError(`unknown action "${action}" — hide, unhide, toggle or auto`);
         }
 
-        const key = perWorkspace ? ws.name : output;
-        const overrides = Object.assign({}, perWorkspace ? ipc.barWorkspaceOverrides : ipc.barOutputOverrides);
         if (value === null)
             delete overrides[key];
         else

@@ -66,7 +66,7 @@ ShellRoot {
     // workspace passed through doesn't resize every window twice. See
     // notes/autohide.md.
     readonly property var barHideOn: ({
-        "*": [1]
+        "*": [1, 10]
     })
     readonly property int barHideDelay: 1000
 

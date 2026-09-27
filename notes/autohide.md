@@ -39,9 +39,14 @@ whenever a floating dialog opens. The cost is ~50ms before a second tiled
 window shows the bar.
 
 Output beats workspace because the user asked for the output call to hide
-"completely". `toggle` sets the opposite of what that level shows now, except
-that it clears the override instead when the level below would already give
-that state — two toggles always get back to auto. Overrides are in memory: a
+"completely". `toggle` in auto forces the opposite of what that level shows
+now; while forced, it always goes back to auto. When the override agrees with
+auto (an output forced shown, then switched to a workspace that shows it
+anyway), that press changes nothing visible; the OSD says "auto". The first
+version flipped the state every time and only cleared when the flip matched
+auto, so that press forced the other way — e.g. hid the bar on every
+workspace of the output. The user preferred toggle to mean "leave auto / go
+back to auto". Overrides are in memory: a
 reload drops them. Both maps live in `Ipc.qml`, keyed by name, so an output
 override survives the monitor being unplugged (it was on the Bar instance at
 first, and died with it).
