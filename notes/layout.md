@@ -31,7 +31,7 @@ services/*.qml        pragma-Singleton types holding state + the actual
                       subprocess/network I/O for anything system-wide
                       (AudioService, BacklightService, LockKeysService,
                       MpdService, MprisService, NotificationService,
-                      OsdService, WeatherService) — one
+                      OsdService, SubmapService, WeatherService) — one
                       watch/subscription/fetch cycle for the whole process
                       regardless of monitor count
 themes/Theme.qml      pragma-Singleton palette + metrics for the bar and
@@ -188,8 +188,16 @@ because the group raises `ModuleRow.keepShown` (forwarded to each
 `ModuleLoader`) so the module stays drawn while the pill shrinks over it. And `BarModule` does *not* mirror `contentVisible` onto
 its own `visible` for the same reason: the loader hides it, and a module
 that hid itself would blank a frame before the collapse began. Submap
-keeps its last name in the label after the submap ends, so there is
-something to draw.
+keeps its last name in the label after the submap ends
+(`SubmapService.lastName`, set before `active` so the group sizes off the
+new name), so there is something to draw.
+
+`SubmapService` exists because Quickshell only reports submaps as
+`submap>>` events: a bar built mid-submap (a Quickshell reload, a hotplug)
+showed an empty pill until the next change, worst in `ignore`, where every
+other bind is swallowed. It seeds from `hyprctl -j submap` ("default" when
+none) at start and on `configreloaded`, and an event arriving while a seed
+is in flight wins over its answer.
 
 Current layout: every output gets `mpd`, then `submap` in its own
 cream group, `workspaces`, `backlight`, `battery`, `volume`,
