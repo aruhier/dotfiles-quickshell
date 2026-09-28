@@ -96,6 +96,15 @@ Scope {
         return `${output}: peeking for ${seconds}s`;
     }
 
+    // "+5", "-5" or "5" in points; NaN, with a warning, for anything else,
+    // rather than flashing an OSD that didn't change.
+    function osdDelta(delta) {
+        const points = parseInt(delta);
+        if (isNaN(points))
+            console.warn(`osd ipc: delta must be an integer like +5 or -5, got "${delta}"`);
+        return points;
+    }
+
     function barIpcError(message) {
         console.warn("bar ipc: " + message);
         return "error: " + message;
@@ -152,8 +161,8 @@ Scope {
         }
     }
 
-    // Replaces swayosd: the keybinds call in here instead of swayosd-client,
-    // and this owns the change as well as the display, e.g.
+    // The keybinds call in here, and this owns the change as well as the
+    // display, e.g.
     //   bind  = , XF86AudioRaiseVolume, exec, qs ipc call osd volume +5
     //   bindn = , Caps_Lock,            exec, qs ipc call osd lock capslock
     // Lock keys only report — the compositor has already toggled them by the
@@ -162,9 +171,10 @@ Scope {
         target: "osd"
 
         function volume(delta: string): void {
-            if (!AudioService.ready)
+            const points = ipc.osdDelta(delta);
+            if (!AudioService.ready || isNaN(points))
                 return;
-            AudioService.bumpPct(parseInt(delta) || 0);
+            AudioService.bumpPct(points);
             OsdService.show("volume");
         }
 
@@ -178,16 +188,21 @@ Scope {
         // Silent on a machine with no backlight, rather than flashing an OSD
         // stuck at 0% — this config runs on outputs that have none.
         function brightness(delta: string): void {
-            if (!BacklightService.available)
+            const points = ipc.osdDelta(delta);
+            if (!BacklightService.available || isNaN(points))
                 return;
-            BacklightService.bumpPercent(parseInt(delta) || 0);
+            BacklightService.bumpPercent(points);
             OsdService.show("brightness");
         }
 
         // key: "capslock" | "numlock" | "scrolllock". Shown only once the
         // read has landed — the state is what the OSD is for, so a frame of
-        // the previous one would be worse than the millisecond's wait.
+        // the previous one would be worse than the short settle wait.
         function lock(key: string): void {
+            if (LockKeysService.keys.indexOf(key) === -1) {
+                console.warn(`osd ipc: unknown lock key "${key}" — capslock, numlock or scrolllock`);
+                return;
+            }
             LockKeysService.refresh(key);
         }
     }

@@ -19,8 +19,10 @@ Scope {
     readonly property string call: `quickshell.bar_autohide(${JSON.stringify(root.output)}, ${root.workspaceName ? JSON.stringify(root.workspaceName) : "nil"})`
     property string sentCall: ""
     onCallChanged: Qt.callLater(root.send)
-    // Also undoes a release left behind by a shell that died hidden.
-    Component.onCompleted: root.send()
+    // Also undoes a release left behind by a shell that died hidden. Deferred
+    // like the above, so it coalesces with the first workspace the Bar
+    // settles on instead of sending nil and then that.
+    Component.onCompleted: Qt.callLater(root.send)
 
     function send() {
         if (process.running || root.sentCall === root.call)
@@ -36,8 +38,29 @@ Scope {
             id: reply
         }
         onExited: code => {
-            if (code !== 0)
+            if (code !== 0) {
                 console.warn(`EdgeRelease: ${root.sentCall} failed: ${reply.text.trim()}`);
+                // Once per failure run, not in a loop: a missing Lua
+                // function fails every time.
+                if (!root.retried) {
+                    root.retried = true;
+                    retryTimer.start();
+                }
+            } else {
+                root.retried = false;
+            }
+            root.send();
+        }
+    }
+
+    // `sentCall` is set before the exit code is known, so a transient failure
+    // (Hyprland busy, a socket timeout) would otherwise never be re-sent.
+    property bool retried: false
+    Timer {
+        id: retryTimer
+        interval: 2000
+        onTriggered: {
+            root.sentCall = "";
             root.send();
         }
     }

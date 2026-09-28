@@ -36,11 +36,6 @@ QtObject {
         root.show("message", screen);
     }
 
-    function hide() {
-        hideTimer.stop();
-        root.kind = "";
-    }
-
     property Timer hideTimer: Timer {
         // Held long enough that the rise and the drop are a small part of
         // what is on screen: a second leaves the pill on its way out about as

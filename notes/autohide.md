@@ -260,6 +260,15 @@ unless another output's bar still holds it (a moved workspace).
 - **Resync**: a Hyprland config reload drops runtime rules and resets the
   Lua state, so EdgeRelease resends on `configreloaded`. It also sends once
   at start, which undoes a release left behind by a shell that died hidden.
+  That start send is deferred (`Qt.callLater`, like `onCallChanged`): sent
+  from `Component.onCompleted` it ran before the Bar's own
+  `settleFirstWorkspace()`, so every reload sent `nil` and then the
+  workspace, re-running the Lua rule twice (2026-09-28 review; "two reloads
+  kept it flushed" above only checked the end state).
+  - A failed `hyprctl eval` is retried once, 2s later. `sentCall` is set
+    before the exit code is known, so without it a transient failure was
+    never re-sent until the state changed. Once, not in a loop: a missing
+    Lua function fails every time.
 
 ## Rejected
 

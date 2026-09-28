@@ -41,7 +41,6 @@ PanelWindow {
     // member: inactive tabs aren't `hidden`. A window whose state isn't fetched
     // yet isn't counted: a floating dialog would otherwise bring the bar back
     // until shell.qml's refresh lands.
-    readonly property bool singleTiled: barWindow.singleTiledOn(barWindow.workspace)
     function singleTiledOn(ws) {
         return ws !== null && ws.toplevels.values.filter(t => barWindow.countsAsTile(t.lastIpcObject)).length === 1;
     }
@@ -50,10 +49,9 @@ PanelWindow {
     }
 
     // The three levels, each falling back to the one before; the IPC's
-    // `toggle` reads them to decide whether to clear an override or set one.
-    // Functions of the workspace, since EdgeRelease also asks them about one
-    // the output has left.
-    readonly property bool hiddenByRule: barWindow.hiddenByRuleOn(barWindow.workspace)
+    // `toggle` reads the last two to decide whether to clear an override or
+    // set one. Functions of the workspace, since EdgeRelease also asks them
+    // about one the output has left.
     function hiddenByRuleOn(ws) {
         return barWindow.singleTiledOn(ws) && (barWindow.matchesWorkspace(barWindow.hideOn["*"], ws) || barWindow.matchesWorkspace(barWindow.hideOn[barWindow.modelData.name], ws));
     }
@@ -110,7 +108,10 @@ PanelWindow {
             return false;
         hideDelayTimer.stop();
         barWindow.hiddenAfterDelay = true;
-        slide.snapTo(-barWindow.implicitHeight);
+        // Not while a peek holds it (the panel open here): it would snap out
+        // of view only to slide straight back.
+        if (barWindow.retracted)
+            slide.snapTo(-barWindow.implicitHeight);
         return true;
     }
 
