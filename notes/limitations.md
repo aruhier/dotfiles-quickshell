@@ -2,8 +2,8 @@
 
 ## Known limitations
 
-- **`Privacy.qml`** shows a mic icon and a screen-share icon, both computed
-  inline (no dedicated service — see `notes/privacy.md`).
+- **`Privacy.qml`** shows mic, screen-share and camera icons, a thin view
+  over `PrivacyService` — see `notes/privacy.md` for its known limits.
 - **`Mpd.qml`** shells out to `mpc` (`mpc idleloop player` for events, `mpc
   status`/`current` on each) since Quickshell has no built-in mpd client; the
   bar's mpd module is not MPRIS-based, unlike the control centre's widget.
@@ -40,7 +40,8 @@
 - **`Tray.qml`'s icon order isn't stable** — nothing sorts tray icons
   without an explicit `order` config, so it's just registration order and
   varies per restart. Not a bug to chase.
-- **`Battery.qml`** reads `Quickshell.Services.UPower` inline (no service —
-  same reasoning as `Privacy.qml`), and shows a `Tooltip` with upower's
+- **`Battery.qml`** reads `Quickshell.Services.UPower` inline (no service:
+  UPower is already a process-wide singleton, and nothing here needs a
+  tracker), and shows a `Tooltip` with upower's
   time-to-empty/full estimate. See `notes/battery.md`.
 

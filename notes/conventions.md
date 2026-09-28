@@ -42,11 +42,12 @@ such chrome, and an alias here would silently reparent each module's
 `anchors.fill: parent` means.
 
 Two modules don't use it, on purpose: **Workspaces.qml** rounds its spring
-output and drives five coupled springs off one `SpringGroup`; **Privacy.qml**
-springs its per-app icons rather than its own width. A base type doesn't have
-to be universal. (**Submap.qml** used to override `padding` and
-`implicitHeight` for an accent chip of its own; the pill and its text
-colour are now its `ModuleGroup`'s, set in `shell.qml`'s layout.)
+output and drives five coupled springs off one `SpringGroup`;
+**Privacy.qml** springs each of its glyphs (mic, screen, camera) rather than
+its own width. A base type doesn't have to be universal. (**Submap.qml**
+used to override `padding` and `implicitHeight` for an accent chip of its
+own; the pill and its text colour are now its `ModuleGroup`'s, set in
+`shell.qml`'s layout.)
 
 A module's text colour is `root.textColor`, never `Theme.groupText`
 directly: `ModuleLoader` binds it to the group's `textColor`, so a module

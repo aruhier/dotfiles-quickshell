@@ -28,10 +28,11 @@ modules/*.qml         one file per bar module — thin views, no owned
                       Almost all of them are `BarModule`s (see
                       `notes/conventions.md`)
 services/*.qml        pragma-Singleton types holding state + the actual
-                      subprocess/network I/O for anything system-wide
-                      (AudioService, BacklightService, LockKeysService,
-                      MpdService, MprisService, NotificationService,
-                      OsdService, SubmapService, WeatherService) — one
+                      subprocess/network I/O, or a Pipewire tracker, for
+                      anything system-wide (AudioService, BacklightService,
+                      LockKeysService, MpdService, MprisService,
+                      NotificationService, OsdService, PrivacyService,
+                      SubmapService, WeatherService) — one
                       watch/subscription/fetch cycle for the whole process
                       regardless of monitor count
 themes/Theme.qml      pragma-Singleton palette + metrics for the bar and

@@ -15,7 +15,8 @@ If cropping a full-output screenshot in stages with ImageMagick, add
 a second crop measures from the original image's coordinates.
 
 Monitor layout is machine-specific — re-check with `hyprctl monitors -j`
-rather than trusting old notes. `DP-1` is the output with tray/privacy/weather.
+rather than trusting old notes. The `mainScreens` outputs in shell.qml (DP-1,
+eDP-1) are the ones with tray/privacy/weather.
 
 ## Full visual re-verification (2026-08-29, two passes)
 
