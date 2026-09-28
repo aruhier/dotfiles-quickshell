@@ -11,6 +11,12 @@ dotfiles side changed with it: the volume
 binds no longer call `swayosd-client`, the brightness binds no longer call
 `brightnessctl`, and three new non-consuming lock-key binds were added.
 
+`AudioService.maxPct` (100) is the ceiling `swayosd-client` ran the volume
+binds at by default, and what the bar's wheel had always clamped to; the OSD's
+track is scaled to it. A volume already past it (set in pavucontrol) becomes
+the ceiling for that bump instead: clamping every write to 100 made one step
+*up* from 130% land on 100 (2026-09-28 review).
+
 **It is painted as a notification surface, not as a bar pill.** Its geometry
 (`pillWidth`, `pillHeight`, `overshoot`, `bump`, …) is its own, declared at the
 top of `OsdWindow.qml`; every colour comes from `NotificationTheme.qml` — `bgFloating` plate, `borderSubtle` edge,
