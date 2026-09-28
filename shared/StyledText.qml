@@ -30,5 +30,10 @@ Text {
     font.family: Theme.fontFamily
     font.pixelSize: Theme.fontSize
     font.variableAxes: ({ "wght": wght })
+    // Never AutoText: most text here is app-supplied (notifications, MPRIS,
+    // tray titles), and a string Qt guesses is HTML gets parsed as such —
+    // mangling a literal `<` or `&`, and fetching any remote <img> it names.
+    // Nothing in the shell uses markup; a site that ever needs it opts in.
+    textFormat: Text.PlainText
     color: Theme.text
 }

@@ -49,9 +49,6 @@ AnchoredPopupWindow {
             anchors.fill: parent
             anchors.margins: 10
             text: popup.text
-            // Plain: the tray hands this an app-supplied SNI title, and a
-            // `&` or `<` in one must not read as markup.
-            textFormat: Text.PlainText
             wrapMode: Text.WordWrap
             color: Theme.groupText
             font.pixelSize: Theme.fontSize

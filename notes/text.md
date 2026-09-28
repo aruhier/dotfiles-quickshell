@@ -328,3 +328,19 @@ can only ever sit on whole device pixels. The fix makes the card and its text
 take that hop together, which reads as the panel arriving rather than as the
 text sliding inside it.
 
+
+## Text is plain, never `AutoText` (2026-09-28)
+
+`StyledText` sets `textFormat: Text.PlainText`. Qt's default, `AutoText`,
+runs `Qt::mightBeRichText()` on the string and, if it guesses HTML, renders it
+as rich text — and most text in this shell is supplied by other programs:
+notification summaries and bodies, action labels, app names, MPRIS titles,
+tray titles. The notification server advertises `bodyMarkupSupported: false`,
+so clients send raw text; browsers pass page-controlled web-notification text
+through unescaped. Under `AutoText` such a body could mangle a literal `<` or
+`&`, and an `<img src="https://…">` in it would be fetched by the rich-text
+engine (a tracking pixel). Found by the 2026-09-28 full review.
+
+Nothing in the shell uses markup. A site that ever does sets `textFormat`
+itself, on a string the shell controls. Tooltip.qml used to set `PlainText`
+on its own for the tray's SNI titles; that line went when the default did.
