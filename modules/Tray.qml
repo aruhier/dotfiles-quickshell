@@ -6,6 +6,7 @@ import Quickshell.Widgets
 import Quickshell.Services.SystemTray
 import qs.shared
 import qs.shared.popup
+import qs.themes
 
 // System tray.
 BarModule {
@@ -33,17 +34,25 @@ BarModule {
                 id: trayIcon
                 required property var modelData
 
+                // Full bar height, so the whole height is clickable and the
+                // tooltip anchors below the bar like every other module's.
                 Layout.preferredWidth: 14
-                Layout.preferredHeight: 14
+                Layout.preferredHeight: Theme.barHeight
 
                 IconImage {
-                    anchors.fill: parent
+                    anchors.centerIn: parent
+                    width: 14
+                    height: 14
                     source: trayIcon.modelData.icon
                     implicitSize: 14
                 }
 
                 MouseArea {
                     anchors.fill: parent
+                    // Half the spacing either side: no dead gap between icons,
+                    // so the cursor crossing one doesn't drop the tooltip.
+                    anchors.leftMargin: -row.spacing / 2
+                    anchors.rightMargin: -row.spacing / 2
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
@@ -69,12 +78,23 @@ BarModule {
                                 menuAnchor.open();
                         }
                     }
+                    // Raw deltas: the StatusNotifierItem protocol wants them.
+                    onWheel: (wheel) => {
+                        if (wheel.angleDelta.y !== 0)
+                            trayIcon.modelData.scroll(wheel.angleDelta.y, false);
+                        if (wheel.angleDelta.x !== 0)
+                            trayIcon.modelData.scroll(wheel.angleDelta.x, true);
+                    }
                 }
 
                 QsMenuAnchor {
                     id: menuAnchor
                     menu: trayIcon.modelData.menu
                     anchor.item: trayIcon
+                    // Stretched past the border stripe, so the menu opens
+                    // below the bar rather than over its bottom edge.
+                    anchor.rect.width: trayIcon.width
+                    anchor.rect.height: trayIcon.height + Theme.barBorderHeight + 1
                     anchor.edges: Edges.Bottom | Edges.Left
                     anchor.gravity: Edges.Bottom | Edges.Right
                     onOpened: PopupCoordinator.trayMenuOwner = trayIcon
