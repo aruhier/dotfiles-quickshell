@@ -82,7 +82,7 @@ BarModule {
         onClicked: WeatherService.refresh()
     }
 
-    // LazyLoader, not Loader — see Clock.qml's popupLoader.
+    // LazyLoader, not Loader — see HoverPopupArea.qml.
     LazyLoader {
         id: popupLoader
         active: false
@@ -92,10 +92,6 @@ BarModule {
             anchorItem: root
 
             visible: _open && root.hasContent
-            onVisibleChanged: {
-                if (!visible)
-                    popupLoader.active = false;
-            }
             implicitWidth: 400
             implicitHeight: body.implicitHeight + 2 * padding
 

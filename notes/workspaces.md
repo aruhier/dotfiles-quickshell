@@ -38,11 +38,15 @@ Quickshell 0.3.1:
   when a window comes or goes; filtering and ordering it off
   `lastIpcObject` meant the refresh on open rewrote every entry, rebuilt
   the array, and recreated every `ScreencopyView` — two capture set-ups
-  per hover. Hidden/unmapped windows keep a delegate, invisible and not
-  `live`.
+  per hover. Hidden/unmapped windows keep a delegate, invisible, not
+  `live`, and with no `captureSource`: setting a source makes
+  `ScreencopyView::createContext()` capture one frame even when not live.
 - **Empty workspaces get no popup at all** (`HoverPopupArea.popupEnabled`),
-  rather than a popup that's built, never becomes visible, and so never
-  hits the `onVisibleChanged` teardown.
+  so hovering one builds nothing. Teardown is keyed on `HoverPopup.close()`
+  (its `dismissed` signal), not on `visible` going false: a popup whose
+  windows are all hidden, or whose monitor is briefly null in a hotplug, is
+  built but never visible, and a `visible`-keyed teardown leaked it with its
+  captures running.
 - **A click on a pill calls `HoverPopupArea.cancel()`** before activating
   the workspace, which closes via `HoverPopup.close()`. `close()` now also
   deactivates itself with `PopupCoordinator`: it's followed by LazyLoader

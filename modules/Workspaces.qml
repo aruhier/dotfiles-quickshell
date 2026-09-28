@@ -110,9 +110,8 @@ Rectangle {
                     }
                 }
 
-                // LazyLoader, not Loader — see Clock.qml's popupLoader. Torn
-                // down on close, since each ScreencopyView inside keeps a
-                // capture running while alive.
+                // LazyLoader, not Loader — see HoverPopupArea.qml. Tearing
+                // it down on close also stops every capture inside.
                 LazyLoader {
                     id: previewLoader
                     active: false
@@ -120,10 +119,6 @@ Rectangle {
                     WorkspacePreviewPopup {
                         anchorItem: wsDelegate
                         workspace: wsDelegate.modelData
-                        onVisibleChanged: {
-                            if (!visible)
-                                previewLoader.active = false;
-                        }
                     }
                 }
             }

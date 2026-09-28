@@ -90,10 +90,11 @@ HoverPopup {
                     width: Math.round(ipc.size[0] * popup.scaleFactor)
                     height: Math.round(ipc.size[1] * popup.scaleFactor)
 
-                    captureSource: view.modelData.wayland
-                    // The view dies with the popup, so nothing captures once
-                    // it's closed; a hidden window's doesn't capture at all.
-                    live: view.visible
+                    // Setting a source captures a first frame even when not
+                    // live, so a window the mock-up doesn't show gets none.
+                    // Item visibility ignores the window's, hence popup.visible.
+                    captureSource: view.visible ? view.modelData.wayland : null
+                    live: view.visible && popup.visible
                 }
             }
         }

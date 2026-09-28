@@ -49,10 +49,8 @@ BarModule {
         loader: popupLoader
     }
 
-    // LazyLoader, not Loader — HoverPopup is a PopupWindow, not an Item. Torn
-    // down on close: the grid is ~130 items behind a popup opened a few times
-    // a session, and a created popup window holds its GPU context (~3-4MB,
-    // never freed) for the life of the process. Costs one frame on reopen.
+    // LazyLoader, not Loader — see HoverPopupArea.qml. Each open builds a
+    // fresh popup, so the grid always opens on the current month.
     LazyLoader {
         id: popupLoader
         active: false
@@ -64,17 +62,6 @@ BarModule {
             // The month on display, independent of the live clock.
             property int viewYear: root.now.getFullYear()
             property int viewMonth: root.now.getMonth()
-
-            // Reset on close, not open, so the grid always opens on the
-            // current month without racing the same visibleChanged signal.
-            // Tearing down here is safe — it fires after HoverPopup's own
-            // hideTimer, so nothing still needs the popup.
-            onVisibleChanged: {
-                if (!visible) {
-                    goToday();
-                    popupLoader.active = false;
-                }
-            }
 
             function goToday() {
                 viewYear = root.now.getFullYear();

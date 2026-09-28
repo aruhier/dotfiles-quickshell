@@ -27,6 +27,9 @@ AnchoredPopupWindow {
 
     property bool _open: false
 
+    // Emitted by close(); HoverPopupArea tears the popup down on it.
+    signal dismissed()
+
     onHoveredChanged: {
         if (hovered) {
             hideTimer.stop();
@@ -45,6 +48,7 @@ AnchoredPopupWindow {
         hideTimer.stop();
         _open = false;
         PopupCoordinator.deactivate(popup);
+        popup.dismissed();
     }
 
     // Grace for the cursor to cross the gap between module and popup (or

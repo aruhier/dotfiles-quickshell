@@ -149,7 +149,7 @@ Item {
         loader: popupLoader
     }
 
-    // LazyLoader, not Loader — see Clock.qml's popupLoader.
+    // LazyLoader, not Loader — see HoverPopupArea.qml.
     LazyLoader {
         id: popupLoader
         active: false
@@ -159,10 +159,6 @@ Item {
             anchorItem: root
 
             visible: _open && root.contentVisible
-            onVisibleChanged: {
-                if (!visible)
-                    popupLoader.active = false;
-            }
             implicitWidth: 260
             implicitHeight: body.implicitHeight + 2 * padding
 
