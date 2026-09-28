@@ -13,8 +13,9 @@ import qs.themes
 BarModule {
     id: root
 
-    // UPower.devices also carries line-power and peripheral batteries.
-    readonly property var batteries: UPower.devices.values.filter(dev => dev.isLaptopBattery)
+    // UPower.devices also carries line-power and peripheral batteries, and
+    // keeps a device for an empty bay: isLaptopBattery doesn't check presence.
+    readonly property var batteries: UPower.devices.values.filter(dev => dev.isLaptopBattery && dev.isPresent)
     // upower's aggregate; health/cycle counts are only on a real battery.
     readonly property var device: UPower.displayDevice
     readonly property var mainBattery: batteries.length > 0 ? batteries[0] : null
