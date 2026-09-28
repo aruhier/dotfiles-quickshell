@@ -33,7 +33,8 @@ BarModule {
     // this machine — see notes/battery.md.
     readonly property bool plugged: deviceState === UPowerDeviceState.PendingCharge
 
-    readonly property bool critical: percent <= 15
+    readonly property bool critical: percent <= criticalLevel
+    readonly property int criticalLevel: 15
 
     // On the adapter, charging or held, isn't an emergency, so no blink.
     // Gated on contentVisible too: with no battery UPower reports 0%, and the
@@ -144,12 +145,12 @@ BarModule {
         }
     }
 
-    // The percentage the last pulse fired at. What makes the re-pulse below
-    // "another whole percent lost" rather than "percent changed": UPower's
-    // reading wobbles a point either way near the end, and firing on the way
-    // back up would leave the animation running more or less permanently,
-    // which is the whole thing this is shaped to avoid. 101 is "none yet".
+    // The percentage the last pulse fired at, so a pulse means "another whole
+    // percent lost", not "changed". Kept when the blink drops out: a 15/16
+    // wobble or a flapping charger re-entering critical at the same level
+    // doesn't pulse again. Re-armed (101, "none yet") only well clear of it.
     property int pulsedAt: 101
+    readonly property int rearmAbove: criticalLevel + 5
 
     function firePulse() {
         root.pulsedAt = root.percent;
@@ -160,17 +161,21 @@ BarModule {
     // bound `running` would break the binding on the first call.
     onCriticalBlinkChanged: {
         if (root.criticalBlink) {
-            root.firePulse();
+            if (root.percent < root.pulsedAt)
+                root.firePulse();
         } else {
             // The animation can stop mid-pulse, and nothing else resets this.
             pulse.stop();
             root.blinkOpacity = 1;
-            root.pulsedAt = 101;
         }
     }
 
-    onPercentChanged: if (root.criticalBlink && root.percent < root.pulsedAt)
-        root.firePulse()
+    onPercentChanged: {
+        if (root.percent > root.rearmAbove)
+            root.pulsedAt = 101;
+        else if (root.criticalBlink && root.percent < root.pulsedAt)
+            root.firePulse();
+    }
 
     // A reload with the battery already critical evaluates the binding during
     // creation, which can beat the handler above being connected.

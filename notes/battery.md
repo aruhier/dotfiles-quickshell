@@ -198,6 +198,11 @@ Three implementation details, each of which is a trap:
   reading wobbles a point either way near the end, and firing on the way back
   up puts the animation back on more or less permanently — reintroducing the
   bug through the fix. `pulsedAt` is the low-water mark that prevents it.
+  It is *kept* when the blink drops out (2026-09-28): it used to reset to
+  101 on leaving critical, so anything toggling `criticalBlink` — a 15↔16
+  wobble, a weak charger flapping Charging↔Discharging, upower's transient
+  Unknown right after a plug — re-armed a full ~7s pulse on the next entry.
+  It re-arms only once the level is above `rearmAbove` (20%).
 - **`Component.onCompleted` is not redundant here.** A reload with the battery
   already critical evaluates the binding during creation, which can beat
   `onCriticalBlinkChanged` being connected.
