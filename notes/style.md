@@ -46,8 +46,13 @@
   cover the render type alone — the family, size, weight axis and hinting
   preference still need the shared type, so it isn't used.)
 
-- **Anything clickable that's a glyph or a text label is a
-  `shared/PressableIcon.qml`, never a `StyledText` + `MouseArea` pair.** It
+- **Inside a popup or panel, anything clickable that's a glyph or a text
+  label is a `shared/PressableIcon.qml`, never a `StyledText` + `MouseArea`
+  pair.** Not on the bar itself: a bar module (Volume, Weather, the bell, a
+  tray icon, a workspace pill) is clicked as a whole, through a module-wide
+  `MouseArea` (or `HoverPopupArea`, a `MouseArea`) with a
+  pointer cursor and no press or hover feedback — the bar keeps a still,
+  flat look (decided 2026-09-28). It
   owns the shared feel: press-shrink (`PressSpring`), `Theme.accent` on
   hover (blue-green, same as a notification card's close button), pointer
   cursor, and the `interactive` gate that suppresses all three. A site sets
