@@ -30,8 +30,12 @@
   that request's failure retries after 30s rather than a long backoff.
   Location comes from `QS_WEATHER_LAT`/`QS_WEATHER_LON` when both parse as
   numbers (the footer then reads "Current location", there being no name),
-  else from ip-api over plain http, once per process — not re-resolved
-  after travel. Units are fixed metric (°C, km/h).
+  else from ip-api over plain http. It is looked up again, and the forecast
+  refetched, whenever NM's connectivity comes back from None (travel, a
+  resume); a failed re-lookup keeps the old coordinates and retries next
+  cycle. A network change NM never reports as None (e.g. a VPN hop) doesn't
+  trigger it. Stale data is deliberately not dimmed. Units are fixed metric
+  (°C, km/h).
 - **`Tray.qml`'s icon order isn't stable** — nothing sorts tray icons
   without an explicit `order` config, so it's just registration order and
   varies per restart. Not a bug to chase.

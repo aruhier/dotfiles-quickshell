@@ -13,6 +13,9 @@ QtObject {
     property real latitude: NaN
     property real longitude: NaN
     property string locationName: ""
+    // Set when the network comes back from none: it may be somewhere else
+    // now (travel, a resume), so the next refresh looks the location up again.
+    property bool locationStale: false
 
     property var current: null
     property var hourly: []
@@ -79,7 +82,7 @@ QtObject {
     function refresh() {
         if (root.loading)
             return;
-        if (isNaN(root.latitude) || isNaN(root.longitude))
+        if (root.locationStale || isNaN(root.latitude) || isNaN(root.longitude))
             root.resolveLocationAndFetch();
         else
             root.fetchForecast();
@@ -141,6 +144,7 @@ QtObject {
     // Coordinates come from QS_WEATHER_LAT/QS_WEATHER_LON if set and numeric,
     // otherwise from an IP geolocation lookup.
     function resolveLocationAndFetch() {
+        root.locationStale = false;
         const envLat = parseFloat(Quickshell.env("QS_WEATHER_LAT"));
         const envLon = parseFloat(Quickshell.env("QS_WEATHER_LON"));
         if (!isNaN(envLat) && !isNaN(envLon)) {
@@ -161,10 +165,15 @@ QtObject {
                 root.longitude = geo.lon;
                 root.locationName = [geo.city, geo.country].filter(Boolean).join(", ");
             } catch (e) {
-                // Coords stay NaN; the next refresh() retries the lookup.
-                root.errored = true;
-                root.scheduleNext();
-                return;
+                // A re-lookup that fails keeps the old coordinates and stays
+                // due; a first one has none, so the next refresh() retries.
+                if (!isNaN(root.latitude) && !isNaN(root.longitude)) {
+                    root.locationStale = true;
+                } else {
+                    root.errored = true;
+                    root.scheduleNext();
+                    return;
+                }
             }
             root.fetchForecast();
         });
@@ -201,6 +210,7 @@ QtObject {
     // (a DNS blocker's page, an unreachable check URL), and the requests here
     // are tiny. Unknown is every startup until NM answers, or no NM at all.
     readonly property int connectivity: Networking.connectivity
+    property int lastConnectivity: NetworkConnectivity.Unknown
 
     // Suspend stops the monotonic clock nextFetch runs on, and a dropped link
     // leaves the data errored. On any change, refetch if the data is errored
@@ -208,15 +218,20 @@ QtObject {
     // Reads `connectivity` itself: bindings on it haven't updated yet here.
     // A request already in flight owns the cycle, but a link coming back
     // still clears the backoff, or its failure would wait out a long retry.
+    // Back from none, the location is due again and the fetch runs now.
     onConnectivityChanged: {
+        const wasOffline = root.lastConnectivity === NetworkConnectivity.None;
+        root.lastConnectivity = root.connectivity;
         if (root.connectivity === NetworkConnectivity.None)
             return;
+        if (wasOffline)
+            root.locationStale = true;
         if (root.loading) {
             root.failures = 0;
             return;
         }
         const age = Date.now() - root.lastUpdated;
-        if (root.errored || age >= root.refreshInterval) {
+        if (wasOffline || root.errored || age >= root.refreshInterval) {
             root.failures = 0;
             root.refresh();
         } else {
