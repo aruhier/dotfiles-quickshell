@@ -344,3 +344,12 @@ engine (a tracking pixel). Found by the 2026-09-28 full review.
 Nothing in the shell uses markup. A site that ever does sets `textFormat`
 itself, on a string the shell controls. Tooltip.qml used to set `PlainText`
 on its own for the tray's SNI titles; that line went when the default did.
+
+## Rejected
+
+- **Tabular figures (`font.features: { "tnum": 1 }`) on changing numbers**
+  (2026-09-28). Tried on the clock, volume and weather labels to stop their
+  width shifting as digits change (Inter's proportional `1` is narrow, so
+  `10:11` is narrower than `10:08`, and the pills beside it move by a pixel
+  or two). Dropped by the user: the evenly spaced digits read as odd in
+  Inter, `11` especially. The width shift is accepted.
