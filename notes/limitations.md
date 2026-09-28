@@ -37,6 +37,12 @@
   cycle. A network change NM never reports as None (e.g. a VPN hop) doesn't
   trigger it. Stale data is deliberately not dimmed. Units are fixed metric
   (°C, km/h).
+- **`Clock.qml`'s calendar starts on the locale's first day of the week**,
+  and the quickshell process may not get the session's `LC_TIME`: here it ran
+  with only `LANG=en_US.UTF-8` while the terminal had `LC_TIME=en_GB.UTF-8`,
+  so the grid started on Sunday. `firstDayOfWeek` at the top of the file
+  pins it, to `Qt.Monday`; `Qt.locale().firstDayOfWeek` there would follow
+  the locale again, once the service gets `LC_TIME`.
 - **`Tray.qml`'s icon order isn't stable** — nothing sorts tray icons
   without an explicit `order` config, so it's just registration order and
   varies per restart. Not a bug to chase.

@@ -19,6 +19,11 @@ BarModule {
     // so an open calendar isn't rebuilt on every minute's tick.
     readonly property string todayKey: Qt.formatDate(now, "yyyy-MM-dd")
 
+    // The calendar's first column, as a Qt.DayOfWeek (Qt.Monday … Qt.Sunday).
+    // Pinned: the locale's (`Qt.locale().firstDayOfWeek`) follows LC_TIME,
+    // which the shell doesn't get from the session.
+    readonly property int firstDayOfWeek: Qt.Monday
+
     SystemClock {
         id: clock
         precision: SystemClock.Minutes
@@ -79,13 +84,13 @@ BarModule {
             }
 
             // Qt::DayOfWeek (Mon=1..Sun=7) -> JS getDay() (Sun=0..Sat=6), so
-            // locale and calendar math share one convention.
-            function localeFirstDow() {
-                return Qt.locale().firstDayOfWeek % 7;
+            // the setting and calendar math share one convention.
+            function firstDow() {
+                return root.firstDayOfWeek % 7;
             }
 
             function dayHeaders() {
-                const first = localeFirstDow();
+                const first = firstDow();
                 const names = [];
                 for (let i = 0; i < 7; i++) {
                     const jsDow = (first + i) % 7;
@@ -98,7 +103,7 @@ BarModule {
             // 42 cells (6 weeks), including the leading/trailing days of
             // adjacent months needed to fill a rectangular grid.
             function calendarCells() {
-                const first = localeFirstDow();
+                const first = firstDow();
                 const firstOfMonth = new Date(viewYear, viewMonth, 1);
                 const leading = (firstOfMonth.getDay() - first + 7) % 7;
                 const start = new Date(viewYear, viewMonth, 1 - leading);
