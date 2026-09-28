@@ -45,7 +45,7 @@ convention despite the same underlying ODE shape. FrameSpring implements that
 ODE directly, so Hyprland's physical constants are the correct values here.
 
 It is in use everywhere a module's `implicitWidth` is eased (Submap, Backlight,
-Clock, Tray, Volume, NotificationCenter, Mpd, Weather, Privacy's `PrivacyIcon`),
+Clock, Tray, Volume, Notifications, Mpd, Weather, Privacy's `PrivacyIcon`),
 across Workspaces.qml's whole spring set, and on the notification panel's slide.
 `WidthSpring.qml`/`WorkspaceSpring.qml` (the old `Behavior`/`SpringAnimation`
 types) were kept as a fallback for a while, then deleted in 60cd6e2.

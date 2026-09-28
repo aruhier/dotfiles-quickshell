@@ -278,7 +278,7 @@ PanelWindow {
     Component { id: backlightComponent; Backlight {} }
     Component { id: batteryComponent; Battery {} }
     Component { id: volumeComponent; Volume {} }
-    Component { id: notificationsComponent; NotificationCenter { screen: barWindow.modelData } }
+    Component { id: notificationsComponent; Notifications { screen: barWindow.modelData } }
     Component { id: clockComponent; Clock {} }
     // The expensive modules — icon textures, hover popups, network. Only
     // instantiated on screens whose layout lists them.

@@ -9,7 +9,7 @@ control-center panel were swaync's separate GTK process. All of that now
 lives natively in this shell: `services/NotificationService.qml` (the
 daemon + all state) plus `shared/notifications/` (the popup stack and
 control-center panel windows, and the shared `NotificationCard.qml` view
-both render notifications with). `modules/NotificationCenter.qml` (was
+both render notifications with). `modules/Notifications.qml` (was
 `SwayNC.qml`) is still just the thin bar-indicator view, same shape as
 before, now reading the new singleton instead of shelling out.
 
@@ -91,7 +91,7 @@ bind = SUPER, N, exec, qs ipc call notifications toggle
 `default` one — see `quickshell ipc --help`.)
 
 `toggle()`/`open()` reuse `NotificationService.toggleCenter(screen)`, the
-same function `NotificationCenter.qml`'s click handler calls — just with
+same function `Notifications.qml`'s click handler calls — just with
 Hyprland's *focused* monitor as the screen instead of the screen the
 clicked widget happens to live on, since an IPC call has no
 widget/screen of its own to report (added `root.focusedScreen()` in

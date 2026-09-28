@@ -37,7 +37,7 @@ no per-screen instantiation), but it used to be hardcoded to `root.mainScreen`
 in `shell.qml`, so clicking the indicator on a non-`DP-1` output opened the
 panel on `DP-1` anyway.
 
-**Fix:** `NotificationCenter.qml` (the bar indicator) now takes a `required
+**Fix:** `Notifications.qml` (the bar indicator) now takes a `required
 property var screen` — `Bar.qml` binds it to `barWindow.modelData`, same
 pattern `Workspaces.qml` already used for its `screenName` — and passes it
 to `NotificationService.toggleCenter(screen)`. The service stores it as
