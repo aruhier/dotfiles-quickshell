@@ -13,9 +13,10 @@ QtObject {
     property real latitude: NaN
     property real longitude: NaN
     property string locationName: ""
-    // Set when the network comes back from none: it may be somewhere else
-    // now (travel, a resume), so the next refresh looks the location up again.
-    property bool locationStale: false
+    // The next refresh() looks the location up again before fetching. Set
+    // when the network comes back from none (travel, a resume) and on a
+    // manual refresh; cleared when a lookup starts, set again if it fails.
+    property bool locationLookupDue: false
 
     property var current: null
     property var hourly: []
@@ -82,10 +83,18 @@ QtObject {
     function refresh() {
         if (root.loading)
             return;
-        if (root.locationStale || isNaN(root.latitude) || isNaN(root.longitude))
+        if (root.locationLookupDue || isNaN(root.latitude) || isNaN(root.longitude))
             root.resolveLocationAndFetch();
         else
             root.fetchForecast();
+    }
+
+    // What the module's clicks call: someone asking for fresh weather may
+    // well have moved, so the location is looked up again too. Mid-request,
+    // the flag waits for the next refresh().
+    function refreshWithLocation() {
+        root.locationLookupDue = true;
+        root.refresh();
     }
 
     // The request in flight, and the timer that gives up on it. QML's
@@ -144,7 +153,7 @@ QtObject {
     // Coordinates come from QS_WEATHER_LAT/QS_WEATHER_LON if set and numeric,
     // otherwise from an IP geolocation lookup.
     function resolveLocationAndFetch() {
-        root.locationStale = false;
+        root.locationLookupDue = false;
         const envLat = parseFloat(Quickshell.env("QS_WEATHER_LAT"));
         const envLon = parseFloat(Quickshell.env("QS_WEATHER_LON"));
         if (!isNaN(envLat) && !isNaN(envLon)) {
@@ -168,7 +177,7 @@ QtObject {
                 // A re-lookup that fails keeps the old coordinates and stays
                 // due; a first one has none, so the next refresh() retries.
                 if (!isNaN(root.latitude) && !isNaN(root.longitude)) {
-                    root.locationStale = true;
+                    root.locationLookupDue = true;
                 } else {
                     root.errored = true;
                     root.scheduleNext();
@@ -225,7 +234,7 @@ QtObject {
         if (root.connectivity === NetworkConnectivity.None)
             return;
         if (wasOffline)
-            root.locationStale = true;
+            root.locationLookupDue = true;
         if (root.loading) {
             root.failures = 0;
             return;

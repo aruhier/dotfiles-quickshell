@@ -32,7 +32,8 @@
   numbers (the footer then reads "Current location", there being no name),
   else from ip-api over plain http. It is looked up again, and the forecast
   refetched, whenever NM's connectivity comes back from None (travel, a
-  resume); a failed re-lookup keeps the old coordinates and retries next
+  resume) and on every manual refresh (a click on the module or the
+  popup's refresh button); a failed re-lookup keeps the old coordinates and retries next
   cycle. A network change NM never reports as None (e.g. a VPN hop) doesn't
   trigger it. Stale data is deliberately not dimmed. Units are fixed metric
   (°C, km/h).

@@ -79,7 +79,7 @@ BarModule {
 
     HoverPopupArea {
         loader: popupLoader
-        onClicked: WeatherService.refresh()
+        onClicked: WeatherService.refreshWithLocation()
     }
 
     // LazyLoader, not Loader — see HoverPopupArea.qml.
@@ -325,7 +325,7 @@ BarModule {
                         color: Theme.text
                         opacity: root.loading || hovered ? 1.0 : 0.7
                         interactive: !root.loading
-                        onActivated: WeatherService.refresh()
+                        onActivated: WeatherService.refreshWithLocation()
 
                         NumberAnimation {
                             id: spin
