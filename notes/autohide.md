@@ -1,9 +1,10 @@
 # Bar auto-hide
 
 Hides the bar on chosen workspaces, to keep a static strip off an OLED.
-Config lives in `shell.qml` (`barHideOn`, `barHideDelay`), the `bar`
-IpcHandler and the override maps in `Ipc.qml`, the state machine in
-`modules/Bar.qml`.
+Config lives in `shell.qml` (`barHideOn`, `barHideDelay`), the override
+maps and what each action does to them in `services/BarVisibilityService.qml`,
+the `bar` IpcHandler (bar lookup, errors, the OSD message) in `Ipc.qml`, the
+state machine in `modules/Bar.qml`.
 
 ## Model
 
@@ -47,9 +48,10 @@ version flipped the state every time and only cleared when the flip matched
 auto, so that press forced the other way — e.g. hid the bar on every
 workspace of the output. The user preferred toggle to mean "leave auto / go
 back to auto". Overrides are in memory: a
-reload drops them. Both maps live in `Ipc.qml`, keyed by name, so an output
-override survives the monitor being unplugged (it was on the Bar instance at
-first, and died with it).
+reload drops them. Both maps live in `BarVisibilityService`, keyed by name, so
+an output override survives the monitor being unplugged (it was on the Bar
+instance at first, and died with it; then in `Ipc.qml`, threaded into every
+Bar as two required properties, until 2026-09-28).
 
 Names, not ids, key the workspace overrides: Hyprland gives a named workspace
 a new negative id (-1337 and down) every time it's created. A rename drops the

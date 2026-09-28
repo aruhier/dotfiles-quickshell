@@ -133,8 +133,6 @@ ShellRoot {
             layout: root.layoutFor(bar.modelData.name)
             hideOn: root.barHideOn
             hideDelay: root.barHideDelay
-            outputOverrides: ipc.barOutputOverrides
-            workspaceOverrides: ipc.barWorkspaceOverrides
         }
     }
 

@@ -16,9 +16,9 @@ shell.qml             Variants{ model: Quickshell.screens } → one Bar per
                       output; also owns the per-screen layout config (which
                       modules, which screens get which set) and the bar
                       auto-hide config
-Ipc.qml               every `qs ipc call` target (notifications, osd, bar)
-                      and the bar's auto-hide overrides, which only IPC
-                      writes; instantiated once from shell.qml
+Ipc.qml               every `qs ipc call` target (notifications, osd, bar):
+                      parses and reports, the state is the services';
+                      instantiated once from shell.qml
 modules/Bar.qml       PanelWindow per output; left/center/right groups,
                       rendered generically from the {left,center,right}
                       `layout` shell.qml hands it — no per-module or
@@ -30,7 +30,7 @@ modules/*.qml         one file per bar module — thin views, no owned
 services/*.qml        pragma-Singleton types holding state + the actual
                       subprocess/network I/O, or a Pipewire tracker, for
                       anything system-wide (AudioService, BacklightService,
-                      LockKeysService, MpdService, MprisService,
+                      BarVisibilityService, LockKeysService, MpdService, MprisService,
                       NotificationService, OsdService, PrivacyService,
                       SubmapService, WeatherService) — one
                       watch/subscription/fetch cycle for the whole process

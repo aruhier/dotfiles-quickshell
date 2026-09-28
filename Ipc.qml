@@ -5,8 +5,9 @@ import Quickshell.Io
 import qs.services
 import qs.shared
 
-// Every `qs ipc call` target, and the state only they write. shell.qml
-// instantiates this once and hands it what it needs from the shell.
+// Every `qs ipc call` target: it parses and reports, the state is the
+// services'. shell.qml instantiates this once and hands it what it needs
+// from the shell.
 Scope {
     id: ipc
 
@@ -15,62 +16,21 @@ Scope {
     // shell.qml's monitor-name -> Bar lookup, "ACTIVE" meaning the focused one.
     required property var barOn
 
-    // Auto-hide overrides, name -> hidden, read by every Bar. Only IPC writes
-    // them, so they live here; not on each bar, so an output's survives it
-    // being unplugged. Workspaces are keyed by name because Hyprland hands a
-    // named workspace a new id each time it's created.
-    property var barOutputOverrides: ({})
-    property var barWorkspaceOverrides: ({})
-
-    // Backs `visibility` and `visibility_workspace`; scope is "output" or
-    // "workspace". Returns what `qs ipc call` prints.
-    function applyBarOverride(scope, action, monitorName) {
+    // Backs `visibility` and `visibility_workspace`: the override itself is
+    // BarVisibilityService's; this resolves the bar and reports. Returns what
+    // `qs ipc call` prints.
+    function applyBarOverride(perWorkspace, action, monitorName) {
         const bar = ipc.barOn(monitorName);
         if (!bar)
             return ipc.barIpcError(`no bar on monitor "${monitorName}"`);
         const output = bar.modelData.name;
         const ws = bar.workspace;
-        const perWorkspace = scope === "workspace";
         if (perWorkspace && !ws)
             return ipc.barIpcError(`no workspace on ${output}`);
 
-        const key = perWorkspace ? ws.name : output;
-        const overrides = Object.assign({}, perWorkspace ? ipc.barWorkspaceOverrides : ipc.barOutputOverrides);
-        // Toggle leaves auto by forcing the opposite of what this level shows
-        // now, and any toggle while forced goes back to auto — even when auto
-        // shows the same thing, so the press changes nothing visible.
-        const current = perWorkspace ? bar.hiddenForWorkspace : bar.shouldHide;
-        let value;
-        switch (action) {
-        case "hide":
-            value = true;
-            break;
-        case "unhide":
-            value = false;
-            break;
-        case "auto":
-            value = null;
-            break;
-        case "toggle":
-            value = (key in overrides) ? null : !current;
-            break;
-        default:
+        const value = BarVisibilityService.apply(bar, perWorkspace, action);
+        if (value === undefined)
             return ipc.barIpcError(`unknown action "${action}" — hide, unhide, toggle or auto`);
-        }
-
-        if (value === null)
-            delete overrides[key];
-        else
-            overrides[key] = value;
-        if (perWorkspace)
-            ipc.barWorkspaceOverrides = overrides;
-        else
-            ipc.barOutputOverrides = overrides;
-        bar.skipDelay();
-        // Asking for hidden means now, not when a timed peek runs out. Only
-        // an ask: `auto` or a masked `unhide` ending hidden leaves it be.
-        if (value === true)
-            bar.endTimedPeek();
 
         const state = bar.shouldHide ? "hidden" : "shown";
         const label = perWorkspace ? `workspace ${ws.name}` : output;
@@ -149,11 +109,11 @@ Scope {
         target: "bar"
 
         function visibility(action: string, monitor: string): string {
-            return ipc.applyBarOverride("output", action, monitor);
+            return ipc.applyBarOverride(false, action, monitor);
         }
 
         function visibility_workspace(action: string, monitor: string): string {
-            return ipc.applyBarOverride("workspace", action, monitor);
+            return ipc.applyBarOverride(true, action, monitor);
         }
 
         function peek(seconds: real, monitor: string): string {

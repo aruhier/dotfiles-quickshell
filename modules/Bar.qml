@@ -21,11 +21,9 @@ PanelWindow {
     required property var layout
     screen: barWindow.modelData
 
-    // Auto-hide, configured and driven from shell.qml. `hideOn` is its
-    // `barHideOn`; both override maps are set over IPC. See notes/autohide.md.
+    // Auto-hide, configured from shell.qml (`hideOn` is its `barHideOn`); the
+    // IPC overrides are BarVisibilityService's. See notes/autohide.md.
     required property var hideOn
-    required property var outputOverrides
-    required property var workspaceOverrides
     required property int hideDelay
 
     // Opening a special workspace leaves this alone: Hyprland reports those
@@ -57,10 +55,11 @@ PanelWindow {
     }
     readonly property bool hiddenForWorkspace: barWindow.hiddenForWorkspaceOn(barWindow.workspace)
     function hiddenForWorkspaceOn(ws) {
-        return (ws !== null && ws.name in barWindow.workspaceOverrides) ? barWindow.workspaceOverrides[ws.name] : barWindow.hiddenByRuleOn(ws);
+        const overrides = BarVisibilityService.workspaceOverrides;
+        return (ws !== null && ws.name in overrides) ? overrides[ws.name] : barWindow.hiddenByRuleOn(ws);
     }
     // null follows the workspace; true/false forces every workspace here.
-    readonly property var outputOverride: barWindow.modelData.name in barWindow.outputOverrides ? barWindow.outputOverrides[barWindow.modelData.name] : null
+    readonly property var outputOverride: BarVisibilityService.outputOverrides[barWindow.modelData.name] ?? null
     readonly property bool shouldHide: barWindow.shouldHideOn(barWindow.workspace)
     function shouldHideOn(ws) {
         return barWindow.outputOverride !== null ? barWindow.outputOverride : barWindow.hiddenForWorkspaceOn(ws);
