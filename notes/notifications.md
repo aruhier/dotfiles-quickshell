@@ -773,6 +773,14 @@ than per toast.
   returned early on the latched `active`. On `finished`, if the group gained
   items, the exit is `reset()` and the row arrives again with them.
 
+- **The MPRIS widget selects a player, not an index.** `MprisService` kept
+  an index into `Mpris.players`; a player earlier in the list quitting
+  shifted it, and the widget silently showed another player with a pop and
+  no slide. `selected` is the player now (re-picked only when unset or gone,
+  also at creation, since the starting list fires no change), `index` is
+  derived for the pager dots, and the widget slides on `activePlayer`
+  changing rather than on `index`, which a reorder alone moves. Only the
+  no-player case was probed live (none were running).
 - **Why a toast's `narrowed` is 0.6** (moved out of the code comment): the
   hop has to start while the plate is still visibly closing, or the exit reads
   as three beats where the entry reads as one. A fifth from shut dwelt long

@@ -46,11 +46,13 @@ ColumnLayout {
             color: NotificationTheme.bgHover
             scale: mprisPopSpring.value
 
-            // On a player switch only the content slides.
-            // slideDirection comes from MprisService because
-            // the index delta's sign is ambiguous on wrap.
-            readonly property int watchedIndex: MprisService.index
-            onWatchedIndexChanged: {
+            // On a player switch only the content slides —
+            // keyed on the player, not its index, which also
+            // moves when another player quits. slideDirection
+            // comes from MprisService: the sign is ambiguous
+            // on wrap.
+            readonly property var watchedPlayer: MprisService.activePlayer
+            onWatchedPlayerChanged: {
                 if (!root.mapped)
                     return;
                 mprisSlideSpring.value = MprisService.slideDirection * mprisClip.width;

@@ -11,36 +11,41 @@ QtObject {
 
     readonly property var players: Mpris.players.values
 
-    // Defaults to whichever player is playing, then follows the user's </>
-    // choice, clamped so it can't point past a list that shrank.
-    property int index: 0
-    property bool indexInitialized: false
-
-    readonly property var activePlayer: players.length > 0 ? players[Math.min(index, players.length - 1)] : null
+    // The player shown, not its position: a player quitting shifts the list,
+    // and an index would silently land on another one. Picked when unset or
+    // gone — whichever is playing, else the first — then follows </>.
+    // A destroyed player nulls this `var` on its own.
+    property var selected: null
+    readonly property var activePlayer: selected
+    // Its position, for the pager dots; -1 with no players.
+    readonly property int index: players.indexOf(activePlayer)
 
     // 0 when nothing is playing — findIndex's -1, clamped up.
     function defaultIndex() {
         return Math.max(0, root.players.findIndex(player => player.isPlaying));
     }
 
-    onPlayersChanged: {
-        if (!indexInitialized && players.length > 0) {
-            index = defaultIndex();
-            indexInitialized = true;
-        } else if (index >= players.length) {
-            index = Math.max(0, players.length - 1);
-        }
+    // Also at creation: the list it starts with fires no change.
+    Component.onCompleted: pick()
+    onPlayersChanged: pick()
+    function pick() {
+        if (root.selected !== null && root.players.indexOf(root.selected) !== -1)
+            return;
+        // A replacement isn't a new track on the same player: no pop.
+        root.suppressPop = true;
+        root.selected = root.players.length > 0 ? root.players[root.defaultIndex()] : null;
+        root.suppressPop = false;
     }
 
     // Which way the card's content slides. Set here because the index delta's
     // sign is ambiguous when the selection wraps.
     property int slideDirection: 1
 
-    // The player just shown, captured before `index` changes: the card slides
+    // The player just shown, captured before the selection changes: the card slides
     // it out as a second layer while the new one slides in.
     property var previousPlayer: null
 
-    // True for exactly the `index` write below — notifies are synchronous, so
+    // True for exactly the `selected` writes — notifies are synchronous, so
     // every downstream handler runs inside it. Lets the card tell a track
     // change caused by switching players (slide) from a real one (pop).
     property bool suppressPop: false
@@ -51,7 +56,7 @@ QtObject {
         slideDirection = delta;
         previousPlayer = activePlayer;
         suppressPop = true;
-        index = (index + delta + players.length) % players.length;
+        selected = players[(Math.max(0, index) + delta + players.length) % players.length];
         suppressPop = false;
     }
 
