@@ -12,17 +12,13 @@ QtObject {
     property string artist: ""
     property string title: ""
 
-    // Never restarts a read in flight: `running = false` terminates it, and
-    // the partial stdout that leaves still reaches the collector — for
-    // `mpc status` that means no `volume:` line, read as "disconnected", so
-    // the module collapsed and re-expanded whenever idleloop emitted two
-    // lines close together (a state change and a seek). A refresh during a
-    // read is noted and the read re-run once it exits, so the last state
-    // always lands.
     function refresh() {
         root.rerun(statusProc);
     }
 
+    // Never restarts a read in flight: killing it still delivers its partial
+    // stdout, which reads as a wrong state. A request during a read marks it
+    // dirty and re-runs it on exit, so the last state always lands.
     function rerun(proc) {
         if (proc.running)
             proc.dirty = true;
@@ -37,9 +33,15 @@ QtObject {
         proc.running = true;
     }
 
+    function setDisconnected() {
+        root.playbackState = "disconnected";
+        root.artist = "";
+        root.title = "";
+    }
+
     function applyStatus(text) {
         if (!text) {
-            root.playbackState = "disconnected";
+            root.setDisconnected();
             return;
         }
         // The [state] line only appears with a song loaded, so match on
@@ -47,14 +49,15 @@ QtObject {
         const lines = text.split("\n");
         let hasVolumeLine = false;
         let stateLine = null;
+        // `volume:` (even "n/a") is printed whenever mpd answered at all.
         for (let i = 0; i < lines.length; i++) {
-            if (lines[i].indexOf("volume:") === 0)
+            if (lines[i].startsWith("volume:"))
                 hasVolumeLine = true;
-            if (lines[i].indexOf("[") === 0)
+            if (lines[i].startsWith("["))
                 stateLine = lines[i];
         }
         if (!hasVolumeLine) {
-            root.playbackState = "disconnected";
+            root.setDisconnected();
             return;
         }
         // A read started before idleloop's last exit may predate mpd going
@@ -66,9 +69,9 @@ QtObject {
                 idleProc.running = true;
             }
         }
-        if (stateLine && stateLine.indexOf("[playing]") === 0) {
+        if (stateLine && stateLine.startsWith("[playing]")) {
             root.playbackState = "playing";
-        } else if (stateLine && stateLine.indexOf("[paused]") === 0) {
+        } else if (stateLine && stateLine.startsWith("[paused]")) {
             root.playbackState = "paused";
         } else {
             root.playbackState = "stopped";
@@ -96,7 +99,7 @@ QtObject {
         // streamEnded before exited), so the re-run follows the apply.
         onExited: (code, status) => {
             if (code !== 0)
-                root.playbackState = "disconnected";
+                root.setDisconnected();
             root.rerunIfDirty(statusProc);
         }
     }
@@ -104,7 +107,9 @@ QtObject {
     property Process currentTrackProc: Process {
         id: currentTrackProc
         property bool dirty: false
-        command: ["mpc", "current", "-f", "%artist%\t%title%"]
+        // A missing tag expands to "", so fall back: a stream's name for its
+        // artist, the file for an untagged title.
+        command: ["mpc", "current", "-f", "[%artist%|%name%]\t[%title%|%file%]"]
         stdout: StdioCollector {
             id: currentCollector
             onStreamFinished: {
@@ -125,10 +130,15 @@ QtObject {
             splitMarker: "\n"
             onRead: (line) => root.refresh()
         }
-        onExited: {
+        // Not onExited: a process that fails to start (mpc missing) only
+        // clears `running`. Refreshed at once, so a vanished mpd collapses
+        // the module now rather than at the retry — counted as an exit
+        // first, so that read is a fresh one (see applyStatus).
+        onRunningChanged: if (!running) {
             root.idleExits++;
             root.failures++;
             restartTimer.interval = Math.min(root.retryInterval * 2 ** (root.failures - 1), root.maxRetryInterval);
+            root.refresh();
             restartTimer.start();
         }
     }

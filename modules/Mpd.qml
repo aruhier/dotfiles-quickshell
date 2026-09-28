@@ -4,8 +4,8 @@ import qs.services
 import qs.shared
 import qs.themes
 
-// MPD now-playing indicator (via mpc, since mpd isn't exposed over MPRIS
-// here) — a thin view over MpdService, which owns the polling.
+// MPD now-playing indicator — a thin view over MpdService, which owns the
+// mpc subscription.
 BarModule {
     id: root
 
@@ -21,9 +21,14 @@ BarModule {
     contentVisible: playbackState !== "disconnected"
     contentWidth: content.implicitWidth
 
+    // By code point, so a cut never splits a surrogate pair (emoji, CJK
+    // extension B) into a tofu box.
     function truncate(s, len) {
-        return s.length > len ? s.substring(0, len - 1) + "…" : s;
+        const chars = Array.from(s);
+        return chars.length > len ? chars.slice(0, len - 1).join("") + "…" : s;
     }
+
+    readonly property string label: [truncate(artist, artistLen), truncate(title, titleLen)].filter(Boolean).join(" - ")
 
     readonly property bool hasTrack: playbackState === "playing" || playbackState === "paused"
 
@@ -51,9 +56,9 @@ BarModule {
 
         StyledText {
             anchors.verticalCenter: parent.verticalCenter
-            visible: root.hasTrack
+            visible: root.hasTrack && root.label !== ""
             color: root.textColor
-            text: root.hasTrack ? root.truncate(root.artist, root.artistLen) + " - " + root.truncate(root.title, root.titleLen) : ""
+            text: root.label
         }
     }
 }

@@ -7,6 +7,16 @@
 - **`Mpd.qml`** shells out to `mpc` (`mpc idleloop player` for events, `mpc
   status`/`current` on each) since Quickshell has no built-in mpd client; the
   bar's mpd module is not MPRIS-based, unlike the control centre's widget.
+  `MpdService` never restarts a read in flight: `running = false` kills it,
+  its partial stdout still reaches the collector, and an `mpc status` cut off
+  before its `volume:` line read as "disconnected" — the module collapsed and
+  re-expanded whenever idleloop emitted two lines close together (a state
+  change and a seek). Hence the dirty flag and re-run on exit. Tags fall back
+  in the `mpc current` format (`[%artist%|%name%]`, `[%title%|%file%]`), since
+  a missing one expands to "" and a web stream has no artist. idleloop's
+  retry is keyed on `running`, not `exited`: a Quickshell `Process` that
+  fails to start (mpc missing) only emits `runningChanged` (process.cpp,
+  0.3.1), so an `onExited` retry died for good.
 - **`Weather.qml`** natively implements the bar icon+temperature and a
   popup with current/hourly/daily forecast.
   `WeatherService` refetches on NetworkManager connectivity changes, which
