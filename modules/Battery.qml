@@ -35,12 +35,10 @@ BarModule {
 
     readonly property bool critical: percent <= 15
 
-    // Charging out of a critical level isn't an emergency, so it won't blink.
-    // Gated on contentVisible as well: with no battery present UPower's
-    // display device reports 0%, which reads as "critical" and left the blink
-    // below running forever behind a hidden module. A running animation keeps
-    // every window in the process rendering every frame — see notes/rendering.md.
-    readonly property bool criticalBlink: contentVisible && critical && !charging
+    // On the adapter, charging or held, isn't an emergency, so no blink.
+    // Gated on contentVisible too: with no battery UPower reports 0%, and the
+    // pulse ran forever behind a hidden module (notes/battery.md).
+    readonly property bool criticalBlink: contentVisible && critical && !charging && !plugged
 
     // ---- icons ----
     // One per 20% band.

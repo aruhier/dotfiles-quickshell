@@ -77,6 +77,12 @@
   checks `isPresent`; upowerd keeps a device for an empty bay or a removed
   pack. Without the check, a laptop on AC with its battery out shows "0%" and
   pulses red — the same trap as the section below, through another door.
+- **No critical pulse while plugged in (2026-09-28, by request).** At ≤15%
+  on the adapter but not charging (`PendingCharge`: a temperature hold, an
+  underpowered adapter) the module shows the plug in the normal colour: no
+  pulse, no red, no bold, all of which follow `criticalBlink`. On the adapter
+  isn't an emergency, charging or not. It used to go critical, since only
+  `charging` was excluded, while the icon already showed the plug.
 
 
 ## A machine with no battery blinked an invisible module at 3.2% CPU (2026-09-14)
