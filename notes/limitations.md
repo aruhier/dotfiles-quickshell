@@ -25,7 +25,13 @@
   (timer-only); a link NM keeps up across suspend (e.g. a WireGuard tunnel
   with the default route) may give no edge, so data can be up to 15 min
   plus the suspend length old; a request in flight across the suspend
-  delays fresh data by up to ~45s (15s timeout, then the 30s retry).
+  delays fresh data by up to ~45s (15s timeout, then the 30s retry); a
+  link that returns while a request is in flight clears the backoff, so
+  that request's failure retries after 30s rather than a long backoff.
+  Location comes from `QS_WEATHER_LAT`/`QS_WEATHER_LON` when both parse as
+  numbers (the footer then reads "Current location", there being no name),
+  else from ip-api over plain http, once per process — not re-resolved
+  after travel. Units are fixed metric (°C, km/h).
 - **`Tray.qml`'s icon order isn't stable** — nothing sorts tray icons
   without an explicit `order` config, so it's just registration order and
   varies per restart. Not a bug to chase.

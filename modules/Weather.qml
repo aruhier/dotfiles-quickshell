@@ -251,7 +251,8 @@ BarModule {
                             }
                             StyledText {
                                 Layout.preferredWidth: 36
-                                text: dayRow.modelData.pop + "%"
+                                // Null for some models' far-out days.
+                                text: (dayRow.modelData.pop ?? "–") + "%"
                                 font.pixelSize: 11
                                 color: Theme.text
                                 opacity: 0.8

@@ -1,7 +1,9 @@
 .pragma library
 
 // WMO weather-code -> glyph/description table. Glyphs are from "Symbols
-// Nerd Font Mono". Kept as codepoints since several sit outside the BMP.
+// Nerd Font Mono" v3 — its names are in Nerd Fonts' glyphnames.json; the old
+// 0xf500-0xfd46 Material range is gone from v3, so nothing may point there.
+// Kept as codepoints since several sit outside the BMP.
 var CODES = {
     0: { day: 0xf0599, night: 0xf0594, desc: "Clear sky" },
     1: { day: 0xf0599, night: 0xf0594, desc: "Mainly clear" },
@@ -13,7 +15,7 @@ var CODES = {
     53: { day: 0xef1e, night: 0xef1b, desc: "Moderate drizzle" },
     55: { day: 0xef1e, night: 0xef1b, desc: "Dense drizzle" },
     56: { day: 0xe306, night: 0xe323, desc: "Light freezing drizzle" },
-    57: { day: 0xfb7d, night: 0xfb7d, desc: "Dense freezing drizzle" },
+    57: { day: 0xe3aa, night: 0xe3ac, desc: "Dense freezing drizzle" },
     61: { day: 0xef1e, night: 0xef1b, desc: "Slight rain" },
     63: { day: 0xf0597, night: 0xf0597, desc: "Moderate rain" },
     65: { day: 0xf0596, night: 0xf0596, desc: "Heavy rain" },
@@ -26,19 +28,17 @@ var CODES = {
     80: { day: 0xef1e, night: 0xef1b, desc: "Slight rain showers" },
     81: { day: 0xef1d, night: 0xef1d, desc: "Moderate rain showers" },
     82: { day: 0xef1d, night: 0xef1d, desc: "Violent rain showers" },
-    85: { day: 0xe365, night: 0xe367, desc: "Slight snow showers" },
-    86: { day: 0xe365, night: 0xe367, desc: "Heavy snow showers" },
-    95: { day: 0xe365, night: 0xe367, desc: "Thunderstorm" },
-    96: { day: 0xe365, night: 0xe367, desc: "Thunderstorm with slight hail" },
-    99: { day: 0xe365, night: 0xe367, desc: "Thunderstorm with heavy hail" }
+    85: { day: 0xe30a, night: 0xe327, desc: "Slight snow showers" },
+    86: { day: 0xf0f36, night: 0xf0f36, desc: "Heavy snow showers" },
+    95: { day: 0xe30f, night: 0xe32a, desc: "Thunderstorm" },
+    96: { day: 0xe30f, night: 0xe32a, desc: "Thunderstorm with slight hail" },
+    99: { day: 0xe30f, night: 0xe32a, desc: "Thunderstorm with heavy hail" }
 };
 
 // Extra popup glyphs.
 var GLYPHS = {
     sunrise: 0xe343,
     sunset: 0xf059a,
-    precipLow: 0xee8e,
-    precipHigh: 0xf043,
     refresh: 0xf0450
 };
 

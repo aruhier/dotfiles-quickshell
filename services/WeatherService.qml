@@ -23,9 +23,11 @@ QtObject {
 
     readonly property bool hasContent: current !== null || errored
 
+    // Builds all three before assigning any, so a response missing a field
+    // throws with the previous forecast intact rather than half-replaced.
     function applyForecast(data) {
         const cur = data.current;
-        root.current = {
+        const now = {
             tempC: cur.temperature_2m,
             feelsC: cur.apparent_temperature,
             humidity: cur.relative_humidity_2m,
@@ -48,12 +50,10 @@ QtObject {
             hrs.push({
                 time: h.time[i],
                 tempC: h.temperature_2m[i],
-                pop: h.precipitation_probability[i],
                 code: h.weather_code[i],
                 isDay: h.is_day[i] === 1
             });
         }
-        root.hourly = hrs;
 
         const d = data.daily;
         const days = [];
@@ -68,6 +68,8 @@ QtObject {
                 sunset: d.sunset[j]
             });
         }
+        root.current = now;
+        root.hourly = hrs;
         root.daily = days;
     }
 
@@ -120,7 +122,7 @@ QtObject {
             return;
         }
 
-        const url = "https://api.open-meteo.com/v1/forecast?latitude=" + root.latitude + "&longitude=" + root.longitude + "&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day" + "&hourly=temperature_2m,precipitation_probability,weather_code,is_day" + "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset" + "&timezone=auto&forecast_days=7";
+        const url = "https://api.open-meteo.com/v1/forecast?latitude=" + root.latitude + "&longitude=" + root.longitude + "&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day" + "&hourly=temperature_2m,weather_code,is_day" + "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset" + "&timezone=auto&forecast_days=7";
 
         root.request(url, xhr => {
             try {
@@ -136,14 +138,14 @@ QtObject {
         });
     }
 
-    // Coordinates come from QS_WEATHER_LAT/QS_WEATHER_LON if set, otherwise
-    // from an IP geolocation lookup.
+    // Coordinates come from QS_WEATHER_LAT/QS_WEATHER_LON if set and numeric,
+    // otherwise from an IP geolocation lookup.
     function resolveLocationAndFetch() {
-        const envLat = Quickshell.env("QS_WEATHER_LAT");
-        const envLon = Quickshell.env("QS_WEATHER_LON");
-        if (envLat && envLon) {
-            root.latitude = parseFloat(envLat);
-            root.longitude = parseFloat(envLon);
+        const envLat = parseFloat(Quickshell.env("QS_WEATHER_LAT"));
+        const envLon = parseFloat(Quickshell.env("QS_WEATHER_LON"));
+        if (!isNaN(envLat) && !isNaN(envLon)) {
+            root.latitude = envLat;
+            root.longitude = envLon;
             root.fetchForecast();
             return;
         }
@@ -157,9 +159,7 @@ QtObject {
                     throw new Error("no coordinates");
                 root.latitude = geo.lat;
                 root.longitude = geo.lon;
-                root.locationName = [geo.city, geo.country].filter(function (s) {
-                    return !!s;
-                }).join(", ");
+                root.locationName = [geo.city, geo.country].filter(Boolean).join(", ");
             } catch (e) {
                 // Coords stay NaN; the next refresh() retries the lookup.
                 root.errored = true;
@@ -206,9 +206,15 @@ QtObject {
     // leaves the data errored. On any change, refetch if the data is errored
     // or stale by the wall clock, else re-arm for the wall-clock remainder.
     // Reads `connectivity` itself: bindings on it haven't updated yet here.
+    // A request already in flight owns the cycle, but a link coming back
+    // still clears the backoff, or its failure would wait out a long retry.
     onConnectivityChanged: {
-        if (root.connectivity === NetworkConnectivity.None || root.loading)
+        if (root.connectivity === NetworkConnectivity.None)
             return;
+        if (root.loading) {
+            root.failures = 0;
+            return;
+        }
         const age = Date.now() - root.lastUpdated;
         if (root.errored || age >= root.refreshInterval) {
             root.failures = 0;
