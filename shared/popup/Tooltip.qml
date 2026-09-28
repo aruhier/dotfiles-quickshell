@@ -13,6 +13,7 @@ AnchoredPopupWindow {
     property string text: ""
     property bool show: false
     property int maxWidth: 480
+    property int padding: 10
 
     // Dwell before showing, so a cursor crossing the bar doesn't flash
     // tooltips open. `show` is the request, `_dwelled` the timer's answer.
@@ -30,13 +31,6 @@ AnchoredPopupWindow {
         onTriggered: popup._dwelled = true
     }
 
-    // Re-arm for the next hover: the loader usually destroys us first, but
-    // Tray.qml keeps one tooltip alive across icons.
-    onShowChanged: {
-        if (!show)
-            popup._dwelled = false;
-    }
-
     Rectangle {
         anchors.fill: parent
         color: Theme.popupBg
@@ -47,7 +41,7 @@ AnchoredPopupWindow {
         StyledText {
             id: label
             anchors.fill: parent
-            anchors.margins: 10
+            anchors.margins: popup.padding
             text: popup.text
             wrapMode: Text.WordWrap
             color: Theme.groupText
@@ -57,6 +51,6 @@ AnchoredPopupWindow {
 
     // Math.ceil, not round/floor: a PopupWindow's surface is integer-pixel,
     // and rounding label metrics down clips a sub-pixel sliver off the border.
-    implicitWidth: Math.ceil(Math.min(label.implicitWidth, maxWidth) + 20)
-    implicitHeight: Math.ceil(label.implicitHeight + 16)
+    implicitWidth: Math.ceil(Math.min(label.implicitWidth, maxWidth) + 2 * padding)
+    implicitHeight: Math.ceil(label.implicitHeight + 2 * padding)
 }

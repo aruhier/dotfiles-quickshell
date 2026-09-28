@@ -15,6 +15,9 @@ BarModule {
     // On the minute, since that's the label's resolution; SystemClock aligns
     // its ticks to the boundary itself.
     readonly property date now: clock.date
+    // What the grid's "today" reads: a string only notifies when it changes,
+    // so an open calendar isn't rebuilt on every minute's tick.
+    readonly property string todayKey: Qt.formatDate(now, "yyyy-MM-dd")
 
     SystemClock {
         id: clock
@@ -68,19 +71,11 @@ BarModule {
                 viewMonth = root.now.getMonth();
             }
 
+            // Date normalizes an out-of-range month into the year.
             function shiftMonth(delta) {
-                let m = viewMonth + delta;
-                let y = viewYear;
-                while (m < 0) {
-                    m += 12;
-                    y -= 1;
-                }
-                while (m > 11) {
-                    m -= 12;
-                    y += 1;
-                }
-                viewMonth = m;
-                viewYear = y;
+                const d = new Date(viewYear, viewMonth + delta, 1);
+                viewYear = d.getFullYear();
+                viewMonth = d.getMonth();
             }
 
             // Qt::DayOfWeek (Mon=1..Sun=7) -> JS getDay() (Sun=0..Sat=6), so
@@ -113,17 +108,15 @@ BarModule {
                     const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
                     cells.push({
                         day: d.getDate(),
-                        month: d.getMonth(),
-                        year: d.getFullYear(),
                         inMonth: d.getMonth() === viewMonth,
-                        isToday: d.getFullYear() === root.now.getFullYear() && d.getMonth() === root.now.getMonth() && d.getDate() === root.now.getDate()
+                        isToday: Qt.formatDate(d, "yyyy-MM-dd") === root.todayKey
                     });
                 }
                 return cells;
             }
 
-            readonly property var cells: visible ? calendarCells() : []
-            readonly property var headers: visible ? dayHeaders() : []
+            readonly property var cells: calendarCells()
+            readonly property var headers: dayHeaders()
 
             implicitWidth: body.implicitWidth + 2 * padding
             implicitHeight: body.implicitHeight + 2 * padding

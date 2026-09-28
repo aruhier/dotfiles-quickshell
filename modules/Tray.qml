@@ -45,6 +45,7 @@ BarModule {
                 MouseArea {
                     anchors.fill: parent
                     hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
                     acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
                     onContainsMouseChanged: {
                         if (containsMouse) {
@@ -96,15 +97,18 @@ BarModule {
         }
     }
 
+    // Not while a tray menu is open: it would sit on top of, or under, it.
+    readonly property bool tooltipWanted: hoveredIcon !== null && PopupCoordinator.trayMenuOwner === null
+
     // LazyLoader, not Loader: Tooltip is a PopupWindow, not an Item — see
-    // Clock.qml's popupLoader. No close grace period here, so `active` can
+    // HoverPopupArea.qml. No close grace period here, so `active` can
     // mirror `show` instead of needing a teardown hook.
     LazyLoader {
-        active: root.hoveredIcon !== null
+        active: root.tooltipWanted
 
         Tooltip {
             anchorItem: root.hoveredIcon || root
-            show: root.hoveredIcon !== null
+            show: root.tooltipWanted
             // `title` first — some apps report garbage in tooltipTitle.
             text: root.hoveredItem ? (root.hoveredItem.title || root.hoveredItem.tooltipTitle || root.hoveredItem.id) : ""
         }

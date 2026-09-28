@@ -20,13 +20,17 @@ PopupWindow {
         gravity: Edges.Bottom
         edges: Edges.Bottom
 
-        // pos is the anchor module's bottom-center point.
+        // pos is the anchor module's bottom-center point, plus the gap.
         onAnchoring: {
             const pos = popup.anchorItem.QsWindow.contentItem.mapFromItem(popup.anchorItem, popup.anchorItem.width / 2, popup.anchorItem.height + 4);
             anchor.rect.x = pos.x;
             anchor.rect.y = pos.y;
         }
     }
+
+    // A new anchor item doesn't reposition on its own (only a resize or move
+    // does), so Tray's shared tooltip hopping icons would stay put.
+    onAnchorItemChanged: anchor.updateAnchor()
 
     color: "transparent"
 }

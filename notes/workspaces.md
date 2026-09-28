@@ -56,6 +56,19 @@ Quickshell 0.3.1:
   destroyed on close. Buffers are dmabuf at the window's physical size
   (e.g. 2931x1786 for a full-height window at scale 1.6), never CPU
   copies; `constraintSize` didn't shrink them in a probe, so it's unused.
+- **A window can sit in two workspaces' `toplevels`** (2026-09-28 review,
+  read in Quickshell 0.3.1's `connection.cpp`): `refreshToplevels()` calls
+  `setWorkspace(new)` and `insertToplevel()` on the new workspace but never
+  removes the window from the old one's list — only a `movewindowv2` event
+  does. A workspace change Hyprland makes without that event (a pinned
+  floating window following the active workspace) leaves it in both after
+  the refresh on open. The pill's count and the popup's `shows()` both
+  check `t.workspace` against their own workspace, and the Repeater model
+  stays the bare list so no view is rebuilt.
+- **Monitors are refreshed on open too**: `x/y/width/height/scale` and
+  `lastIpcObject.transform` only update in `refreshMonitors`, which runs on
+  `configreloaded`, `monitoraddedv2` and shell.qml's `moveworkspacev2`
+  handler — a runtime scale or rotation change may emit none of those.
 
 Verification notes:
 - `hyprctl dispatch` on 0.56 takes Lua (`hl.dsp.focus({workspace = "s"})`,

@@ -34,9 +34,12 @@ BarModule {
         function onRawEvent(event) {
             if (event.name !== "submap")
                 return;
-            root.active = event.data.length > 0;
-            if (root.active)
+            // Name first: raising `active` sizes the group off the label at
+            // once, and the previous name would leave two springs chasing.
+            const entered = event.data.length > 0;
+            if (entered)
                 root.submap = event.data.substring(0, root.maxLength);
+            root.active = entered;
         }
     }
 }

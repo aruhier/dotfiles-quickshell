@@ -20,8 +20,12 @@ HoverPopup {
     padding: 6
 
     // lastIpcObject's geometry goes stale as windows are tiled and resized,
-    // so re-fetch on creation — which is the open, via LazyLoader.
-    Component.onCompleted: Hyprland.refreshToplevels()
+    // so re-fetch on creation — which is the open, via LazyLoader. Monitors
+    // too: their scale, position and transform only refresh on a few events.
+    Component.onCompleted: {
+        Hyprland.refreshToplevels();
+        Hyprland.refreshMonitors();
+    }
 
     readonly property HyprlandMonitor monitor: workspace.monitor
 
@@ -43,10 +47,13 @@ HoverPopup {
     // which the refresh above rewrites for every window — as the model, that
     // rebuilt every ScreencopyView on open, two capture set-ups per hover.
     readonly property var windows: workspace.toplevels.values
-    readonly property int shownCount: windows.filter(t => popup.shows(t.lastIpcObject)).length
+    readonly property int shownCount: windows.filter(t => popup.shows(t)).length
 
-    function shows(ipc) {
-        return ipc.mapped && !ipc.hidden;
+    // The workspace check is the same guard as the pill's window count in
+    // Workspaces.qml: a moved window can linger in this list.
+    function shows(toplevel) {
+        const ipc = toplevel.lastIpcObject;
+        return toplevel.workspace === popup.workspace && ipc.mapped && !ipc.hidden;
     }
 
     // Bottom-to-top: tiled, floating, fullscreen, each group least-recently-
@@ -83,12 +90,17 @@ HoverPopup {
 
                     readonly property var ipc: view.modelData.lastIpcObject
 
-                    visible: popup.shows(ipc)
+                    // A window opened a moment ago has an empty lastIpcObject
+                    // until the debounced refresh lands; it isn't shown then.
+                    readonly property var at: ipc.at ?? [0, 0]
+                    readonly property var size: ipc.size ?? [0, 0]
+
+                    visible: popup.shows(view.modelData)
                     z: popup.stackOrder(ipc)
-                    x: Math.round((ipc.at[0] - popup.monitorX) * popup.scaleFactor)
-                    y: Math.round((ipc.at[1] - popup.monitorY) * popup.scaleFactor)
-                    width: Math.round(ipc.size[0] * popup.scaleFactor)
-                    height: Math.round(ipc.size[1] * popup.scaleFactor)
+                    x: Math.round((view.at[0] - popup.monitorX) * popup.scaleFactor)
+                    y: Math.round((view.at[1] - popup.monitorY) * popup.scaleFactor)
+                    width: Math.round(view.size[0] * popup.scaleFactor)
+                    height: Math.round(view.size[1] * popup.scaleFactor)
 
                     // Setting a source captures a first frame even when not
                     // live, so a window the mock-up doesn't show gets none.
