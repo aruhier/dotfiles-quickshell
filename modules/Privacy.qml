@@ -19,9 +19,9 @@ import qs.themes
 Item {
     id: root
 
-    // Needed for screen capture: PwNodeType has no video-stream member, so
-    // `type` never reflects one — but `properties` populates once tracked.
-    property PwObjectTracker screenShareTracker: PwObjectTracker {
+    // Every `properties` read below needs this, mic and screen alike: an
+    // untracked node never gets its properties bound. See notes/privacy.md.
+    property PwObjectTracker nodeTracker: PwObjectTracker {
         objects: Pipewire.nodes.values
     }
 
@@ -46,8 +46,7 @@ Item {
     }
 
     // One row per capturing app, merging its mic and screen nodes, so a call
-    // doing both is one row with two glyphs. Depends on screenShareTracker
-    // above: an untracked node's `properties` never populates.
+    // doing both is one row with two glyphs.
     readonly property var capturingApps: {
         const nodes = Pipewire.nodes.values;
         const apps = [];
