@@ -323,6 +323,9 @@ PanelWindow {
                     onDismissRequested: NotificationService.dismiss(entryRoot.entry.display)
                     // Resident, so the wrapper is still live.
                     onReleaseRequested: NotificationService.releasePopup(entryRoot.entry.wrapper, false)
+                    // A closing toast is leaving anyway; its timer is done.
+                    onHoveredChanged: if (!entryRoot.closing)
+                        NotificationService.holdPopup(entryRoot.entry.wrapper, hovered)
                 }
             }
         }

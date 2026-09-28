@@ -44,7 +44,8 @@ process can own the DBus name. Two things had to happen, not one:
 than swaync itself, and simpler than DankMaterialShell's much heavier
 notification service (read for API-usage reference only, per the existing
 lesson in `notes/conventions.md` about not blindly copying DMS's reasoning):
-flat history with no grouping/dedup, and `dnd` kept in-memory rather than
+flat history with no grouping/dedup, and `dnd` kept in the process (it
+survives a reload since 2026-09-28, see the end of this file) rather than
 GSettings/dconf-backed like swaync's own — depending on swaync's schema
 surviving would be a fragile link for a system meant to replace it
 outright.
@@ -588,7 +589,7 @@ access, so the list membership test comes before anything else.
 front of history when it isn't there already (a new array only when the order
 actually changes — a progress stream updating every second would otherwise
 rebuild every panel row every second), and under the same rule as a new
-notification (`!dnd && !centerOpen`) puts it back on the stack if it left and
+notification (`!dnd && (!centerOpen || toastOnly)`) puts it back on the stack if it left and
 restarts its timer. Then it emits `updated`, which is what the toast
 re-snapshots on. Not set: `arriving`. A bumped row already exists in the
 panel; a rebuild shows it at rest.
@@ -715,6 +716,24 @@ fades the surface in as the first toast's own spring plays. The window only
 maps and unmaps at the ends of a burst, so it is one fade per stack rather
 than per toast.
 
+
+## Behaviour changes by request (2026-09-28)
+
+- **Transients toast while the panel is open.** They were dropped: no toast
+  (the panel was open) and no row (never in history), so a blueman or
+  nm-applet message was shown nowhere. The wrapper carries `toastOnly`
+  (`transient` is a reserved word in QML — the first try took the whole
+  service down on reload), and both the arrival and a replacement toast when
+  `!centerOpen || toastOnly`. The toast sits over the panel's top-right
+  corner while it's up, which is the cost the old rule avoided; verified with
+  `notify-send -e` over the open panel.
+- **A toast's timeout stops while it's hovered** (`holdPopup`), and restarts
+  in full on leave, so a toast just read isn't gone the moment it's let go.
+  A closing toast doesn't report.
+- **Do Not Disturb survives a reload** (`PersistentProperties`, aliased as
+  `dnd`). Only works because `NotificationService` is now a Quickshell
+  `Singleton` with the `PersistentProperties` as a direct child — see
+  notes/qml-gotchas.md. It still resets on a restart.
 
 ## Rejected
 

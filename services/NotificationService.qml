@@ -8,9 +8,12 @@ import qs.shared
 
 // The notification daemon: owns the DBus org.freedesktop.Notifications
 // server and every list and timer the popup stack and control-center panel
-// read. History is flat and newest-first, and `dnd` is in-memory only — it
-// resets with the shell rather than persisting anywhere.
-QtObject {
+// read. History is flat and newest-first. `dnd` survives a reload but not a
+// restart: it persists nowhere outside the process.
+//
+// A `Singleton`, not a QtObject like the other services: only a Scope takes
+// part in Quickshell's reload, and only its children are restored.
+Singleton {
     id: root
 
     // ---- state ----
@@ -124,7 +127,15 @@ QtObject {
         root.setGroupExpanded(key, !root.isGroupExpanded(key));
     }
 
-    property bool dnd: false
+    // Kept across a Quickshell reload, which rebuilds this singleton: every
+    // config edit used to turn Do Not Disturb off. Restored just after
+    // creation, by `reloaded`; the alias carries the change to readers.
+    property alias dnd: persisted.dnd
+    PersistentProperties {
+        id: persisted
+        reloadableId: "notificationService"
+        property bool dnd: false
+    }
     property bool centerOpen: false
     // The ShellScreen whose indicator was last clicked (see toggleCenter);
     // shell.qml falls back to the main screen while null.
@@ -171,6 +182,17 @@ QtObject {
             wrapper.notification.expire();
         else
             wrapper.notification.dismiss();
+    }
+
+    // Stops a toast's timeout while the cursor is on it; leaving restarts it
+    // in full, so a toast just read isn't gone the moment it's let go.
+    function holdPopup(wrapper, held) {
+        if (!root.isLive(wrapper) || root.popups.indexOf(wrapper) === -1)
+            return;
+        if (held)
+            wrapper.timer.stop();
+        else if (wrapper.timer.interval > 0)
+            wrapper.timer.restart();
     }
 
     // No toasts while the panel is up: it already lists them, and the stack
@@ -263,7 +285,7 @@ QtObject {
         wrapper.time = new Date();
         root.raiseWrapper(wrapper);
 
-        if (!root.dnd && !root.centerOpen) {
+        if (!root.dnd && (!root.centerOpen || wrapper.toastOnly)) {
             root.popupScreen = Screens.focused();
             if (root.popups.indexOf(wrapper) === -1)
                 root.popups = [...root.popups, wrapper];
@@ -291,6 +313,8 @@ QtObject {
         readonly property string groupKey: notification ? (notification.desktopEntry || notification.appName) : ""
         readonly property string image: notification ? notification.image : ""
         readonly property int urgency: notification ? notification.urgency : NotificationUrgency.Normal
+        // Toast only, never in history (set on arrival; see onNotification).
+        property bool toastOnly: false
         readonly property bool resident: notification ? notification.resident : false
         // Reset by bump(): a replaced notification is as new as its update.
         property date time: new Date()
@@ -435,6 +459,7 @@ QtObject {
                 return;
 
             const transient = notif.transient || root.isForcedTransient(wrapper.appName);
+            wrapper.toastOnly = transient;
 
             if (!transient) {
                 wrapper.arriving = root.centerOpen;
@@ -442,11 +467,11 @@ QtObject {
             }
 
             // No toast while the panel is open — it's already in the list —
-            // nor for one the server re-emits across a hot reload
-            // (`keepOnReload`, the default): it was toasted the first time,
-            // and it lands here with `centerOpen` false because the singleton
-            // is fresh. History keeps it either way.
-            if (!root.dnd && !root.centerOpen && !notif.lastGeneration) {
+            // unless it's transient, which the list never shows. Nor for one
+            // the server re-emits across a hot reload (`keepOnReload`, the
+            // default): it was toasted the first time, and it lands here with
+            // `centerOpen` false because the singleton is fresh.
+            if (!root.dnd && (!root.centerOpen || transient) && !notif.lastGeneration) {
                 root.popupScreen = Screens.focused();
                 root.popups = [...root.popups, wrapper];
                 if (wrapper.timer.interval > 0)

@@ -86,3 +86,16 @@
   checking against `qs log -i <id>` before it is worth debugging. (Found
   building the OSD, 2026-09-12.)
 
+- **`PersistentProperties` only persists as a child of a Quickshell
+  `Singleton`/Scope** (probed 2026-09-28, Quickshell 0.3.1, with a `qs -p`
+  config that sets a value, then reloads). In a `QtObject` singleton — this
+  repo's usual service shape — it silently resets on every reload; still
+  resets as a `property PersistentProperties x: …` inside a `Singleton`;
+  persists only as a *direct child* of a `Singleton`. The restored value
+  arrives via its `reloaded` signal just after creation, so read it through a
+  binding (an alias), not once in `Component.onCompleted`, which still sees
+  the default. `NotificationService` is the one `Singleton` here for this.
+- **`transient` is a reserved word** in QML: `property bool transient` is a
+  load error that takes the whole singleton down, and with it every file
+  using it. qmllint catches it; run `scripts/lint.sh` before a reload does.
+
