@@ -44,12 +44,10 @@ BarModule {
         }
     }
 
-    MouseArea {
+    NotchWheelArea {
         anchors.fill: parent
         cursorShape: Qt.PointingHandCursor
         onClicked: Quickshell.execDetached(["pavucontrol"])
-        onWheel: (event) => {
-            AudioService.bumpPct(event.angleDelta.y > 0 ? root.step : -root.step);
-        }
+        onStepped: (notches) => AudioService.bumpPct(notches * root.step)
     }
 }

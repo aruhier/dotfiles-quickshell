@@ -40,12 +40,8 @@ BarModule {
         }
     }
 
-    MouseArea {
+    NotchWheelArea {
         anchors.fill: parent
-        onWheel: (event) => {
-            if (!root.available)
-                return;
-            BacklightService.bump(event.angleDelta.y > 0 ? 1 : -1);
-        }
+        onStepped: (notches) => BacklightService.bump(notches)
     }
 }

@@ -52,7 +52,7 @@ QtObject {
 
     // `delta` in perceptual units (0..1).
     function nudge(delta) {
-        if (!available)
+        if (!available || delta === 0)
             return;
         const target = Math.max(0, Math.min(1, Math.pow(linear, 1.0 / exponent) + delta));
         let next = Math.round(maxRaw * Math.pow(target, exponent));

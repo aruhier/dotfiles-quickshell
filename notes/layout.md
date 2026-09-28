@@ -57,6 +57,10 @@ shared/StyledText.qml every piece of text in the shell. Owns
                       unified (three palettes) — state it at each site
 shared/Icon.qml       StyledText sized off Theme.iconSize with a `sizeRatio`
                       per-glyph bias. Sets no anchors on purpose
+shared/NotchWheelArea.qml MouseArea emitting whole wheel notches
+                      (`stepped(n)`), accumulating high-res/touchpad
+                      deltas and ignoring horizontal scroll; Volume and
+                      Backlight scroll through it
 shared/EdgeRelease.qml per-bar sync to the Hyprland config's
                       `quickshell.bar_autohide`, which drops gaps over a
                       lone tiled window while the bar is hidden
