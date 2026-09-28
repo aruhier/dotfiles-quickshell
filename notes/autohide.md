@@ -259,6 +259,13 @@ unless another output's bar still holds it (a moved workspace).
     (default action, no QML runs), and no QML hook tells quit from reload.
     `Component.onDestruction` fires on reload, 13ms *after* the new bars
     sent their state.
+- **Output unplugged**: its Bar and EdgeRelease are destroyed without sending
+  anything, and `layer.closed` can't name the output once the monitor is
+  gone, so the Lua file also releases on `monitor.removed` (2026-09-28).
+  Without it the workspace moved to another output still edge-to-edge until
+  the output came back or the config reloaded. The handler takes a monitor
+  object or a name, since 0.56 documents neither; unplugging wasn't tested
+  (loaded cleanly on `hyprctl reload`).
 - **Resync**: a Hyprland config reload drops runtime rules and resets the
   Lua state, so EdgeRelease resends on `configreloaded`. It also sends once
   at start, which undoes a release left behind by a shell that died hidden.
