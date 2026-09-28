@@ -38,6 +38,10 @@ QtObject {
     // Latest value asked for while a write is in flight, -1 when idle:
     // spinning the wheel outruns process spawns, and exec() isn't a queue.
     property int pendingRaw: -1
+    // A write in flight or queued. Reads are ignored meanwhile: one landing
+    // between writes carries an older value than the optimistic `raw`, and
+    // would jump the label back and make the next notch start from it.
+    readonly property bool writing: setProc.running || pendingRaw >= 0
 
     // Move `steps` wheel notches up (positive) or down (negative).
     function bump(steps) {
@@ -125,24 +129,36 @@ QtObject {
         onLoadFailed: root.maxRaw = 0
     }
 
-    // watchChanges, not a poll timer: sysfs backlight attributes do raise a
-    // real inotify event, so hardware keys and external writes land here
-    // immediately. reload() is explicit — FileView doesn't re-read on its own
-    // — and onLoaded fires on every reload, identical bytes included.
+    // watchChanges, not a poll timer: a userspace write to `brightness`
+    // raises a real inotify event. reload() is explicit — FileView doesn't
+    // re-read on its own — and onLoaded fires on every reload, identical
+    // bytes included.
     property FileView brightnessFile: FileView {
         id: brightnessFile
         path: root.devicePath === "" ? "" : root.devicePath + "/brightness"
         watchChanges: true
         onFileChanged: reload()
-        onLoaded: root.raw = parseInt(text().trim()) || 0
+        onLoaded: if (!root.writing)
+            root.raw = parseInt(text().trim()) || 0
+    }
+
+    // Only a trigger. A change the kernel makes itself (firmware-handled
+    // brightness keys) notifies `actual_brightness`, not `brightness`.
+    property FileView actualFile: FileView {
+        path: root.devicePath === "" ? "" : root.devicePath + "/actual_brightness"
+        watchChanges: true
+        onFileChanged: root.refresh()
     }
 
     property Process setProc: Process {
         id: setProc
-        onExited: {
-            // Resync: the write is clamped and quantized on the way down.
-            root.refresh();
+        // On `running` falling, not onExited: a process that fails to start
+        // (brightnessctl missing) only clears `running`. Resync once the last
+        // queued write is done: the write is clamped and quantized on the way.
+        onRunningChanged: if (!running) {
             root.flush();
+            if (!root.writing)
+                root.refresh();
         }
     }
 }

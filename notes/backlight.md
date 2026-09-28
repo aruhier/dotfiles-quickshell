@@ -16,7 +16,9 @@
   re-reads and fires `onLoaded` every time, even when the bytes are
   identical, so the parse lives in `onLoaded`. No `blockLoading`: the async
   path lands within a frame. `brightness` is watched (`watchChanges: true`,
-  `onFileChanged: reload()`) — see the inotify section below. Nothing polls.
+  `onFileChanged: reload()`), and so is `actual_brightness`, only as a
+  trigger to re-read `brightness` — see the inotify section below. Nothing
+  polls.
 - **The perceptual curve is in QML**: `percent = (raw/maxRaw) ^ (1/exponent)`
   on read (`exponent: 4`), inverse on write, so it doesn't depend on the
   installed brightnessctl having `-e`. Two details at the dark end:
@@ -35,8 +37,16 @@
   logind/setuid helper. Called argv-style, `-d <device>`, no `sh -c`.
 - **`raw` updates optimistically before the write runs**, so the label tracks
   the wheel. A burst coalesces: `Process.exec()` on a running `Process` isn't
-  a queue, so the latest target is parked in `pendingRaw` and flushed
-  `onExited`, which also re-reads the file to resync.
+  a queue, so the latest target is parked in `pendingRaw` and flushed when
+  the running write ends.
+- **Reads are ignored while writing** (`writing`: a write in flight or
+  queued), and the file is re-read once after the last write. Before
+  2026-09-28, each write's own inotify event and its resync `reload()` could
+  land mid-burst with the *previous* write's value, jumping the label back
+  and making the next notch start from it — lost or doubled steps.
+- **The resync hangs on `running` falling, not `onExited`**: a `Process`
+  that fails to start (brightnessctl missing) only emits `runningChanged`
+  (Quickshell 0.3.1's process.cpp), so an `onExited` resync never ran.
 
 ## sysfs backlight does emit inotify (2026-09-06)
 
@@ -57,15 +67,17 @@ and a standalone `qs -p` probe with `FileView { watchChanges: true }` on the
 same path logged `FILECHANGED` + the new value for all three external changes,
 immediately. The 1s timer was deleted.
 
-**Open question (2026-09-28 review, unverified).** Every change in that test
-was a *userspace write* to `brightness`, and a write syscall raises
-`IN_MODIFY` on any file by itself. The kernel's own path for a change made
-inside it — `backlight_force_update()`, used by acpi_video hotkeys and some
-firmware-handled Fn keys — calls `sysfs_notify(…, "actual_brightness")`, not
-`brightness`. So the watch may miss brightness changed by firmware keys, and
-the `kernfs_notify` mechanism written here before may be the wrong reason for
-a right result. Watching `actual_brightness` as well would cover both. Needs a
-machine where firmware handles the keys to confirm.
+**Caveat, and why `actual_brightness` is watched too (2026-09-28 review).**
+Every change in that test was a *userspace write* to `brightness`, and a
+write syscall raises `IN_MODIFY` on any file by itself. The kernel's own path
+for a change made inside it — `backlight_force_update()`, used by acpi_video
+hotkeys and some firmware-handled Fn keys — calls
+`sysfs_notify(…, "actual_brightness")`, not `brightness`. So a `brightness`
+watch alone may miss firmware keys, and the `kernfs_notify` mechanism
+written here before may be the wrong reason for a right result. The service
+watches `actual_brightness` as well, only to trigger a re-read of
+`brightness`. Unverified: this desktop has no backlight, and confirming it
+needs a machine where firmware handles the keys.
 
 **Lesson (a repeat of the `pw-dump` one in `notes/privacy.md`):** an empirical
 "confirmed" negative can encode the wrong mechanism. The original test really
