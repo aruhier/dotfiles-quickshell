@@ -74,6 +74,13 @@ QtObject {
         spring.retarget(root.bumpAim);
     }
 
+    // The arrival from off-screen, wherever the panel was: for a panel that
+    // moved to another output while open, which would otherwise just appear.
+    function reopen() {
+        spring.snapTo(root.closed);
+        root.open();
+    }
+
     function close() {
         root.closing = true;
         root.wound = false;

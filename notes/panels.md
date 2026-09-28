@@ -113,6 +113,20 @@ overscan artifact. So the fix is scale-independent by construction (any
 untested outside the one value this bug happened to be caught on.
 
 
+### Moving while open (2026-09-28)
+
+Clicking another screen's bell with the panel open moves it there
+(`toggleCenter` swaps `centerScreen`, `centerOpen` stays true). Nothing on
+the open path ran — no `centerOpen` change, and the window never went
+invisible, so no `onVisibleChanged` either — and the panel just appeared on
+the new output at rest: a `grim` burst on DP-2 showed nothing, then the
+panel fully settled ~120ms later. Now `onScreenChanged` while open calls
+`slide.reopen()` (snap to closed, then the normal open) and `takeFocus()`;
+the same burst shows the sweep and the bump. Keyboard focus on the new
+surface is the same call a normal open makes, but wasn't checked (no way to
+inject a key). Tested with `qs ipc call notifications open` on DP-1, then a
+`hl.dsp.focus({ monitor = "DP-2" })` dispatch and `notifications toggle`.
+
 ## Control-center panel slide animation, and a same-tick visibility race (2026-09-03)
 
 Added a spring slide in/out on the right edge for

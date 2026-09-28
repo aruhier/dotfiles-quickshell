@@ -84,10 +84,21 @@ PanelWindow {
     mask: panelWindow.closing ? closingMask : null
     readonly property Region closingMask: Region {}
 
-    onVisibleChanged: if (visible) {
+    function takeFocus() {
         focusScope.forceActiveFocus();
         // Pre-select the first row, so Up/Down works without a priming press.
         focusScope.selectedKey = NotificationService.notificationGroups.length > 0 ? NotificationService.notificationGroups[0].key : "";
+    }
+
+    onVisibleChanged: if (visible)
+        takeFocus()
+
+    // Moved to another output while open (another screen's bell clicked):
+    // the window stays visible, so neither handler above runs. Arrive there
+    // as on an open, and take focus again on the new surface.
+    onScreenChanged: if (panelWindow.open) {
+        slide.reopen();
+        takeFocus();
     }
 
     // Click-outside-to-close.
