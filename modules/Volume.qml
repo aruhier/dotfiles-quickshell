@@ -16,6 +16,8 @@ BarModule {
     // One wheel notch, in percentage points.
     readonly property int step: 5
 
+    // Hidden with no default sink, rather than a low-volume glyph at 0%.
+    contentVisible: AudioService.ready
     contentWidth: content.implicitWidth
 
     // Icon vertical nudge / size bias — see Icon.qml.
