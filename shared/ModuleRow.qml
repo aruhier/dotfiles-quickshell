@@ -6,7 +6,7 @@ import qs.themes
 
 // A row of named bar modules: one ModuleLoader per entry of `model`, plus
 // what a container needs to know about them — whether any has something to
-// show — and the `keepShown` hold a collapsing ModuleGroup puts on them. Used
+// show — and the `keepShown` hold an empty ModuleGroup puts on them. Used
 // bare for the bar's floating center, inside a pill by ModuleGroup.
 RowLayout {
     id: row

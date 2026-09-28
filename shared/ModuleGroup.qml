@@ -42,7 +42,6 @@ Rectangle {
     readonly property real rightPadding: flushLeft ? Theme.groupEdgePadding : edgePadding
 
     readonly property bool hasContent: row.hasContent
-    readonly property bool collapsing: !hasContent && widthSpring.running
     readonly property real naturalWidth: leftPadding + row.implicitWidth + rightPadding
 
     // Imperative rather than a `to` binding: while showing, a content change
@@ -82,7 +81,9 @@ Rectangle {
         model: group.spec.modules
         resolveComponent: group.resolveComponent
         textColor: group.spec.textColor ?? Theme.groupText
-        keepShown: group.collapsing
+        // Kept drawn whenever empty, not just while collapsing: once the
+        // collapse ends the group itself is hidden, so it costs nothing.
+        keepShown: !group.hasContent
         // Anchored to the screen-edge side, not centered: the two paddings
         // differ, and the collapse should retract toward that edge.
         anchors.left: group.flushLeft ? parent.left : undefined

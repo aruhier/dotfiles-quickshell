@@ -186,7 +186,11 @@ Two details make the collapse work. The group decides it is empty from
 `ModuleRow.hasContent`, its modules' `contentVisible` recounted on change,
 not from the row's width — the row keeps its width during the collapse,
 because the group raises `ModuleRow.keepShown` (forwarded to each
-`ModuleLoader`) so the module stays drawn while the pill shrinks over it. And `BarModule` does *not* mirror `contentVisible` onto
+`ModuleLoader`) whenever it's empty, so the module stays drawn while the pill
+shrinks over it — and stays "drawn" after, inside a group that is hidden by
+then, which costs nothing. (It used to be raised only while the collapse
+spring ran; a before/after `grim` burst of the submap leaving showed the same
+frames, 2026-09-28.) And `BarModule` does *not* mirror `contentVisible` onto
 its own `visible` for the same reason: the loader hides it, and a module
 that hid itself would blank a frame before the collapse began. Submap
 keeps its last name in the label after the submap ends
