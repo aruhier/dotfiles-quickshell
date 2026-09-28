@@ -3,10 +3,8 @@ import QtQuick
 import qs.themes
 
 // Repeater delegate for one named bar module: resolves the name via
-// `resolveComponent` and lets a module hide entirely rather than shrink to
-// zero width. Modules signal that through their own `contentVisible`, since a
-// `visible: item.visible` binding here deadlocks the first time it goes false
-// (see notes/qml-gotchas.md); a module with nothing to hide just doesn't declare it.
+// `resolveComponent` and hides a module that sets `contentVisible` false —
+// not `item.visible`, which deadlocks (notes/qml-gotchas.md).
 //
 // `modelData` must be `required`: without it Qt injects an ambient context
 // property instead, and a bare `modelData` would resolve against an ancestor's

@@ -218,24 +218,15 @@ PanelWindow {
                 width: column.width
                 implicitHeight: card.implicitHeight
 
-                // Entry and exit are staged, off spring values rather than
-                // timers, the way the OSD pill is — the icon alone slides in
-                // from the right, the plate springs open out of it in both
-                // axes, and on the way out the plate shuts back to it, the card
-                // hops a little further left as a wind-up, and only then leaves. Each stage waits on the
-                // other spring's value, so the two overlap and the whole reads
-                // as one gesture. The thresholds are the point; see
-                // notes/notifications.md.
+                // Entry and exit are staged off spring values, not timers, as
+                // the OSD pill is: each stage waits on the other spring's
+                // value, so they overlap and read as one gesture. The
+                // thresholds are the point; see notes/notifications.md.
                 readonly property bool closing: entry.closing
 
-                // Deliberately far from shut: the hop has to start while the
-                // plate is still visibly closing, or the exit reads as three
-                // beats where the entry reads as one. A fifth from shut dwelt
-                // long enough to be seen, and a third and a half were each
-                // better but still left a flat spot; at 0.6 the whole hop lands
-                // inside the plate's fastest closing, and the card leaves with
-                // well over half the shut still to do in flight, shrinking
-                // towards its icon as it goes.
+                // Deliberately far from shut: the hop must start while the
+                // plate is visibly closing, or the exit reads as three beats.
+                // Tuned by eye; see notes/notifications.md.
                 readonly property bool narrowed: card.opened <= 0.6
 
                 // How far right of its resting place the card is parked: far

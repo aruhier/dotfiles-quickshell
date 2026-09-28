@@ -91,7 +91,9 @@ shared/popup/         everything to do with anchored hover popups:
                          window at its real position — see
                          `notes/workspaces.md` for what makes this work
   PopupCoordinator.qml   pragma-Singleton — only one hover popup open at a
-                         time process-wide
+                         time process-wide; also holds `trayMenuOwner`, the
+                         tray icon whose menu is open, which Bar.qml's
+                         auto-hide peek and Tray's tooltip read
 shared/osd/OsdWindow.qml the on-screen display: one shared bottom-centre
                       pill for volume/backlight/lock keys, driven by the `osd`
                       IPC handler in Ipc.qml. Replaces swayosd — see
@@ -101,6 +103,10 @@ shared/notifications/ the notification daemon's UI — see
                       subsystem from shared/popup/ rather than built on it
   NotificationCard.qml   one notification's visual; reused by both the
                          popup stack and the control-center list
+  NotificationGroupCard.qml one control-centre row: an app's notifications,
+                         single card or collapsible stack, with the row's
+                         and each card's exit and arrival
+  CloseButton.qml        the round close glyph on cards and group rows
   NotificationPopupWindow.qml top-right floating toast stack (PanelWindow,
                          not the module-anchored popup/ machinery)
   NotificationCenterPanel.qml click-triggered control-center panel
@@ -137,9 +143,7 @@ shared/animations/FrameSpring.qml   FrameAnimation-driven spring (real
                       per-frame timing, not Behavior/SpringAnimation's
                       ~60Hz-capped QUnifiedTimer clock — see "capped near
                       60Hz" in notes/rendering.md) — every module's
-                      width-change easing uses this. The old
-                      Behavior/SpringAnimation types (WidthSpring,
-                      WorkspaceSpring) were deleted in 60cd6e2
+                      width-change easing uses this
 shared/animations/WorkspaceFrameSpring.qml same, with its own faster constants
                       for Workspaces.qml
 shared/animations/PressSpring.qml   the press-scale bump on clickable icons

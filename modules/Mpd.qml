@@ -32,10 +32,9 @@ BarModule {
 
     readonly property bool hasTrack: playbackState === "playing" || playbackState === "paused"
 
-    // Icons read as sitting above center next to text (ink mass vs. box
-    // geometry) — nudge down to compensate. Tuned per module.
+    // Icon vertical nudge / size bias — see Icon.qml. These glyphs sit
+    // centred already; play/pause/stop read smaller than others, so bias up.
     readonly property real iconVerticalOffset: 0
-    // Play/pause/stop glyphs read smaller than other icons; bias up.
     readonly property real iconSizeRatio: 1.1
 
     Row {

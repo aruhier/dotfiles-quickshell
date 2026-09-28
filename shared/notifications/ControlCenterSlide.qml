@@ -82,14 +82,10 @@ QtObject {
 
     readonly property real devicePixel: 1 / Screens.scaleFor(root.screen)
 
-    // The rendered margin. Snapped over the *landing* only — the last couple
-    // of device pixels of the settle — because glyph origins are rounded to
-    // whole device pixels while the panel's plate is resampled continuously,
-    // so there the text takes its final step alone while the panel is creeping
-    // too slowly to read as moving, and that looks like the text shifting
-    // inside its card. Snapped, plate and text step together. Anywhere else it
-    // would be the whole gesture advancing a device pixel at a time, which
-    // reads as stepping — see notes/text.md for both halves.
+    // The rendered margin, snapped over the landing only (the last two device
+    // pixels): there the text would otherwise take its final step alone and
+    // look like it shifts in its card; anywhere else snapping reads as
+    // stepping. See notes/text.md.
     readonly property bool landing: !root.closing && root.bumped && Math.abs(spring.value - root.resting) <= 2 * root.devicePixel
     readonly property real margin: root.landing ? Screens.snap(spring.value, root.screen) : spring.value
 

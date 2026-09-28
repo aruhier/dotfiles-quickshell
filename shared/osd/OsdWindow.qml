@@ -110,9 +110,7 @@ PanelWindow {
     // this before the drop takes over. See notes/osd.md.
     readonly property int bump: NotificationTheme.bump
     // A share of the output's height, not a fixed margin, so it lands in the
-    // same place on a 1440 and a 2160 panel. swayosd worked the same way —
-    // `margin_bottom = height * (1 - top_margin)`, default 0.85, so 0.15. This
-    // sits deliberately lower than that.
+    // same place on a 1440 and a 2160 panel. See notes/osd.md.
     readonly property real bottomEdgeFraction: 0.07
 
     // Both the height of the surface and the distance the pill covers: its own

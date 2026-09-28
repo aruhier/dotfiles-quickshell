@@ -26,7 +26,7 @@ BarModule {
     contentVisible: hasContent
     contentWidth: hasContent ? content.implicitWidth : 0
 
-    // Icon vertical nudge / size bias — see Mpd.qml. Bar glyph only; the
+    // Icon vertical nudge / size bias — see Icon.qml. Bar glyph only; the
     // popup's forecast icons set their own sizes.
     readonly property real iconVerticalOffset: 0.5
     readonly property real iconSizeRatio: 0.9

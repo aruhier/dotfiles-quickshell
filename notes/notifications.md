@@ -726,3 +726,9 @@ than per toast.
   returned early on the latched `active`. On `finished`, if the group gained
   items, the exit is `reset()` and the row arrives again with them.
 
+- **Why a toast's `narrowed` is 0.6** (moved out of the code comment): the
+  hop has to start while the plate is still visibly closing, or the exit reads
+  as three beats where the entry reads as one. A fifth from shut dwelt long
+  enough to be seen; a third and a half were each better but left a flat spot;
+  at 0.6 the whole hop lands inside the plate's fastest closing, and the card
+  leaves with over half the shut still to do, shrinking towards its icon.

@@ -7,8 +7,7 @@ import qs.shared.popup
 import qs.themes
 
 // Battery indicator: capacity plus a level icon, a bolt while charging, a
-// plug while held on the adapter. Warns at 30%, goes critical at 15% (see
-// blinkOpacity). No dedicated service — UPower is already a process-wide
+// plug while held on the adapter. Goes critical at 15% (see blinkOpacity). No dedicated service — UPower is already a process-wide
 // singleton doing the polling, and everything here derives from it.
 BarModule {
     id: root
@@ -29,21 +28,19 @@ BarModule {
     readonly property int deviceState: device && device.ready ? device.state : UPowerDeviceState.Unknown
     readonly property bool charging: deviceState === UPowerDeviceState.Charging
     readonly property bool full: deviceState === UPowerDeviceState.FullyCharged
-    // On the adapter but not charging — the steady state at this machine's
-    // 80% charge-end threshold. Read off the battery's own PendingCharge, not
-    // `!UPower.onBattery`: the daemon reports OnBattery false here even while
-    // discharging, which showed the plug icon on battery power.
+    // On the adapter but not charging, as at a charge-end threshold. Read off
+    // PendingCharge, not `!UPower.onBattery`, which the daemon gets wrong on
+    // this machine — see notes/battery.md.
     readonly property bool plugged: deviceState === UPowerDeviceState.PendingCharge
 
-    // Ascending thresholds, first match wins.
-    readonly property string level: percent <= 15 ? "critical" : percent <= 30 ? "warning" : ""
+    readonly property bool critical: percent <= 15
 
     // Charging out of a critical level isn't an emergency, so it won't blink.
     // Gated on contentVisible as well: with no battery present UPower's
     // display device reports 0%, which reads as "critical" and left the blink
     // below running forever behind a hidden module. A running animation keeps
     // every window in the process rendering every frame — see notes/rendering.md.
-    readonly property bool criticalBlink: contentVisible && level === "critical" && !charging
+    readonly property bool criticalBlink: contentVisible && critical && !charging
 
     // ---- icons ----
     // One per 20% band.
@@ -111,7 +108,7 @@ BarModule {
 
     contentWidth: content.implicitWidth
 
-    // Icon nudge/size bias — see Mpd.qml. Rotated and upright differ.
+    // Icon nudge/size bias — see Icon.qml. Rotated and upright differ.
     readonly property real iconVerticalOffset: rotateIcon ? 0 : 1
     readonly property real iconSizeRatio: 1.0
 
@@ -125,13 +122,9 @@ BarModule {
 
     SequentialAnimation {
         id: pulse
-        // Bounded, and never left on: a running animation keeps every window
-        // in the process re-rendering every frame, measured at 3.7% of a core
-        // across this machine's three outputs. Slowing the fade down does not
-        // help — a 5x longer cycle measured identically — so the lever is how
-        // long it runs, not how fast. Three cycles is ~7s, long enough to pull
-        // the eye; the red text below carries the warning after that. See
-        // notes/battery.md.
+        // Bounded, never left on: any running animation re-renders every
+        // window each frame, and how long it runs is the lever, not how fast.
+        // ~7s pulls the eye; the red text carries it after. notes/battery.md.
         loops: 3
 
         NumberAnimation {

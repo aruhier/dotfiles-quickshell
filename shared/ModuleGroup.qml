@@ -4,13 +4,10 @@ import qs.shared
 import qs.shared.animations
 import qs.themes
 
-// One module group: a coloured pill in the strip ModuleGroupRow builds
-// against a screen edge. Rounded on the end facing center, square on the
-// other: flush against the screen for the first group, and tucked under the
-// previous group's rounded cap for the rest, so the cap stays visible as the
-// separator (draw order: earlier groups on top). Which group is first
-// depends on which are showing — a Row leaves hidden children out of its
-// ordering, so `Positioner` tracks the visible strip for free.
+// One module group: a pill in ModuleGroupRow's strip, rounded towards the
+// centre, square against the screen or tucked under the previous group's cap
+// (earlier groups draw on top). `Positioner` tracks the visible strip, since a
+// Row leaves hidden children out. See notes/layout.md.
 //
 // A group whose modules all hide springs its width to zero and back, clipped,
 // so it slides in and out from under the previous group's cap (the submap

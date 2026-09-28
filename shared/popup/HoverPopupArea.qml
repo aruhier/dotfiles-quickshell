@@ -6,11 +6,10 @@ import QtQuick
 // the popup down when it closes. Still a plain MouseArea, so a call site can
 // add its own onClicked.
 //
-// `loader` is a LazyLoader, not a Loader, because HoverPopup is a window, not
-// an Item. Torn down on close, not just hidden: a created popup window holds
-// its GPU context (~3-4MB, never freed) for the life of the process. Keyed on
-// close() rather than `visible`, which a subclass may gate further and which
-// then never goes true-to-false. Costs one frame on reopen.
+// `loader` is a LazyLoader: HoverPopup is a window, not an Item. Torn down on
+// close, since a popup window holds its GPU context (~3-4MB) for the life of
+// the process — keyed on close(), not `visible`, which a subclass may gate so
+// it never falls. Costs one frame on reopen.
 MouseArea {
     id: area
 

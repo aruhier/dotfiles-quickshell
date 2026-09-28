@@ -20,9 +20,11 @@
   `textColor` rather than the theme's group text, so the entry is the one
   place a coloured group is defined.
 
-- **Workspace color has three states.** Default = teal (`workspaceBg`),
-  urgent = pink, active/focused = accent, empty = cream. A populated
-  non-focused workspace must stay teal, not default to cream.
+- **Workspace colour follows state** (the list is in `Workspaces.qml`'s
+  header): has windows = `workspaceBg` (teal), empty = `workspaceEmptyBg`
+  (cream), urgent = `workspaceUrgent`, active on its monitor but not focused
+  = `workspaceActiveBg`, focused = accent via the sliding `selection`. A
+  populated non-focused workspace must stay teal, not default to cream.
 
 - **Quickshell's Hyprland `active` ≠ the single system-wide focus.**
   Quickshell `active` = focused per-monitor (can be true on N monitors at
@@ -120,9 +122,9 @@
   same face needs the same preference, or its advances don't match what gets
   drawn (`Workspaces.qml`).
 
-- **`Workspaces.qml`'s button width needs a GTK-chrome allowance.**
-  Formula: `Math.round(Math.max(label.implicitWidth + 18, 34))`, tuned
-  empirically for a comfortable button size.
+- **A workspace button is its label plus padding, with a minimum width**,
+  both tuned by eye for a comfortable button (`targetPreferredWidth` in
+  `Workspaces.qml`).
 
 - **`.modules-left`/`.modules-right`'s 12px border is one-sided**, only on
   the inner/center-facing edge. Anchor the inner RowLayout to the flush

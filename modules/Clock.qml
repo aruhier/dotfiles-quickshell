@@ -24,7 +24,7 @@ BarModule {
         precision: SystemClock.Minutes
     }
 
-    // Icon vertical nudge / size bias — see Mpd.qml.
+    // Icon vertical nudge / size bias — see Icon.qml.
     readonly property real iconVerticalOffset: 1
     readonly property real iconSizeRatio: 1.0
 

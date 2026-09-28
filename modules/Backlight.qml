@@ -16,7 +16,7 @@ BarModule {
     contentVisible: available
     contentWidth: content.implicitWidth
 
-    // Icon vertical nudge / size bias — see Mpd.qml.
+    // Icon vertical nudge / size bias — see Icon.qml.
     readonly property real iconVerticalOffset: 1.0
     readonly property real iconSizeRatio: 1.0
 

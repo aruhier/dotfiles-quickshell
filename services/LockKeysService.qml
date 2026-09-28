@@ -3,18 +3,10 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell.Io
 
-// Caps/Num/Scroll lock state, read out of /sys/class/leds on demand.
-//
-// On demand and not watched, unlike BacklightService: an LED class attribute
-// raises no inotify event, so there is nothing to subscribe to, and polling
-// would cost at idle for a value that changes a few times a day. A Hyprland
-// bindn on each lock key calls the `osd` IPC handler, which refreshes just
-// before it shows the OSD. See notes/osd.md.
-//
-// One `cat` per read, and not FileView: FileView only loads synchronously
-// once, so neither re-pointing one at each node nor reload()-ing a fixed one
-// yields a fresh value. The glob is also what makes this indifferent to which
-// keyboards are plugged in.
+// Caps/Num/Scroll lock state, read out of /sys/class/leds on demand — when a
+// lock key's bind calls the `osd` IPC handler. Not watched (LED attributes
+// raise no inotify event) and a `cat` per read, not FileView (it won't
+// reload a changed sysfs node). See notes/osd.md.
 QtObject {
     id: root
 
@@ -32,13 +24,10 @@ QtObject {
         return key === "capslock" ? capsLock : key === "numlock" ? numLock : scrollLock;
     }
 
-    // xkb *locks* one of these on key press but *unlocks* it on release, so
-    // the second press of a pair doesn't reach the LED until the key comes
-    // back up — measured at ~100ms here, against the ~12ms a bind takes to
-    // reach this process. Binding on release instead doesn't help: Hyprland
-    // never fires those. A lock key always toggles, so a read equal to the
-    // value from before the press is provably early, and re-reading until it
-    // changes needs no guess at how long the key was held.
+    // xkb unlocks on key *release*, so a read can land before the LED moves.
+    // A lock key always toggles: a read equal to the value from before the
+    // press is early, and is re-read until it changes or the budget runs out.
+    // See notes/osd.md, "xkb unlocks a lock key on release".
     readonly property int settleInterval: 30
     readonly property int settleBudget: 1000
 
@@ -96,9 +85,8 @@ QtObject {
     }
 
     // xkb lights every attached keyboard's node, so any one lit means the lock
-    // is on — the same rule swayosd reads them by. No node at all (a keyboard
-    // without the LED) reads as off, which is the best answer available, and
-    // the budget above is what stops that waiting forever.
+    // is on. No node at all (a keyboard without the LED) reads as off, and the
+    // budget above is what stops that waiting forever.
     function apply(text) {
         const value = text.split("\n").indexOf("1") !== -1 ? "1" : "0";
         if (value === baseline && Date.now() < deadline) {

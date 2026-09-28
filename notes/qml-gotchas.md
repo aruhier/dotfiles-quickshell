@@ -39,8 +39,8 @@
   read correctly (proving the cascade, not something else, was the cause).
   **Fix:** give the module a plain, non-`visible` bool (e.g.
   `contentVisible`) mirroring the same condition, and have the Loader read
-  *that* instead — see `Mpd.qml`'s `contentVisible` and `Bar.qml`'s
-  `moduleVisible(item)`.
+  *that* instead — see `Mpd.qml`'s `contentVisible` and
+  `ModuleLoader.qml`'s `hasContent`.
 
 - **A Repeater delegate type that declares *any* `required property` stops
   receiving the legacy ambient `modelData`/`index` context properties

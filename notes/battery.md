@@ -45,8 +45,9 @@
   `Theme.critical`, the label goes bold, and the pair pulses its opacity
   1 → 0.6 over 1.2s each way: a solid block of color fights the pill-shaped
   groups the bar is built from, and the 0.5s cadence reads as a distraction
-  rather than a warning. The 30%-warning threshold is still computed
-  (`level`) but, as in `style.css`, draws nothing.
+  rather than a warning. waybar's 30% warning threshold drew nothing in
+  `style.css` either, so it isn't carried over (a `level` computing it,
+  read by nothing, was removed on 2026-09-28).
 - **`Theme.critical` is lightened from style.css's `#f53c3c`.** That red was
   only ever a *background* in waybar; as text on `groupBg` it's 2.68:1.
   `#FF8A80` is 4.40:1 and still unmistakably red. Related: an opacity pulse

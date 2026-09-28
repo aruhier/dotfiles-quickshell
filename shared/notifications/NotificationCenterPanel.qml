@@ -190,24 +190,11 @@ PanelWindow {
                 NotificationService.dismissGroup(focusScope.selectedGroup);
         }
 
-        // Slides in and out by animating rightMargin, rather than toggling
-        // visibility; the gesture itself is ControlCenterSlide.qml.
-        //
-        // The plate is drawn `edgeOverscan` wider than it reads and rests that
-        // far past the screen edge. That slack is what the arrival's bump pulls
-        // in, instead of opening a gap to the edge, and it also covers the last
-        // physical column, which a flush margin leaves transparent at
-        // fractional scale since only this Rectangle paints. The side past the
-        // edge is square, and compositor-clipped.
-        //
-        // Every *resting* offset placing this Rectangle goes through
-        // `Screens.snap()`, width included — it is right-anchored, so margin
-        // and width together decide where the left edge lands, and this
-        // Rectangle's own 1px border draws as two half-lit columns off the
-        // device pixel grid. Mid-gesture it is deliberately off that grid; see
-        // ControlCenterSlide.qml. The panel's *text* needs more than this — see
-        // `listEdge` below and notes/text.md — and needed getting out of the
-        // shadow's layer, below.
+        // Slides by animating rightMargin (ControlCenterSlide.qml), drawn
+        // `edgeOverscan` wider than it reads so neither bump shows its edge
+        // (notes/panels.md). Every resting offset, width included, goes
+        // through Screens.snap() so the 1px border lands on the device grid;
+        // the text needs more than that — `listEdge` below, notes/text.md.
         Rectangle {
             id: panel
             anchors.top: parent.top
@@ -259,15 +246,9 @@ PanelWindow {
             source: panel
         }
 
-        // Everything the panel *shows* lives here, a sibling of the shadow's
-        // source rather than a child of it, so `panel` stays an empty
-        // background plate. A source item is rendered into a layer texture and
-        // that texture is drawn with linear filtering, so whenever the item
-        // lands on a fraction of a device pixel — routine at fractional scale
-        // — the whole subtree inside it is resampled. Qt rounds glyph
-        // positions for ordinary items, so unlayered text is immune at any
-        // offset; text *inside* a layer is not, and this panel used to put its
-        // entire contents in one. Measured: notes/text.md.
+        // Everything the panel shows lives here, a sibling of the shadow's
+        // source, not a child: a layer is resampled at fractional offsets and
+        // blurs the text inside it, unlayered text isn't. notes/text.md.
         Item {
             // Fills what reads, not the overscan: the slack past the screen
             // edge is background, so the layout's padding still measures from
@@ -368,23 +349,11 @@ PanelWindow {
                         id: notificationListView
                         anchors.fill: parent
                         clip: true
-                        // listPadding stacks on the ColumnLayout's own
-                        // panelPadding, so cards sit further in than the labels
-                        // above. Each row carries listCardMargin top and
-                        // bottom, hence the doubled spacing between them.
-                        // Snapped for the same reason as the panel's own
-                        // margins: these place each card's 1px outline, which
-                        // splits across two columns when it lands off the
-                        // device pixel grid.
-                        //
-                        // The horizontal pair are the last offset before a
-                        // card's *text*, so they are solved for where the card
-                        // lands rather than snapped on their own: an inset
-                        // whole only in device pixels leaves the card on a
-                        // fractional logical x, which fringes every glyph in
-                        // the list. Both sides take the value solved for the
-                        // left edge — where a line of text starts — so the
-                        // cards stay centred in the panel. See notes/text.md.
+                        // Each row carries listCardMargin top and bottom, hence
+                        // the doubled spacing; snapped so card outlines stay
+                        // crisp. The horizontal inset is solved for where the
+                        // card's text lands, both sides from the left edge so
+                        // cards stay centred. See notes/text.md.
                         readonly property real cardInset: Screens.snapTextInset(NotificationTheme.listPadding, panel.listEdge, panelWindow.screen)
                         spacing: Screens.snap(NotificationTheme.listCardMargin * 2, panelWindow.screen)
                         leftMargin: notificationListView.cardInset
