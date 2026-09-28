@@ -281,6 +281,15 @@ to grow if `ControlCenterSlide.qml`'s `bump` (`NotificationTheme.bump`) ever doe
 edge column in the section above, sized for a different job, and it subsumes
 it: one overscan now, not two.
 
+The exit's wind-up pulls the same way — onto the screen — and is bigger than
+the bump (24 vs 18), so the original fixed `overscan: 22` let its line (+2)
+and aim (+6.8) bring the square, outlined edge back on screen for ~100ms of
+every close. Found in the 2026-09-28 review. The overscan is now bound to
+`ControlCenterSlide.reach`, the larger of the two aims (`max(bump, windUp) ×
+1.2`, 29px), so either can grow without reopening the gap. The text inset is
+solved for whatever the overscan is (`Screens.snapTextInset`, notes/text.md),
+so resizing it no longer moves the cards' text off the grid.
+
 What that makes the gesture, precisely: the panel's width never changes and its
 right edge stays off screen throughout, so what reads is the *left* edge
 lunging past where it will rest and easing back, with the contents riding it.

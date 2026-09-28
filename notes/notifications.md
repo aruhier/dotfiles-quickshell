@@ -704,3 +704,25 @@ Not touched, and a candidate if the entry ever looks doubled:
 fades the surface in as the first toast's own spring plays. The window only
 maps and unmaps at the ends of a burst, so it is one fade per stack rather
 than per toast.
+
+
+## Fixes from the 2026-09-28 review
+
+- **A toast's body click no longer dismisses after invoking.** Quickshell's
+  `NotificationAction::invoke()` already closes a non-resident notification,
+  so the follow-up `dismiss()` hit a retained object and logged `Cannot close
+  destroyed notification` on every click; and for a `resident` one it removed
+  from history what the hint asks to keep. Now: invoke only; with no default
+  action, dismiss; resident, `releaseRequested` takes it off the stack and
+  history keeps it. Both wrapper and toast snapshot carry `resident`.
+- **A timed-out transient closes as expired** (`releasePopup(w, true)` →
+  `notification.expire()`, reason 1), not as dismissed by the user (2).
+- **`isLive()` covers the toast stack**, and `noteUpdate()` uses it instead
+  of a bare `indexOf`, which throws on the dropped wrapper it exists to catch.
+- **A row no longer sticks off-screen when its app sends again mid-exit.**
+  The group card's `Exit` snapshots `pending` at start and dismisses only
+  those; a newcomer prepended to the same `NotifGroup` kept the row alive,
+  parked at `travel` past the clip with `enabled: false`, and `enter()` had
+  returned early on the latched `active`. On `finished`, if the group gained
+  items, the exit is `reset()` and the row arrives again with them.
+

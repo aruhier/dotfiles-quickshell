@@ -157,15 +157,20 @@ QtObject {
         root.centerOpen = false;
     }
 
-    // Takes a toast off the stack, on timeout or because the panel opened. A
-    // transient notification isn't in history, so nothing would reference it
-    // after this — dismiss for real (Retainable below cleans up). A
+    // Takes a toast off the stack, on timeout, because the panel opened, or
+    // after a resident one's action. A transient notification isn't in
+    // history, so nothing would reference it after this — close it for real
+    // (Retainable below cleans up), as expired if its timer ran out. A
     // non-transient one just leaves the stack.
-    function releasePopup(wrapper) {
+    function releasePopup(wrapper, expired) {
         wrapper.timer.stop();
         root.popups = root.popups.filter(w => w !== wrapper);
-        if (root.notifications.indexOf(wrapper) === -1)
-            root.dismiss(wrapper);
+        if (root.notifications.indexOf(wrapper) !== -1 || !wrapper.notification)
+            return;
+        if (expired)
+            wrapper.notification.expire();
+        else
+            wrapper.notification.dismiss();
     }
 
     // No toasts while the panel is up: it already lists them, and the stack
@@ -230,12 +235,13 @@ QtObject {
             root.dismiss(w);
     }
 
-    // Whether a wrapper is still listed. A dropped one is a dead QObject —
-    // not null, and even `indexOf` throws on it — so this is the one place
-    // that asks, and it answers false rather than throwing.
+    // Whether a wrapper is still listed, in history or on the toast stack. A
+    // dropped one is a dead QObject — not null, and even `indexOf` throws on
+    // it — so this is the one place that asks, and it answers false rather
+    // than throwing.
     function isLive(wrapper) {
         try {
-            return root.notifications.indexOf(wrapper) !== -1;
+            return root.notifications.indexOf(wrapper) !== -1 || root.popups.indexOf(wrapper) !== -1;
         } catch (e) {
             return false;
         }
@@ -285,6 +291,7 @@ QtObject {
         readonly property string groupKey: notification ? (notification.desktopEntry || notification.appName) : ""
         readonly property string image: notification ? notification.image : ""
         readonly property int urgency: notification ? notification.urgency : NotificationUrgency.Normal
+        readonly property bool resident: notification ? notification.resident : false
         // Reset by bump(): a replaced notification is as new as its update.
         property date time: new Date()
         readonly property string timeStr: Qt.formatTime(time, "HH:mm")
@@ -303,7 +310,7 @@ QtObject {
                 return;
             wrapper.updatePending = true;
             Qt.callLater(() => {
-                if (root.notifications.indexOf(wrapper) === -1 && root.popups.indexOf(wrapper) === -1)
+                if (!root.isLive(wrapper))
                     return;
                 wrapper.updatePending = false;
                 root.bump(wrapper);
@@ -340,7 +347,7 @@ QtObject {
             }
             running: false
             repeat: false
-            onTriggered: root.releasePopup(wrapper)
+            onTriggered: root.releasePopup(wrapper, true)
         }
 
         readonly property Connections conn: Connections {

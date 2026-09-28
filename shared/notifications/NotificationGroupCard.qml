@@ -78,11 +78,28 @@ Item {
         // on by the time a finished row is torn down.
         property var pending: []
         property bool done: false
-        onActiveChanged: if (exit.active)
-            exit.pending = exit.items.slice()
+        onActiveChanged: if (exit.active) {
+            exit.pending = exit.items.slice();
+            exit.done = false;
+        }
         onFinished: {
             exit.done = true;
             NotificationService.dismissLater(exit.pending);
+            // The app sent another mid-gesture, so the group outlives the
+            // dismissal: bring the row back with it rather than leave it
+            // parked past the clip, inert.
+            if (exit.gainedItems()) {
+                exit.reset();
+                exit.enter();
+            }
+        }
+        // `try`: a pending wrapper may be dropped already (see isLive()).
+        function gainedItems() {
+            try {
+                return exit.items.some(w => exit.pending.indexOf(w) === -1);
+            } catch (e) {
+                return false;
+            }
         }
         Component.onDestruction: if (exit.active && !exit.done)
             NotificationService.dismissLater(exit.pending)

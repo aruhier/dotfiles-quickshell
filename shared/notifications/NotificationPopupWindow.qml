@@ -117,6 +117,7 @@ PanelWindow {
                 "urgency": wrapper.urgency,
                 "timeStr": wrapper.timeStr,
                 "defaultAction": wrapper.defaultAction,
+                "resident": wrapper.resident,
                 "otherActions": wrapper.otherActions,
                 // Not displayed — what onDismissRequested below dismisses. Only
                 // reachable while `interactive`.
@@ -329,6 +330,8 @@ PanelWindow {
                     // snapshot stands in for the wrapper — dismiss() reads
                     // only `.notification`, which it carries for this.
                     onDismissRequested: NotificationService.dismiss(entryRoot.entry.display)
+                    // Resident, so the wrapper is still live.
+                    onReleaseRequested: NotificationService.releasePopup(entryRoot.entry.wrapper, false)
                 }
             }
         }

@@ -40,9 +40,9 @@ PanelWindow {
     // Drawn past the right screen edge, on top of NotificationTheme.controlCenterWidth: the
     // panel is this much wider than it reads, so its opening bump slides that
     // slack in rather than opening a gap to the edge, and the edge column a
-    // flush margin leaves transparent at fractional scale is covered. Must
-    // stay clear of ControlCenterSlide's bump; see notes/panels.md.
-    readonly property int overscan: 22
+    // flush margin leaves transparent at fractional scale is covered. Sized
+    // off both of ControlCenterSlide's bumps; see notes/panels.md.
+    readonly property int overscan: Math.ceil(slide.reach)
     // The DND switch: 48x29 with a 20px slider.
     readonly property int switchWidth: 48
     readonly property int switchHeight: 29

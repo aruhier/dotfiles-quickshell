@@ -49,6 +49,9 @@ QtObject {
     // before it leaves. Bigger than the arrival's bump, as the OSD pill's is:
     // a wind-up is the whole gesture rather than the tail of one.
     readonly property real windUp: 24
+    // The furthest above `resting` either stage is aimed; the panel's
+    // overscan has to cover it, or its own edge comes onto the screen.
+    readonly property real reach: Math.max(root.bump, root.windUp) * 1.2
 
     readonly property real bumpLine: root.resting + root.bump
     readonly property real bumpAim: root.resting + root.bump * 1.2

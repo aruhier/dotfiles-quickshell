@@ -55,6 +55,9 @@ Item {
     // whole, or one card of an expanded group — and the toast stack dismisses
     // outright, its exit being staged off the service's list.
     signal dismissRequested
+    // A toast whose default action ran on a resident notification: it leaves
+    // the stack but stays in history. Only a floating card emits it.
+    signal releaseRequested
 
     // Whole-card hover, not just mainColumn's, so the actions row reveals the
     // close button too. Drives the close button's opacity.
@@ -185,18 +188,25 @@ Item {
             width: card.width
             height: card.height
 
-            // Body click invokes the default action; a floating toast also dismisses,
-            // a control-center row doesn't (it's a list being browsed). Covers the
-            // whole card — later siblings still win the hit-test.
+            // Body click invokes the default action; a floating toast also leaves,
+            // a control-center row doesn't (it's a list being browsed). invoke()
+            // closes a non-resident notification itself, so dismissing after it
+            // would close a dead one; a resident one only leaves the stack.
+            // Covers the whole card — later siblings still win the hit-test.
             MouseArea {
                 anchors.fill: parent
                 enabled: card.interactive && (card.floating || card.w.defaultAction !== null)
                 cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                 onClicked: {
-                    if (card.w.defaultAction !== null)
-                        card.w.defaultAction.invoke();
-                    if (card.floating)
+                    const action = card.w.defaultAction;
+                    if (action !== null)
+                        action.invoke();
+                    if (!card.floating)
+                        return;
+                    if (action === null)
                         card.dismissRequested();
+                    else if (card.w.resident)
+                        card.releaseRequested();
                 }
             }
 

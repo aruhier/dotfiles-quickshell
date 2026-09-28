@@ -58,6 +58,13 @@ QtObject {
         slide.retarget(0);
     }
 
+    // Unlatches a finished exit so the item can arrive again with enter(),
+    // for a caller whose item turned out to stay (NotificationGroupCard.qml).
+    function reset() {
+        root.active = false;
+        root.wound = false;
+    }
+
     function start() {
         if (root.active)
             return;
