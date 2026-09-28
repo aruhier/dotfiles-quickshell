@@ -110,7 +110,7 @@ Rectangle {
                     popupEnabled: wsDelegate.windows > 0
                     onClicked: {
                         cancel();
-                        root.focusOnCurrentMonitor(wsDelegate.modelData.id);
+                        root.focusOnCurrentMonitor(wsDelegate.modelData);
                     }
                 }
 
@@ -200,9 +200,12 @@ Rectangle {
     }
 
     // Not activate(): it lacks on_current_monitor, and sends the name as a
-    // selector, where a numeric name like "8" reads as id 8.
-    function focusOnCurrentMonitor(id: int) {
-        Hyprland.dispatch(`hl.dsp.focus({ workspace = ${id}, on_current_monitor = true })`);
+    // selector, where a numeric name like "8" reads as id 8. So the id —
+    // unless it's not positive: a `name:` workspace's is negative, which the
+    // dispatch reads as a relative move. JSON quoting is a valid Lua string.
+    function focusOnCurrentMonitor(ws: HyprlandWorkspace) {
+        const target = ws.id > 0 ? String(ws.id) : JSON.stringify("name:" + ws.name);
+        Hyprland.dispatch(`hl.dsp.focus({ workspace = ${target}, on_current_monitor = true })`);
     }
 
     // Index of the focused workspace, -1 if none — findIndex's own miss value.

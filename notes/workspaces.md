@@ -12,7 +12,11 @@
 - Clicking dispatches `hl.dsp.focus({workspace, on_current_monitor})` rather
   than `HyprlandWorkspace.activate()`, which lacks `on_current_monitor` and
   sends the name as a selector, where a numeric name like "8" reads as id 8
-  (comment at `focusOnCurrentMonitor`).
+  (comment at `focusOnCurrentMonitor`). The id is sent only when positive: a
+  `name:` workspace's id is negative (-1337 and down), and `workspace =
+  -1337` is read as a relative move — tested 2026-09-28, it took DP-1 from
+  `f` to `a` instead of to the named workspace. Those go as
+  `"name:<name>"`, which brought it over as expected.
 
 ## Workspace hover previews via per-window screencopy (2026-09-11)
 
