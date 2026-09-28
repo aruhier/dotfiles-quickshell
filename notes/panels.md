@@ -128,8 +128,9 @@ while `NotificationService.centerOpen` is true** — unmapping the instant
 `centerOpen` flips false would cut the slide off after one frame (nothing
 left to animate once the layer surface is gone). Fix: `panelWindow.visible:
 open || closing`, where `open` mirrors `centerOpen` and `closing` is set
-true the moment it goes false, then cleared by the `SpringAnimation`'s own
-`onRunningChanged` once it actually finishes.
+true the moment it goes false, then cleared once the slide actually finishes
+— by the `SpringAnimation`'s `onRunningChanged` then, by
+`ControlCenterSlide`'s `finished` now.
 
 **A same-tick QML property write does not batch — each write fires its
 change notification, and re-evaluates every dependent binding,
@@ -345,3 +346,19 @@ one-pixel-tall captures across the edge's travel (~12.5ms apart, timestamped in
 the filename), differenced against a reference row of the closed state, gives
 the whole curve. Trigger the gesture from inside the capture loop; `seq -w 0 90`
 pads to *two* digits, and a trigger keyed on `"003"` never fires.
+
+
+## Rejected
+
+- **Extending `PopupCoordinator` with a "pinned" mode** for the control
+  centre (2026-09-03): there is one such panel, and click-outside is handled
+  by its own full-screen surface.
+- **One under-damped spring for the slide**, the bump being its overshoot:
+  reported as mechanical; the staged slide replaced it (see "Why staged").
+- **Snapping the slide to the device pixel grid every frame**: at 1.25 scale
+  the slow tail advances one 0.8px step every ~10ms, so a 240Hz output shows
+  visible stepping. Only resting offsets are snapped.
+- **A fixed `overscan` smaller than the exit's wind-up** (22 against 24, until
+  2026-09-28): the panel's own edge came on screen on every close. It is bound
+  to `ControlCenterSlide.reach` now.
+

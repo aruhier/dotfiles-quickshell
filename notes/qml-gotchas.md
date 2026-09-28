@@ -77,3 +77,12 @@
   `AnchoredPopupWindow.qml` to horizontally center `Tooltip.qml`/
   `HoverPopup.qml` under their anchor module instead of left-aligning.
 
+- **`ShellRoot` takes no attached objects**: `Component.onCompleted` on it
+  is not a lint error but a load-time one — `Non-existent attached object` —
+  which takes the whole config down. And `Connections` resolves under
+  `import QtQuick`, not `import QtQml`; qmllint accepts the latter, the
+  runtime rejects it with `Connections is not a type`. Both leave the running
+  shell on its last good config, so a change that "did nothing" is worth
+  checking against `qs log -i <id>` before it is worth debugging. (Found
+  building the OSD, 2026-09-12.)
+

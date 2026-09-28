@@ -56,6 +56,17 @@ per-glyph segments) beats raw pixel diffing, since antialiasing produces
 false positives pixel-by-pixel.
 
 
+## Driving Hyprland for a test (0.56, Lua config)
+
+- `hyprctl dispatch` takes Lua (`hl.dsp.focus({workspace = "s"})`,
+  `hl.exec_cmd(cmd, {workspace = "f"})` — no `silent` rule, so exec switches
+  to that workspace).
+- `hl.dsp.window.close({address = ...})` **ignored the address and closed the
+  active window** — which was the terminal running the session. Kill test
+  windows by pid instead.
+- A popup screenshot taken right as the hover lands catches Hyprland's popup
+  fade-in and looks see-through; wait a beat.
+
 ## Probing Quickshell state without disturbing the running bar
 
 `qs -p <dir>` on a throwaway `shell.qml` reads live service state without

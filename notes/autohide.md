@@ -67,16 +67,17 @@ directly; opening a scratchpad changes nothing, as the user wants.
 One Quickshell quirk does matter: it applies every `workspacev2` to the
 *focused* monitor. Moving a workspace to another output makes Hyprland switch
 the old output to a new workspace, and that switch gets credited to the wrong
-monitor. `shell.qml` calls `Hyprland.refreshMonitors()` on `moveworkspace*`.
+monitor. `shell.qml` calls `Hyprland.refreshMonitors()` on `moveworkspacev2`
+(Hyprland sends both `moveworkspace` and `moveworkspacev2` per move; one
+refresh is enough).
 
 ## Motion and reserved space
 
 Three modes: shown (reserves space), hidden, peek (overlay, reserves nothing).
 
 - **One gesture for everything**: the bar lives just above the top edge and
-  slides out of it — rule, IPC or peek. A fade for rule changes was tried
-  first (on a UI review's advice to keep slides for the peek); the user
-  preferred one motion, and every other surface here slides too. The spring
+  slides out of it — rule, IPC or peek (a fade was tried first, see
+  Rejected). The spring
   is critically damped (~170ms) with no bump either way: the bar is flush
   with the edge, so an overshoot would open a sliver of gap above it.
 - **Rule-driven hide waits `barHideDelay` (1s)**, then slides up — so a
@@ -103,7 +104,9 @@ Three modes: shown (reserves space), hidden, peek (overlay, reserves nothing).
   arriving on one that should hide, or a window going fullscreen during the
   delay, hides the bar at once, snapped, like a cold start. Otherwise a round
   trip drew the bar over the incoming fullscreen window during the switch,
-  then faded it out, and kept the space reserved ~1.1s. Measured on DP-1 with
+  then hid it (a fade at the time; the slide now), and kept the space
+  reserved ~1.1s. The snap is skipped while a peek holds the bar (the panel
+  open on that output), or it would snap away only to slide straight back. Measured on DP-1 with
   one fullscreen `foot` on a hide-listed workspace: the bar is now gone from
   the first frame, the space released ~115ms after the switch. Hyprland never
   resized the fullscreen window either way (`3072×1728` throughout). The cost:
@@ -154,8 +157,6 @@ Three modes: shown (reserves space), hidden, peek (overlay, reserves nothing).
   The move is a margin change, so it jumps rather than slides, and during a
   peek the bar can overlap a toast; both accepted. The control centre needs
   nothing: it's placed from the screen edge.
-- `moveworkspace` and `moveworkspacev2` both fire per move; only v2 triggers
-  the refresh.
 
 Switching `exclusionMode` Auto↔Ignore live is a plain commit in Quickshell,
 no remap. The hidden surface stays mapped and transparent; nothing renders
@@ -187,8 +188,7 @@ unless another output's bar still holds it (a moved workspace).
   `0,0 2560x1440`. The Lua side holds one workspace per output, so going
   from one hide-listed workspace straight to another still moves the rule.
   Peeking the bar over the still-released window on return was weighed
-  first; the user chose this. The zone is per output, so the peek would only
-  move the resize into the workspace slide, and it covers the tabs (Rejected).
+  first (see Rejected).
 - **Selected by name** (`name:<name>`), which matches numbered workspaces by
   their name too (checked: `name:7` hits id 9). `r[from-to]` would reject
   the negative ids of named workspaces: `Workspace.cpp` fails the selector
@@ -289,6 +289,12 @@ unless another output's bar still holds it (a moved workspace).
   pipe that runs the revert at EOF works: a reload SIGKILLs it, SIGTERM
   closes the pipe. But it's an extra idle process per bar and too much
   machinery; `ExecStopPost=` in the systemd unit only covers the unit's `qs`.
+- **Peek the bar over the still-released window on returning to it**,
+  instead of keeping the release. The zone is per output, so the peek would
+  only move the resize into the workspace slide, and it covers the tabs.
+- **A fade for rule-driven hides**, with the slide kept for peeks (a UI
+  review's advice): the user preferred one motion, as every other surface
+  here slides.
 - **Fake fullscreen** (`fullscreen_state` internal 2) instead of the rule.
   It's per window: it follows the window to other workspaces, fights a
   second window opening, and covers the Top layer the bar lives on, so peek

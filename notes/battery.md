@@ -37,7 +37,7 @@
   other module's 8.1px, which read as a visibly loose module. The ink rect
   (`tightBoundingRect`) is vertically centered in the line box for this font,
   so rotating about the wrapper's center lands it centered horizontally with
-  no further correction. Measured with the column-scan method above: 7.5px vs
+  no further correction. Measured with the column scan in notes/method.md: 7.5px vs
   Backlight's 8.1px, and identical 23.8px gaps to the modules on either side.
 - **The critical state deliberately departs from `style.css`.** waybar's
   `#battery.critical:not(.charging)` blinks the module's *background* red↔white
@@ -47,17 +47,15 @@
   groups the bar is built from, and the 0.5s cadence reads as a distraction
   rather than a warning. waybar's 30% warning threshold drew nothing in
   `style.css` either, so it isn't carried over (a `level` computing it,
-  read by nothing, was removed on 2026-09-28).
+  read by nothing, was removed on 2026-09-28; `critical` is a bool now).
 - **`Theme.critical` is lightened from style.css's `#f53c3c`.** That red was
   only ever a *background* in waybar; as text on `groupBg` it's 2.68:1.
   `#FF8A80` is 4.40:1 and still unmistakably red. Related: an opacity pulse
   fades toward the background, so its trough costs real contrast (1.6:1 at
   0.3) — hence the shallow 0.6 floor plus bold, rather than a deep fade.
-- **Use `font.weight`, not `font.bold`, with `Theme.fontFamily`.** Inter is a
-  variable font and Qt selects along its weight axis by number; `font.bold`
-  didn't visibly change the label here. Bold is applied to the percentage
-  only — the Nerd Font fallback has no bold face, so Qt would synthesize a
-  smeared glyph.
+- **Bold goes on the percentage only** (`bold: true`, which StyledText turns
+  into Inter's `wght` axis — see notes/text.md). The icon stays regular: the
+  Nerd Font fallback has no bold face, so Qt would synthesize a smeared glyph.
 - **waybar's status → format mapping**, for reference when comparing:
   `Charging` → bolt, `Plugged` (on the adapter, not charging — including this
   laptop's 80% charge-end threshold, which upower reports as `PendingCharge`)
@@ -74,6 +72,11 @@
   `UPowerDeviceState.PendingCharge` instead, which is what "on the adapter,
   not charging" already means here. Prefer the device state over the global
   for anything else too.
+- **A battery must be present, not just a laptop battery (2026-09-28).**
+  Quickshell's `isLaptopBattery` is `type == Battery && powerSupply` and never
+  checks `isPresent`; upowerd keeps a device for an empty bay or a removed
+  pack. Without the check, a laptop on AC with its battery out shows "0%" and
+  pulses red — the same trap as the section below, through another door.
 
 
 ## A machine with no battery blinked an invisible module at 3.2% CPU (2026-09-14)
@@ -82,7 +85,8 @@
 bug as the always-running-`FrameAnimation` section in `notes/rendering.md`,
 but with a completely different cause and a much wider blast radius.
 
-**Cause:** `Battery.qml`'s critical-level pulse. `criticalBlink` was
+**Cause:** `Battery.qml`'s critical-level pulse (code as it was then; `level`
+is a `critical` bool now). `criticalBlink` was
 `level === "critical" && !charging`, and `level` is derived from `percent`,
 which falls back to `0` when UPower has no real device:
 
@@ -108,7 +112,8 @@ be *compared against thresholds* somewhere downstream, and 0 passes every
 derived level.
 
 **A running animation is process-wide, not window-local.** This is the part
-worth internalising beyond this bug. The earlier section measured one output;
+worth internalising beyond this bug. notes/rendering.md's "always-running
+FrameAnimation" section measured one output;
 this one measured three, and *all three bars re-rendered every frame* even
 though `battery` is a module on the right-hand group only and was invisible.
 Qt's render loop keeps every showing window updating for as long as any
@@ -142,7 +147,7 @@ add modules back in halves. Emptying them took 32 ticks/10s → 4, which proved
 it was a module and not one of the always-instantiated shared windows
 (`NotificationPopupWindow`, `NotificationCenterPanel`, `OsdWindow`) in four
 seconds of editing. Six reloads found `battery` alone at 29-30 ticks/10s with
-every other module at 0. Honour the 6s settle from the method note above, and
+every other module at 0. Honour the 6s settle from notes/method.md, and
 note that `touch` does **not** trigger quickshell's reload — the file's
 contents have to actually change.
 
@@ -175,10 +180,7 @@ path out of idle indefinitely.
 re-fired on entering critical and on each further whole percent lost, with the
 solid `Theme.critical` text carrying the warning in between. The designed look
 is preserved exactly — it is the same fade, it just stops — and steady-state
-cost is zero. The rejected alternatives are worth knowing: the Timer-stepped
-toggle is ~9x cheaper than today but still costs forever *and* turns the
-deliberate slow fade into a hard blink, which this module's own comment argues
-against; dropping the motion entirely is free but throws away the signal.
+cost is zero. The alternatives are under `## Rejected`.
 
 Three implementation details, each of which is a trap:
 
@@ -193,3 +195,24 @@ Three implementation details, each of which is a trap:
 - **`Component.onCompleted` is not redundant here.** A reload with the battery
   already critical evaluates the binding during creation, which can beat
   `onCriticalBlinkChanged` being connected.
+
+
+## Rejected
+
+- **Reading `/sys/class/power_supply` directly**, as waybar does. This
+  machine's `qcom-battmgr-bat` has neither `capacity` nor `charge_now`, and a
+  negative `power_now` while discharging; upowerd handles all of it and
+  already smooths the rate.
+- **waybar's critical look**, the module's background blinking red↔white every
+  0.5s: a solid block fights the pill groups, and the cadence distracts.
+- **`!UPower.onBattery` for `plugged`**: the daemon reports OnBattery false
+  here while discharging (see above).
+- **A slower or shallower pulse** to save power: an animation's cost is
+  binary, and a 5x longer cycle measured identically.
+- **A Timer stepping the opacity** instead of a pulse: ~9x cheaper than the
+  infinite pulse but still costs forever, and turns the slow fade into a hard
+  blink.
+- **No motion at all**: free, but throws away the signal.
+- **A `running:` binding alongside `restart()`**: `restart()` breaks the
+  binding, so it would work exactly once.
+

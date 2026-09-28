@@ -1,5 +1,19 @@
 # Workspaces
 
+## Where the module's mechanics are written down
+
+- Colours per state, `active` vs `focused`, the centre cap, button width and
+  the shared `selection` indicator: `notes/style.md`.
+- The five coupled springs on one `SpringGroup` clock, and rounding their
+  output into non-antialiased edges: `notes/rendering.md` ("SpringGroup",
+  "Round the output"), and why it isn't a `BarModule`: `notes/conventions.md`.
+- The sliding indicator's binding trap (`itemAt()` paired with
+  `repeater.count`): `notes/qml-gotchas.md`.
+- Clicking dispatches `hl.dsp.focus({workspace, on_current_monitor})` rather
+  than `HyprlandWorkspace.activate()`, which lacks `on_current_monitor` and
+  sends the name as a selector, where a numeric name like "8" reads as id 8
+  (comment at `focusOnCurrentMonitor`).
+
 ## Workspace hover previews via per-window screencopy (2026-09-11)
 
 `Workspaces.qml` pills open a `WorkspacePreviewPopup` on hover: a
@@ -11,8 +25,7 @@ Quickshell 0.3.1:
 - **There is no "capture a workspace" primitive.** Hyprland exposes
   output capture and per-window capture (`hyprland_toplevel_export_v1`,
   `ext_foreign_toplevel_image_capture_source_manager_v1`), nothing
-  in between, so the preview composes windows itself. Output capture would
-  only ever show the workspace currently on that monitor (plus the bar).
+  in between, so the preview composes windows itself.
 - **Windows on workspaces that aren't on any monitor still capture, and
   stay live.** The compositor re-renders the window offscreen for the
   capture and keeps feeding the client frames while a capture is running:
@@ -35,18 +48,12 @@ Quickshell 0.3.1:
   fullscreen, each by `focusHistoryID` descending (0 = most recent, on
   top) — as each delegate's `z`, not by sorting the model (2026-09-20).
   The Repeater's model is the bare `toplevels.values`, which only changes
-  when a window comes or goes; filtering and ordering it off
-  `lastIpcObject` meant the refresh on open rewrote every entry, rebuilt
-  the array, and recreated every `ScreencopyView` — two capture set-ups
-  per hover. Hidden/unmapped windows keep a delegate, invisible, not
+  when a window comes or goes. Hidden/unmapped windows keep a delegate, invisible, not
   `live`, and with no `captureSource`: setting a source makes
   `ScreencopyView::createContext()` capture one frame even when not live.
 - **Empty workspaces get no popup at all** (`HoverPopupArea.popupEnabled`),
   so hovering one builds nothing. Teardown is keyed on `HoverPopup.close()`
-  (its `dismissed` signal), not on `visible` going false: a popup whose
-  windows are all hidden, or whose monitor is briefly null in a hotplug, is
-  built but never visible, and a `visible`-keyed teardown leaked it with its
-  captures running.
+  (its `dismissed` signal), not on `visible` going false — see Rejected.
 - **A click on a pill calls `HoverPopupArea.cancel()`** before activating
   the workspace, which closes via `HoverPopup.close()`. `close()` now also
   deactivates itself with `PopupCoordinator`: it's followed by LazyLoader
@@ -55,7 +62,7 @@ Quickshell 0.3.1:
 - **Cost**: views only exist inside the popup, one workspace at a time,
   destroyed on close. Buffers are dmabuf at the window's physical size
   (e.g. 2931x1786 for a full-height window at scale 1.6), never CPU
-  copies; `constraintSize` didn't shrink them in a probe, so it's unused.
+  copies (`constraintSize` doesn't shrink them, see Rejected).
 - **A window can sit in two workspaces' `toplevels`** (2026-09-28 review,
   read in Quickshell 0.3.1's `connection.cpp`): `refreshToplevels()` calls
   `setWorkspace(new)` and `insertToplevel()` on the new workspace but never
@@ -70,12 +77,17 @@ Quickshell 0.3.1:
   `configreloaded`, `monitoraddedv2` and shell.qml's `moveworkspacev2`
   handler — a runtime scale or rotation change may emit none of those.
 
-Verification notes:
-- `hyprctl dispatch` on 0.56 takes Lua (`hl.dsp.focus({workspace = "s"})`,
-  `hl.exec_cmd(cmd, {workspace = "f"})` — no `silent` rule, so exec
-  switches to that workspace). `hl.dsp.window.close({address = ...})`
-  **ignored the address and closed the active window** — which was the
-  terminal running the session. Kill test windows by pid instead.
-- Grabbing a popup screenshot right after the hover lands catches
-  Hyprland's popup fade-in and looks see-through; wait a beat.
+## Rejected
+
+- **Output capture for the preview**: it only ever shows the workspace
+  currently on that monitor, plus the bar.
+- **Filtering or sorting the Repeater's model** off `lastIpcObject`: the
+  refresh on open rewrote every entry, rebuilt the array and recreated every
+  `ScreencopyView` — two capture set-ups per hover. Visibility and stacking
+  are per delegate instead.
+- **`ScreencopyView.constraintSize`** to shrink buffers: didn't, in a probe.
+- **Tearing the popup down when `visible` goes false**: a popup built while
+  its windows are all hidden, or its monitor briefly null in a hotplug, never
+  becomes visible, so it leaked with its captures running (2026-09-28).
+- **`HyprlandWorkspace.activate()`** for a click: see above.
 

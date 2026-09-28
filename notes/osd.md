@@ -3,8 +3,9 @@
 ## Native OSD, replacing swayosd (2026-09-12)
 
 `swayosd-server` + `swayosd-libinput-backend` are gone. `shared/osd/OsdWindow.qml`
-is a single bottom-centre pill on the focused output — glyph, level track,
-percentage for volume/backlight; glyph and a word for a lock key — held for
+is a single bottom-centre pill — on the focused output unless the caller names
+one — with a glyph, level track and percentage for volume/backlight, or a glyph
+and a word for a lock key or a message (below). It is held for
 2500ms, up from swayosd's 1000ms: the pill spends part of that rising and
 dropping, and a second left it leaving about as soon as it was read. The
 dotfiles side changed with it: the volume
@@ -158,8 +159,21 @@ ternary, the `PwObjectTracker` and the write clamp out of `Volume.qml`, which is
 now a thin view like `Backlight.qml` is over `BacklightService`; the OSD and the
 bar module read the same `pct`/`muted`/`icon`. `BacklightService` gained
 `icon` and `bumpPercent()` (perceptual points, the unit `brightnessctl -e s ±N%`
-moved in, so the keys behave as they did). `OsdService` holds only what is
-showing and where.
+moved in, so the keys behave as they did). `OsdService` holds what is showing
+(`kind`), where (`screen`), and a message's payload.
+
+**Who calls it.** Every trigger goes through `Ipc.qml`: the `osd` target's
+`volume`/`mute`/`brightness`/`lock` handlers, which the keybinds call, and the
+`bar` target, which shows a message after an auto-hide override. `show(kind,
+screen?)` lands on `Screens.focused()` when no screen is given — a keybind has
+no widget to report one — and keeps the last screen otherwise, so a hide
+animation finishes where it started.
+
+**Messages.** `showMessage(glyph, text, on, screen?)` shows the `"message"`
+kind: styled like a lock key, `on` lighting the glyph, the text in place of
+the lock word. Its one user is the bar's visibility OSD (`Ipc.qml`'s
+`applyBarOverride`: "Bar hidden · this workspace · override", on the bar's own
+output).
 
 **Everything is keybind-driven, deliberately.** The alternative is a daemon
 holding evdev open, which is what both prior arts do: swayosd runs a
@@ -167,10 +181,7 @@ holding evdev open, which is what both prior arts do: swayosd runs a
 user in the `input` group (`dms setup` runs `usermod -a -G input`; it prints
 "Caps Lock OSD will be unavailable" when that fails, and it only covers Caps
 Lock, not Num/Scroll). This machine's user *is* in `input`, so an `evtest`
-reader was possible — and rejected: it is one long-lived subprocess per
-keyboard plus hotplug handling, waking on every event, against this repo's
-"no owned subprocesses" rule and its idle-CPU budget. A keybind costs nothing
-until pressed.
+reader was possible — see Rejected. A keybind costs nothing until pressed.
 
 ### Three Quickshell behaviours this ran into, all measured
 
@@ -235,9 +246,6 @@ the appearance `bgButton` already had. Measured after: **+21** over the desktop
 (64 → 65, i.e. unchanged), **+19** over white (64 → 88). The teal fill needed
 nothing — it is opaque and reads on both.
 
-Rejected: making the plate opaque (that is the blur, and the blur is the look),
-and an outline on the track (treats the symptom, and an absolute outline colour
-has the identical problem).
 
 The plate's alpha was later raised on its own account, 0.875 → 0.94, which
 narrows its travel from 43..69 to **43..55** and so damps this effect at the
@@ -276,9 +284,8 @@ reaches this process ~12ms after the key (`hyprctl dispatch exec` → process
 running is ~4ms, `qs ipc call` round trip ~8ms), so a press-bound read lands
 squarely inside that window.
 
-**Binding on release instead does not work**: `release = true` on all three
-lock binds produced LED transitions with *no* `openlayer>>quickshell-osd`
-event at all — Hyprland never fires them. Reverted to press.
+Binding on release instead doesn't work (see Rejected), so the read has to
+cope with landing early.
 
 The fix needs no timing guess: **a lock key always toggles**, so a read that
 comes back equal to the value from before the press is provably early.
@@ -294,13 +301,21 @@ observable: an IPC call that toggles nothing takes the full 1000ms budget to
 show, where an unprimed key shows immediately. A lock key pressed in the ~50ms
 before priming lands still takes its first read as final.
 
-### Two smaller traps in shell.qml
+## Rejected
 
-`ShellRoot` takes **no attached objects**: `Component.onCompleted` on it is not
-a lint error but a load-time one — `Non-existent attached object` — which takes
-the whole config down. And `Connections` resolves under `import QtQuick`, not
-`import QtQml`; qmllint accepts the latter, the runtime rejects it with
-`Connections is not a type`. Both failures leave the running shell on its last
-good config, so a change that "did nothing" is worth checking against
-`qs log -i <id>` before it is worth debugging.
+- **An evdev reader** (`evtest`, as swayosd's root libinput backend and DMS's
+  Go helper do): one long-lived subprocess per keyboard plus hotplug handling,
+  waking on every event, against the "no owned subprocesses" rule and the
+  idle-CPU budget.
+- **Binding the lock keys on release** (`release = true`): LED transitions
+  with *no* `openlayer>>quickshell-osd` event at all — Hyprland never fires
+  them.
+- **An opaque plate** to fix the track's contrast over bright windows: the
+  blur is the look.
+- **An outline on the track**: treats the symptom, and an absolute outline
+  colour has the same problem as the absolute track did.
+- **A drop shadow on the pill** (2026-09-19): a few levels darker along the
+  bottom edge and nothing else; the outline and blur already define the edge.
+- **Its own `Theme.osdOpacity`**: 0.89 against the toasts' 0.875, a
+  difference nobody could see; both share `bgFloating` now.
 

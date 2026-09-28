@@ -189,8 +189,9 @@ rather than being cut, which a card's wrapped text cannot do.
 **That reveal is a `clip: true` on an Item, not a layer.** `clip` is a scissor
 rect, so the text under it is not resampled — see `notes/text.md` for why a
 `layer`/MultiEffect over text is not an option here. It is switched off
-(`plateWidth < width`) once the plate is open, so the control-centre list,
-which never sets `plateWidth`, carries no clip at all. The drop shadow's
+(`plateWidth < width || plateHeight < height`) once the plate is open, so the
+control-centre list, which never narrows a card (`openWidth` defaults to its
+width), carries no clip at all. The drop shadow's
 MultiEffect stays *outside* the clipping item: its blur is drawn past the
 plate's bounds and a clipping ancestor would cut it off.
 
@@ -220,7 +221,7 @@ would swallow clicks meant for whatever is under it, the screen's own right
 edge included. The OSD needs no such mask because nothing on it is clickable.
 
 **`travel` is measured from the collapsed plate's own left edge**, not from
-the card's: `width + edgeGap - collapsedX`. The pill rests centred, so half the
+the card's: `width + edgeGap - card.plateX`. The pill rests centred, so half the
 stack is already past the surface's right edge before it moves, and parking it
 a whole stack-width away would spend most of the slide off screen — the visible
 part fell from ~356ms to ~230 when this was still the card's full width.
@@ -322,8 +323,8 @@ and the drop goes back to something soft enough not to snatch (72 / 13.4). One
 spring, three phases, switched on `closing` and `wound`. The plate's own spring
 splits the same way — 122 / 11.5 opening, 92 / 15.7 shutting.
 
-**The slide spring is softer than the OSD's** — stiffness 58/damping 9.1
-against 136/12.3, same ζ ≈ 0.77. Not a taste difference: the OSD's pill rises
+**The slide spring is softer than the OSD's** — stiffness 58/damping 9.1 when
+this was written (8.4 since, below) against 136/12.3, same ζ ≈ 0.77. Not a taste difference: the OSD's pill rises
 through 187px and is visible for all of it, while a toast's icon is off the
 surface for the first four fifths of its ~425px travel. At the OSD's own
 constants the pill was on screen for ~103ms of a 258ms slide, which is not
@@ -384,11 +385,13 @@ the window's `implicitHeight` is the column's, so an animating row height
 reconfigures the layer surface every frame, which is the thing
 `notes/osd.md` moved the OSD's whole resting gap inside its surface to avoid.
 
-**`popupBump` is 16px** against the OSD's 18, and the entry's bump is ~8px
-against ~10 — same ratio, scaled to a surface that moves sideways across a
-wider span. Both are latched exactly as `notes/osd.md` describes, with
-`narrowed` at `opened <= 0.2` so the wind-up starts while the plate is still
-visibly shutting.
+**The wind-up was 16px at first** (then named `popupBump`; now
+`NotificationPopupWindow.qml`'s `bump`, 52 — see the table above and the
+control-centre section for why it grew), and the entry's bump ~8px against
+the OSD's ~10. Both are latched as `notes/osd.md` describes, with `narrowed`
+at `opened <= 0.6` (it started at 0.2, like the OSD's; see the 2026-09-28
+section at the end for why 0.6) so the wind-up starts while the plate is
+still visibly shutting.
 
 **The gesture itself now lives in `DismissSlide.qml`**, shared with the control
 centre (see the section below) — one spring, because the exit has to pick up
@@ -440,8 +443,9 @@ the row's wind-up (`NotificationTheme.bump`, which the OSD and the control centr
 card inside an expanded group.
 
 **The dismissal is deferred to the end of the gesture, not played after it.**
-The list's model is `NotificationService.notificationGroups`, a plain JS array,
-so *any* change to it resets the view and recreates every delegate — a card
+The list's model was `NotificationService.notificationGroups`, a plain JS array
+(it is the incremental `groupModel` now — see "The panel's list is
+incremental"), so *any* change to it reset the view and recreated every delegate — a card
 mid-flight would be destroyed and replaced at rest. So every close path now
 runs the gesture first and dismisses from `finished`: the card's own close
 button stops calling `NotificationService.dismiss()` and emits
@@ -522,6 +526,12 @@ one delegate, peek layers included; in an expanded group only the new card
 slides, under a header and siblings that stay put — the mirror of the
 dismissal rules above, on the same two `DismissSlide` instances. Both cases
 checked on a burst, the expanded one by forcing `expandedGroups` for the app.
+
+*Superseded in part on 2026-09-20 ("The panel's list is incremental"): rows
+are kept now, the arrival is `DismissSlide.enter()`, and `arriving` is
+consumed by the row that plays it rather than cleared with `Qt.callLater`.
+What follows is how it first worked, kept for the `onCompleted` ordering
+trap.*
 
 **Which delegate plays it is a flag on the wrapper, `arriving`, set from
 `centerOpen` as the notification is prepended.** The list rebuilds every
@@ -705,6 +715,24 @@ fades the surface in as the first toast's own spring plays. The window only
 maps and unmaps at the ends of a burst, so it is one fade per stack rather
 than per toast.
 
+
+## Rejected
+
+- **Growing `MpdService` with mpc-shelled play/pause/art for the control
+  centre's player widget**: the wrong layer — the widget is a generic MPRIS
+  client (`MprisService`), not tied to MPD.
+- **A toast plate that keeps its right edge and opens left** (pass 1 of the
+  plate, 2026-09-14): the icon travelled the whole width in the direction of
+  the slide that brought it in, so there was no landing to see.
+- **Centring the plate vertically as well**: the text reads as sliding up
+  under a plate opening around it — two motions. Width only.
+- **Animating the list's slots open or shut** on an arrival or dismissal:
+  the rows jump, as on a dismissal; see those sections.
+- **`forceLayout()` on removal** to drop a destroyed delegate: the delegate
+  outlived even a deferred `destroy()`; liveness goes through `isLive()`.
+- **Dismissing after invoking a toast's action** (until 2026-09-28): the
+  action already closes a non-resident notification, and a resident one must
+  stay.
 
 ## Fixes from the 2026-09-28 review
 
