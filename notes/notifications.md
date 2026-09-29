@@ -589,8 +589,9 @@ access, so the list membership test comes before anything else.
 front of history when it isn't there already (a new array only when the order
 actually changes — a progress stream updating every second would otherwise
 rebuild every panel row every second), and under the same rule as a new
-notification (`!dnd && (!centerOpen || toastOnly)`) puts it back on the stack if it left and
-restarts its timer. Then it emits `updated`, which is what the toast
+notification (`!dnd && (!centerOpen || isTransient)`) puts it back on the stack if it left and
+restarts its timer — but it moves the stack to another output only when
+nothing is shown (see "A replacement doesn't move the toast stack" below). Then it emits `updated`, which is what the toast
 re-snapshots on. Not set: `arriving`. A bumped row already exists in the
 panel; a rebuild shows it at rest.
 
@@ -721,10 +722,10 @@ than per toast.
 
 - **Transients toast while the panel is open.** They were dropped: no toast
   (the panel was open) and no row (never in history), so a blueman or
-  nm-applet message was shown nowhere. The wrapper carries `toastOnly`
+  nm-applet message was shown nowhere. The wrapper carries `isTransient`
   (`transient` is a reserved word in QML — the first try took the whole
   service down on reload), and both the arrival and a replacement toast when
-  `!centerOpen || toastOnly`. The toast sits over the panel's top-right
+  `!centerOpen || isTransient`. The toast sits over the panel's top-right
   corner while it's up, which is the cost the old rule avoided; verified with
   `notify-send -e` over the open panel.
 - **A toast's timeout stops while it's hovered** (`holdPopup`), and restarts
@@ -772,7 +773,25 @@ than per toast.
   parked at `travel` past the clip with `enabled: false`, and `enter()` had
   returned early on the latched `active`. On `finished`, if the group gained
   items, the exit is `reset()` and the row arrives again with them.
-
+- **A replacement doesn't move the toast stack.** `bump()` set
+  `popupScreen` to the focused output on every replacement, so a progress
+  notification updating every second dragged the whole stack — toasts
+  mid-animation included, each move recreating the layer surface — to
+  whichever output had focus. Now a new notification sets `popupScreen` to
+  the focused output and a replacement keeps it, unless nothing is shown or
+  its output was unplugged; `showPopup(wrapper)` only adds the toast and
+  arms its timer. "Nothing shown" is `toastsShown`, which the toast window
+  writes from its display model: `popups` drops a toast as it starts sliding
+  out, so judged from `popups` a replacement landing mid-exit still dragged
+  the departing toast across (found by the full review of the first cut).
+  Verified with `notify-send -r`, non-transient (a timed-out transient is
+  closed for good, so `-r` on it is a new notification): a replacement from
+  DP-2 stayed on DP-1 with the stack up and with its last toast mid-exit,
+  and went to DP-2 once nothing was shown.
+- **A replacement doesn't restart a hovered toast's timer.** The wrapper's
+  `held`, set by `holdPopup` and cleared when it leaves the stack, makes
+  `armTimer` skip it, so a progress update no longer expires a toast under
+  the cursor.
 - **The MPRIS widget selects a player, not an index.** `MprisService` kept
   an index into `Mpris.players`; a player earlier in the list quitting
   shifted it, and the widget silently showed another player with a pop and

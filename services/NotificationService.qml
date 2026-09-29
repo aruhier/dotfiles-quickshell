@@ -141,9 +141,12 @@ Singleton {
     // shell.qml falls back to the main screen while null.
     property var centerScreen: null
 
-    // Same, for the toast stack, captured from the focused monitor as each
-    // notification arrives (see onNotification).
+    // Same, for the toast stack: the focused monitor for a new notification,
+    // kept for a replacement unless nothing is shown (see bump).
     property var popupScreen: null
+    // Written by the toast window: anything still drawn, a toast sliding
+    // out included, which `popups` no longer lists.
+    property bool toastsShown: false
 
     // Toast lifetimes in ms; critical's 0 means "no auto-dismiss".
     readonly property int timeoutLow: 5000
@@ -175,6 +178,7 @@ Singleton {
     // non-transient one just leaves the stack.
     function releasePopup(wrapper, expired) {
         wrapper.timer.stop();
+        wrapper.held = false;
         root.popups = root.popups.filter(w => w !== wrapper);
         if (root.notifications.indexOf(wrapper) !== -1 || !wrapper.notification)
             return;
@@ -189,10 +193,22 @@ Singleton {
     function holdPopup(wrapper, held) {
         if (!root.isLive(wrapper) || root.popups.indexOf(wrapper) === -1)
             return;
+        wrapper.held = held;
         if (held)
             wrapper.timer.stop();
-        else if (wrapper.timer.interval > 0)
+        else
+            root.armTimer(wrapper);
+    }
+
+    // (Re)starts a toast's timeout, unless the cursor is holding it: a
+    // replacement landing on a hovered toast mustn't expire it under it.
+    function armTimer(wrapper) {
+        if (wrapper.held)
+            return;
+        if (wrapper.timer.interval > 0)
             wrapper.timer.restart();
+        else
+            wrapper.timer.stop();
     }
 
     // No toasts while the panel is up: it already lists them, and the stack
@@ -285,17 +301,24 @@ Singleton {
         wrapper.time = new Date();
         root.raiseWrapper(wrapper);
 
-        if (!root.dnd && (!root.centerOpen || wrapper.toastOnly)) {
-            root.popupScreen = Screens.focused();
-            if (root.popups.indexOf(wrapper) === -1)
-                root.popups = [...root.popups, wrapper];
-            if (wrapper.timer.interval > 0)
-                wrapper.timer.restart();
-            else
-                wrapper.timer.stop();
+        if (!root.dnd && (!root.centerOpen || wrapper.isTransient)) {
+            // The stack stays put, or a progress stream would drag every
+            // toast between outputs — unless nothing is shown, or its output
+            // was unplugged (a deleted screen notifies nobody).
+            if (!root.toastsShown || Quickshell.screens.indexOf(root.popupScreen) === -1)
+                root.popupScreen = Screens.focused();
+            root.showPopup(wrapper);
         }
 
         wrapper.updated();
+    }
+
+    // Puts a toast up, or keeps it up with its timer restarted. Where the
+    // stack is, the caller decides.
+    function showPopup(wrapper) {
+        if (root.popups.indexOf(wrapper) === -1)
+            root.popups = [...root.popups, wrapper];
+        root.armTimer(wrapper);
     }
 
     // ---- notification wrapper ----
@@ -313,8 +336,12 @@ Singleton {
         readonly property string groupKey: notification ? (notification.desktopEntry || notification.appName) : ""
         readonly property string image: notification ? notification.image : ""
         readonly property int urgency: notification ? notification.urgency : NotificationUrgency.Normal
-        // Toast only, never in history (set on arrival; see onNotification).
-        property bool toastOnly: false
+        // Never kept in history, so only ever a toast: the app's `transient`
+        // hint or isForcedTransient() (set on arrival; see onNotification).
+        // Not `transient`, which QML reserves.
+        property bool isTransient: false
+        // Under the cursor: its timeout is stopped (see holdPopup).
+        property bool held: false
         readonly property bool resident: notification ? notification.resident : false
         // Reset by bump(): a replaced notification is as new as its update.
         property date time: new Date()
@@ -459,7 +486,7 @@ Singleton {
                 return;
 
             const transient = notif.transient || root.isForcedTransient(wrapper.appName);
-            wrapper.toastOnly = transient;
+            wrapper.isTransient = transient;
 
             if (!transient) {
                 wrapper.arriving = root.centerOpen;
@@ -472,10 +499,9 @@ Singleton {
             // default): it was toasted the first time, and it lands here with
             // `centerOpen` false because the singleton is fresh.
             if (!root.dnd && (!root.centerOpen || transient) && !notif.lastGeneration) {
+                // A new one goes where the user is looking.
                 root.popupScreen = Screens.focused();
-                root.popups = [...root.popups, wrapper];
-                if (wrapper.timer.interval > 0)
-                    wrapper.timer.start();
+                root.showPopup(wrapper);
             } else if (transient) {
                 // Suppressed popup, no history, no timer to clean up: dismiss
                 // now and let Retainable drop it.

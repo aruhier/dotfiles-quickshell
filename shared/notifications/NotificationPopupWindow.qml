@@ -58,6 +58,14 @@ PanelWindow {
     // outlives the last card's exit spring.
     visible: displayPopupsModel.count > 0
 
+    // What the service decides a replacement's output by: closing toasts
+    // count, and only this window knows about them.
+    Binding {
+        target: NotificationService
+        property: "toastsShown"
+        value: displayPopupsModel.count > 0
+    }
+
     // The surface is wider than the stack on both sides, and a toast is
     // clickable — without this the slack either side would swallow clicks
     // meant for whatever is under it, the screen's own right edge included.
