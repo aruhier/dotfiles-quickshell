@@ -30,7 +30,7 @@ BarModule {
         "notification": Theme.urgent,
         "none": root.textColor,
         "dnd-notification": Theme.urgent,
-        "dnd-none": "#9c9ca4"
+        "dnd-none": Theme.text
     })
 
     contentWidth: label.implicitWidth

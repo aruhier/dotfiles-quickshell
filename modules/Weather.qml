@@ -122,7 +122,6 @@ BarModule {
                         }
                         StyledText {
                             text: root.current ? WeatherIcons.descriptionFor(root.current.code) : ""
-                            font.pixelSize: 12
                             color: Theme.text
                         }
                     }
@@ -137,13 +136,11 @@ BarModule {
                         StyledText {
                             Layout.alignment: Qt.AlignRight
                             text: root.current ? "Feels " + root.displayTemp(root.current.feelsC) : ""
-                            font.pixelSize: 12
                             color: Theme.text
                         }
                         StyledText {
                             Layout.alignment: Qt.AlignRight
                             text: root.daily.length ? root.displayTemp(root.daily[0].maxC) + " / " + root.displayTemp(root.daily[0].minC) : ""
-                            font.pixelSize: 12
                             color: Theme.text
                         }
                         StyledText {
@@ -160,7 +157,6 @@ BarModule {
                     Layout.fillWidth: true
                     visible: root.current === null
                     text: root.loading ? "Fetching weather…" : "Weather unavailable — click to retry"
-                    font.pixelSize: 12
                     color: Theme.text
                     horizontalAlignment: Text.AlignHCenter
                 }
@@ -240,7 +236,6 @@ BarModule {
                             StyledText {
                                 Layout.preferredWidth: 56
                                 text: root.dayLabel(dayRow.modelData.date, dayRow.index)
-                                font.pixelSize: 12
                                 color: Theme.text
                             }
                             Icon {
@@ -262,12 +257,10 @@ BarModule {
                             }
                             StyledText {
                                 text: root.displayTemp(dayRow.modelData.minC)
-                                font.pixelSize: 12
                                 color: Theme.text
                             }
                             StyledText {
                                 text: root.displayTemp(dayRow.modelData.maxC)
-                                font.pixelSize: 12
                                 bold: true
                                 color: Theme.textBright
                             }

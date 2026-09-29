@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import qs.shared.popup
 
 // Hover area driving a lazily-loaded HoverPopup: activates `loader` after a
 // dwell, mirrors its hover into the loaded item's `anchorHovered`, and tears
@@ -15,9 +16,7 @@ MouseArea {
 
     required property var loader
 
-    // Dwell before opening, so a cursor crossing the bar neither flashes
-    // popups open nor pays to build them.
-    property int showDelay: 500
+    property int showDelay: PopupCoordinator.hoverDwell
 
     // False when there's nothing to show (an empty workspace), so hover never
     // builds a popup that would only stay invisible.

@@ -93,14 +93,14 @@ shared/popup/         everything to do with anchored hover popups: the
                          close, PopupCoordinator registration) — Clock's
                          calendar and Weather's forecast are built on this
   Tooltip.qml            reusable hover tooltip; declarative `show` gated by
-                         a `showDelay` dwell (500ms), no close grace period
+                         a `showDelay` dwell (`hoverDwell`), no close grace period
                          (see its header comment for why it's not built on
                          HoverPopup.qml despite sharing AnchoredPopupWindow)
   AnchoredPopupWindow.qml base PopupWindow type owning just the
                          anchor-below-module positioning math, shared by
                          HoverPopup.qml and Tooltip.qml
   HoverPopupArea.qml     hover MouseArea that opens a LazyLoader-backed
-                         HoverPopup after a `showDelay` dwell (500ms);
+                         HoverPopup after a `showDelay` dwell (`hoverDwell`);
                          shared by Clock.qml/Weather.qml/Workspaces.qml.
                          `popupEnabled: false` skips the open entirely;
                          `cancel()` drops a pending/open popup on a click
@@ -108,10 +108,12 @@ shared/popup/         everything to do with anchored hover popups: the
                          of one Hyprland workspace, one ScreencopyView per
                          window at its real position — see
                          `notes/workspaces.md` for what makes this work
-  PopupCoordinator.qml   pragma-Singleton — only one hover popup open at a
-                         time process-wide; also holds `trayMenuOwner`, the
-                         tray icon whose menu is open, which Bar.qml's
-                         auto-hide peek and Tray's tooltip read
+  PopupCoordinator.qml   pragma-Singleton hover policy — only one hover
+                         popup open at a time process-wide; `hoverDwell`,
+                         the one open delay for popups and tooltips; also
+                         holds `trayMenuOwner`, the tray icon whose menu is
+                         open, which Bar.qml's auto-hide peek and Tray's
+                         tooltip read
 shared/osd/OsdWindow.qml the on-screen display: one shared bottom-centre
                       pill for volume/backlight/lock keys, driven by the `osd`
                       IPC handler in Ipc.qml. Replaces swayosd — see
@@ -173,6 +175,9 @@ shared/animations/WorkspaceFrameSpring.qml same, with its own faster constants
                       for Workspaces.qml
 shared/animations/PressSpring.qml   the press-scale bump on clickable icons
 shared/animations/SpringGroup.qml   one shared clock for coupled springs
+shared/animations/Ramp.qml          pragma-Singleton `ramp()`/`clamp01()`: the
+                      0..1 stage every staged animation reads (OSD pill,
+                      toast plate)
 ```
 
 ## Per-screen module layout

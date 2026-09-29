@@ -89,10 +89,8 @@ QtObject {
     readonly property int popupMinWidth: 380
     readonly property int popupMaxWidth: 500
 
-    // Fixed, not derived from fontSize: this widget's sizing already reads
-    // right and shouldn't drift when fontSize changes.
-    readonly property int mprisTitleFontSize: 18
-    readonly property int mprisArtistFontSize: 15
+    // The now-playing widget's transport glyphs, read by the widget and its
+    // pages. Fixed, not derived from fontSize, like the pages' text sizes.
     readonly property int mprisControlIconSize: 26
 
 }

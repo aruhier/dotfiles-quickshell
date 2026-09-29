@@ -82,7 +82,7 @@ Item {
     // 0..1 across that. Clamped, because the spring deliberately overshoots
     // both ends — a height that followed it there would open into the toast
     // below, and a reveal would flicker at full.
-    readonly property real opened: Theme.ramp(openWidth, collapsedWidth, width)
+    readonly property real opened: Ramp.ramp(openWidth, collapsedWidth, width)
 
     // The plate around the icon alone: its left inset mirrored on the right,
     // and `padding` above and below.
@@ -118,7 +118,7 @@ Item {
     // The reveal is a hard clip edge, so text caught under it is cut mid-glyph
     // and wipes in letter by letter; this keeps it near-transparent until
     // there is almost nothing left to cut.
-    readonly property real detailOpacity: Theme.ramp(opened, 0.72, 1)
+    readonly property real detailOpacity: Ramp.ramp(opened, 0.72, 1)
 
     // Width needed to show header, body and actions unwrapped, read by
     // NotificationPopupWindow.qml to grow the stack (clamped to popupMaxWidth

@@ -16,7 +16,7 @@ Item {
     property real contentWidth: 0
 
     // 6px each side.
-    property real padding: 12
+    readonly property real padding: 12
 
     // What to draw text in: the group's colour, handed down by ModuleLoader,
     // so a module reads against whichever pill it's placed in. A module that

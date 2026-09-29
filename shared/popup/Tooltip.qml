@@ -15,9 +15,8 @@ AnchoredPopupWindow {
     property int maxWidth: 480
     property int padding: 10
 
-    // Dwell before showing, so a cursor crossing the bar doesn't flash
-    // tooltips open. `show` is the request, `_dwelled` the timer's answer.
-    property int showDelay: 500
+    // `show` is the request, `_dwelled` the dwell timer's answer.
+    property int showDelay: PopupCoordinator.hoverDwell
 
     property bool _dwelled: false
 

@@ -102,7 +102,6 @@ Item {
                 StyledText {
                     Layout.fillWidth: true
                     text: "Currently capturing"
-                    font.pixelSize: 12
                     bold: true
                     color: Theme.textBright
                 }
@@ -133,7 +132,6 @@ Item {
                         StyledText {
                             Layout.fillWidth: true
                             text: appRow.modelData.name
-                            font.pixelSize: 12
                             color: Theme.textBright
                             elide: Text.ElideRight
                         }

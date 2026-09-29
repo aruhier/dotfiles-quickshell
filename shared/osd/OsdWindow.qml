@@ -89,10 +89,9 @@ PanelWindow {
 
     // Geometry of the pill. Colours come from NotificationTheme.qml: the OSD is
     // the same kind of floating surface as a toast rather than a bar pill.
-    // pillRadius is half pillHeight, i.e. a stadium; keep them in step.
     readonly property int pillWidth: 420
     readonly property int pillHeight: 66
-    readonly property int pillRadius: 33
+    readonly property int pillRadius: pillHeight / 2
     readonly property int pillPadding: 21
     readonly property int trackHeight: 9
     readonly property int iconSize: 29
@@ -128,7 +127,7 @@ PanelWindow {
 
     // How far along the expansion the pill is, 0..1. Drives the reveal of
     // everything past the glyph.
-    readonly property real opened: Theme.ramp(expand.value, osd.collapsedWidth, osd.openWidth)
+    readonly property real opened: Ramp.ramp(expand.value, osd.collapsedWidth, osd.openWidth)
 
     anchors.bottom: true
     // The gap above is room inside the surface, not a layer-shell margin:
@@ -309,7 +308,7 @@ PanelWindow {
             anchors.verticalCenter: parent.verticalCenter
             height: parent.height
 
-            opacity: Theme.ramp(osd.opened, 0.45, 0.80)
+            opacity: Ramp.ramp(osd.opened, 0.45, 0.80)
             visible: opacity > 0
 
             // Level layout: track, then percentage.
@@ -355,7 +354,7 @@ PanelWindow {
                     Rectangle {
                         // Never narrower than one cap: a 0% fill collapsed to
                         // nothing reads as a broken track rather than an empty one.
-                        width: Math.max(parent.height, parent.width * Theme.clamp01(osd.value))
+                        width: Math.max(parent.height, parent.width * Ramp.clamp01(osd.value))
                         height: parent.height
                         radius: parent.radius
                         // A muted sink still has a level, but it isn't audible —

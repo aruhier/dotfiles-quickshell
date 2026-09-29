@@ -203,7 +203,6 @@ BarModule {
                             StyledText {
                                 anchors.centerIn: parent
                                 text: dayCell.modelData.day
-                                font.pixelSize: 12
                                 color: dayCell.modelData.isToday ? Theme.accentText : (dayCell.modelData.inMonth ? Theme.textBright : Theme.text)
                                 opacity: dayCell.modelData.inMonth ? 1.0 : 0.35
                             }

@@ -19,6 +19,10 @@ RowLayout {
 
     // Album art, sized to carry the widget rather than sit beside the text.
     readonly property int imageSize: 80
+    // Fixed, not derived from fontSize: this widget's sizing already reads
+    // right and shouldn't drift when fontSize changes.
+    readonly property int titleFontSize: 18
+    readonly property int artistFontSize: 15
 
     spacing: 14
 
@@ -45,7 +49,7 @@ RowLayout {
             Layout.fillWidth: true
             text: root.player ? root.player.trackTitle : ""
             color: NotificationTheme.text
-            font.pixelSize: NotificationTheme.mprisTitleFontSize
+            font.pixelSize: root.titleFontSize
             bold: true
             elide: Text.ElideRight
         }
@@ -54,7 +58,7 @@ RowLayout {
             Layout.fillWidth: true
             text: root.player ? root.player.trackArtist : ""
             color: NotificationTheme.text
-            font.pixelSize: NotificationTheme.mprisArtistFontSize
+            font.pixelSize: root.artistFontSize
             elide: Text.ElideRight
         }
 
