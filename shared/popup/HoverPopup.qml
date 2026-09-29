@@ -51,6 +51,11 @@ AnchoredPopupWindow {
         popup.dismissed();
     }
 
+    // Torn down without close(): a previewed workspace destroyed with its
+    // last window. A dead `var` owner reads null but never notifies, so the
+    // bar would hold its peek, never auto-hiding, until the next popup.
+    Component.onDestruction: PopupCoordinator.deactivate(popup)
+
     // Grace for the cursor to cross the gap between module and popup (or
     // back) without the popup closing under it.
     Timer {
