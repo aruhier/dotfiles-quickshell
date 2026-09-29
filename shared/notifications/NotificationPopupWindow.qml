@@ -93,9 +93,10 @@ PanelWindow {
 
     // The stack, the gap it keeps from the screen edge — which is also what the
     // opening plate springs past its full width into — and slack on the far
-    // side for the slide to overshoot into. See `overshoot`.
-    implicitWidth: Screens.snap(popupWindow.overshoot + stackWidth + edgeGap, popupWindow.screen)
-    implicitHeight: column.implicitHeight
+    // side for the slide to overshoot into. See `overshoot`. The surface
+    // rounding lands in that slack and below the stack, both empty.
+    implicitWidth: Screens.snapSurface(popupWindow.overshoot + stackWidth + edgeGap, popupWindow.screen)
+    implicitHeight: Screens.snapSurface(column.implicitHeight, popupWindow.screen)
 
     // One entry per popup on screen: a superset of NotificationService.popups
     // that keeps a dismissed entry (closing: true) for the length of its exit

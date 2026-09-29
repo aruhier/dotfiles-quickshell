@@ -91,7 +91,10 @@ PanelWindow {
     // the same kind of floating surface as a toast rather than a bar pill.
     readonly property int pillWidth: 420
     readonly property int pillHeight: 66
-    readonly property int pillRadius: pillHeight / 2
+    // On the device pixel grid, or its top and bottom borders can't both be
+    // (66 is 82.5 device px at 1.25).
+    readonly property real snappedPillHeight: Screens.snap(pillHeight, targetScreen)
+    readonly property real pillRadius: snappedPillHeight / 2
     readonly property int pillPadding: 21
     readonly property int trackHeight: 9
     readonly property int iconSize: 29
@@ -116,7 +119,7 @@ PanelWindow {
     // snapped for the same reason as the toast stack's margins — an off-grid
     // offset puts every glyph below it on a fraction of a device pixel. See
     // notes/text.md.
-    readonly property real travel: Screens.snap((osd.targetScreen ? osd.targetScreen.height : 1080) * osd.bottomEdgeFraction, osd.targetScreen) + osd.pillHeight
+    readonly property real travel: Screens.snap((osd.targetScreen ? osd.targetScreen.height : 1080) * osd.bottomEdgeFraction, osd.targetScreen) + osd.snappedPillHeight
 
     // The two widths the pill springs between. Collapsed is the glyph and its
     // padding and nothing else, so the glyph sits dead centre of it whatever
@@ -150,11 +153,11 @@ PanelWindow {
     // the left edge — and with it every glyph — lands on the device pixel grid.
     // Wider than the widest pill by `overshoot`, which is the room the
     // expansion spring needs to overshoot into: a window clips its contents.
-    implicitWidth: Screens.snap(osd.pillWidth + osd.overshoot, osd.targetScreen)
+    implicitWidth: Screens.snapSurface(osd.pillWidth + osd.overshoot, osd.targetScreen)
     // Same slack again above the pill's resting place, for the rise to bump
     // into. `travel` stays the distance the pill covers, not the surface's
     // height, so nothing else here has to know about the extra room.
-    implicitHeight: osd.travel + osd.overshoot
+    implicitHeight: Screens.snapSurface(osd.travel + osd.overshoot, osd.targetScreen)
 
     // Stays mapped until the exit spring has settled, then unmaps entirely so
     // nothing is left on the overlay layer between keypresses.
@@ -257,10 +260,11 @@ PanelWindow {
         // rest, whatever width the kind settled on.
         width: expand.value
         x: Screens.snap((parent.width - width) / 2, osd.targetScreen)
-        height: osd.pillHeight
-        // `slide` is the offset below the resting place, so the resting place
-        // itself is the slack the bump needs above it.
-        y: osd.overshoot + slide.value
+        height: osd.snappedPillHeight
+        // `slide` is the offset below the resting place, which is `travel` up
+        // from the bottom: the surface rounding then adds to the bump's slack
+        // above it, not to the gap below.
+        y: osd.implicitHeight - osd.travel + slide.value
 
         Rectangle {
             anchors.fill: parent

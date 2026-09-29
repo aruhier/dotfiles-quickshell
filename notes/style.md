@@ -118,7 +118,13 @@
   up, and `HoverPopup` keeps its content at the wanted size, so the slack is
   bottom/right padding rather than a stretched layout. Rounding down instead
   clips the border. The scale comes off the anchor's bar window
-  (`notes/quickshell-quirks.md`).
+  (`notes/quickshell-quirks.md`). The toast stack and the OSD size their
+  surfaces the same way: the toast was 434 wide (542.5 device px) and its
+  left border split across two columns. A bordered item's own size needs
+  `snap()` too, or its two edges can't both be on the grid: the OSD pill's
+  66px is 82.5 device px, so one of its top and bottom borders always split.
+  The bar is the exception, on purpose: 25px is 31.25 device px, which only
+  leaves a faint quarter-lit row under its 3px stripe (see `## Rejected`).
 
 - **`StyledText` asks for `Font.PreferVerticalHinting`; don't "upgrade" it to
   full.** Qt Quick's native text path loads glyphs *unhinted* unless an item
@@ -195,3 +201,11 @@
   on the grid, but the bottom stayed faint: the surface itself was 472.5
   device px, and a resampled buffer has no whole last row to snap to. The
   surface size has to be on the grid, hence `snapSurface()`.
+
+- **Snapping the bar's surface** (2026-09-29). Rounding it up like the
+  popups (28 at 1.25) would need an explicit exclusive zone so windows don't
+  move, an input mask so the transparent strip passes clicks, and autohide
+  kept on the designed height. At a scale like 13/12 the strip would reach
+  11px down over windows. All of that to remove a faint quarter-lit row
+  under a 3px stripe; the user judged it a hack. Changing the design height
+  to a multiple of 4 was rejected too: it only fits some scales.

@@ -311,6 +311,7 @@ PanelWindow {
     // the exclusive zone, so this is 1px of reserved gap under the border
     // stripe (windows tile at 26 + gaps_out, the surface is 25 tall).
     margins.bottom: 1
+    // Not through Screens.snapSurface(), on purpose: see notes/style.md.
     implicitHeight: Theme.barHeight + Theme.barBorderHeight
     exclusionMode: barWindow.reservesSpace ? ExclusionMode.Auto : ExclusionMode.Ignore
     // The surface stays mapped while hidden, so its paint is `content`'s.
