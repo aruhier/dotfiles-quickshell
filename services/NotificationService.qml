@@ -171,6 +171,21 @@ Singleton {
         root.centerOpen = false;
     }
 
+    // An unplugged output's ShellScreen stays truthy but dangling, so the
+    // `|| mainScreen` fallbacks in shell.qml would never fire, and an open
+    // centre left there would swallow every toast until toggled.
+    Connections {
+        target: Quickshell
+        function onScreensChanged(): void {
+            if (root.centerScreen && Quickshell.screens.indexOf(root.centerScreen) === -1) {
+                root.centerOpen = false;
+                root.centerScreen = null;
+            }
+            if (root.popupScreen && Quickshell.screens.indexOf(root.popupScreen) === -1)
+                root.popupScreen = null;
+        }
+    }
+
     // Takes a toast off the stack, on timeout, because the panel opened, or
     // after a resident one's action. A transient notification isn't in
     // history, so nothing would reference it after this — close it for real

@@ -1,6 +1,7 @@
 pragma Singleton
 pragma ComponentBehavior: Bound
 import QtQuick
+import Quickshell
 import qs.shared
 
 // What the on-screen display is showing, and on which output. One shared
@@ -34,6 +35,16 @@ QtObject {
         root.messageText = text;
         root.messageOn = on;
         root.show("message", screen);
+    }
+
+    // Same as NotificationService: an unplugged output's screen dangles
+    // rather than going null, so shell.qml's fallback needs it cleared.
+    property Connections screens: Connections {
+        target: Quickshell
+        function onScreensChanged(): void {
+            if (root.screen && Quickshell.screens.indexOf(root.screen) === -1)
+                root.screen = null;
+        }
     }
 
     property Timer hideTimer: Timer {
