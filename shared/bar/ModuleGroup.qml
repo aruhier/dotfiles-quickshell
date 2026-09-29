@@ -1,6 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
-import qs.shared
+import qs.shared.bar
 import qs.shared.animations
 import qs.themes
 

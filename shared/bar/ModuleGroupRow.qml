@@ -1,6 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
-import qs.shared
+import qs.shared.bar
 
 // The module groups against one screen edge: one ModuleGroup per entry of
 // `groups`, laid out from the screen edge inward and overlapping by a cap

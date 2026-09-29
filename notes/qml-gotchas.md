@@ -51,7 +51,7 @@ workaround are in `notes/quickshell-quirks.md` instead.
   to an unrelated ancestor's `modelData` instead (in this repo: the bar's
   own screen, from shell.qml's `Variants`), rather than the Repeater's own
   item. No warning — just wrong data, and `console.warn`-style guards see
-  the wrong value passed in. Hit in `shared/ModuleLoader.qml` (needs
+  the wrong value passed in. Hit in `shared/bar/ModuleLoader.qml` (needs
   `required property var resolveComponent` for the injected callback):
   fixed by also declaring the model value itself as `required property
   string modelData` (Qt's documented mechanism for exposing a plain-array

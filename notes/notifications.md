@@ -7,9 +7,10 @@ for the badge, `-t/-d -sw` to toggle swaync's own GTK panel) — the actual
 DBus `org.freedesktop.Notifications` daemon, popup toasts, and
 control-center panel were swaync's separate GTK process. All of that now
 lives natively in this shell: `services/NotificationService.qml` (the
-daemon + all state) plus `shared/notifications/` (the popup stack and
-control-center panel windows, and the shared `NotificationCard.qml` view
-both render notifications with). `modules/Notifications.qml` (was
+daemon + all state) plus `shared/notifications/` (the popup stack window
+and the cards both surfaces render notifications with) and
+`shared/notificationpanel/` (the control-center panel window, its slide and
+its MPRIS widget). `modules/Notifications.qml` (was
 `SwayNC.qml`) is still just the thin bar-indicator view, same shape as
 before, now reading the new singleton instead of shelling out.
 
@@ -40,7 +41,8 @@ process can own the DBus name. Two things had to happen, not one:
 
 **Architecture mirrors this repo's usual split**: `NotificationService.qml`
 (pragma-Singleton) owns the `NotificationServer` and every list/timer;
-`shared/notifications/*` are thin views reading it. Deliberately simpler
+`shared/notifications/*` and `shared/notificationpanel/*` are thin views
+reading it. Deliberately simpler
 than swaync itself, and simpler than DankMaterialShell's much heavier
 notification service (read for API-usage reference only, per the existing
 lesson in `notes/conventions.md` about not blindly copying DMS's reasoning):

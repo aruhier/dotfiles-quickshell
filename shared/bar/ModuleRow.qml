@@ -1,7 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
-import qs.shared
+import qs.shared.bar
 import qs.themes
 
 // A row of named bar modules: one ModuleLoader per entry of `model`, plus

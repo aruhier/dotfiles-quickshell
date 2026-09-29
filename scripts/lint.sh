@@ -98,14 +98,14 @@ SUPPRESSED = [
      "became the typed toplevel list rather than a filtered var"),
 
     # --- deliberate duck-typing in this shell -------------------------------
-    ("shared/ModuleLoader.qml", "missing-property",
+    ("shared/bar/ModuleLoader.qml", "missing-property",
      'Member "contentVisible" not found on type "QObject"',
      "Loader.item is statically QObject and this Loader is deliberately "
      "heterogeneous: BarModule and Privacy declare contentVisible, Workspaces "
      "does not, hence the `=== undefined` probe. Typing it would mean forcing "
      "every placeable module onto one base class, which Workspaces (a Rectangle "
      "owning its own SpringGroup) should not be"),
-    ("shared/ModuleLoader.qml", "missing-property",
+    ("shared/bar/ModuleLoader.qml", "missing-property",
      'Member "textColor" not found on type "QObject"',
      "same probe: the group's text colour is handed only to modules that "
      "declare it (BarModule); Workspaces and Privacy colour themselves"),

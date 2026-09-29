@@ -17,6 +17,7 @@ import qs
 import qs.modules
 import qs.services
 import qs.shared
+import qs.shared.notificationpanel
 import qs.shared.notifications
 import qs.shared.osd
 import qs.themes

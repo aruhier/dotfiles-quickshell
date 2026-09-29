@@ -5,6 +5,7 @@ import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.services
 import qs.shared
+import qs.shared.bar
 import qs.shared.animations
 import qs.shared.popup
 import qs.modules

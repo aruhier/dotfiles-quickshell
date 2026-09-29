@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Wayland
 import qs.shared
 import qs.services
+import qs.shared.notificationpanel
 import qs.shared.notifications
 import qs.themes
 

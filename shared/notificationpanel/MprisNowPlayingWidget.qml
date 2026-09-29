@@ -4,7 +4,7 @@ import QtQuick.Layouts
 import qs.services
 import qs.shared
 import qs.shared.animations
-import qs.shared.notifications
+import qs.shared.notificationpanel
 import qs.themes
 
 // The control centre's now-playing widget: any MPRIS player, not a specific

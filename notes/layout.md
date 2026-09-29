@@ -62,7 +62,8 @@ shared/Icon.qml       StyledText sized off Theme.iconSize with a `sizeRatio`
 shared/PressableIcon.qml the clickable glyph inside a popup or panel:
                       press-shrink, accent on hover, `interactive` gate
                       (`notes/style.md`); bar modules don't use it
-shared/Screens.qml    pragma-Singleton compositor seam: `byName()`,
+shared/Screens.qml    pragma-Singleton compositor seam, stateless and with
+                      no I/O, so shared/ rather than services/: `byName()`,
                       `focused()`, `scaleFor()` (Hyprland's real fractional
                       scale) and `snap()`/`snapTextInset()` onto the device
                       pixel grid. A port to another compositor rewrites
@@ -74,13 +75,20 @@ shared/NotchWheelArea.qml MouseArea emitting whole wheel notches
 shared/EdgeRelease.qml per-bar sync to the Hyprland config's
                       `quickshell.bar_autohide`, which drops gaps over a
                       lone tiled window while the bar is hidden
-                      (notes/autohide.md)
+                      (notes/autohide.md). The one per-bar type that does
+                      I/O (`hyprctl eval`): one instance per Bar, so not a
+                      services/ singleton, and not a placeable module
 shared/DropShadow.qml the one drop shadow every plate casts (toast, list
                       card, control centre; the OSD pill tried it and went
                       without, see notes/osd.md). Its `source` must be a bare
                       plate — never text — and a plate over the desktop is
                       hidden so the effect paints it once
-shared/popup/         everything to do with anchored hover popups:
+shared/popup/         everything to do with anchored hover popups: the
+                      machinery, plus a module popup big enough to earn
+                      its own file (the workspace preview). Other module
+                      popups stay inline in their module (Clock's
+                      calendar, Weather's forecast): they read the
+                      module's own state
   HoverPopup.qml         base type for a hover-triggered popup (grace-period
                          close, PopupCoordinator registration) — Clock's
                          calendar and Weather's forecast are built on this
@@ -108,9 +116,10 @@ shared/osd/OsdWindow.qml the on-screen display: one shared bottom-centre
                       pill for volume/backlight/lock keys, driven by the `osd`
                       IPC handler in Ipc.qml. Replaces swayosd — see
                       `notes/osd.md`
-shared/notifications/ the notification daemon's UI — see
-                      `notes/notifications.md` for why this is a separate
-                      subsystem from shared/popup/ rather than built on it
+shared/notifications/ the notification daemon's UI, shared by the toasts
+                      and the panel — see `notes/notifications.md` for why
+                      this is a separate subsystem from shared/popup/
+                      rather than built on it
   NotificationCard.qml   one notification's visual; reused by both the
                          popup stack and the control-center list
   NotificationGroupCard.qml one control-centre row: an app's notifications,
@@ -119,6 +128,9 @@ shared/notifications/ the notification daemon's UI — see
   CloseButton.qml        the round close glyph on cards and group rows
   NotificationPopupWindow.qml top-right floating toast stack (PanelWindow,
                          not the module-anchored popup/ machinery)
+  DismissSlide.qml       the exit gesture a toast and a control-centre row
+                         leave by: wind-up, then slide off the right edge
+shared/notificationpanel/ the control-center panel and what only it shows
   NotificationCenterPanel.qml click-triggered control-center panel
                          (PanelWindow), pinned open via
                          NotificationService.centerOpen
@@ -126,28 +138,31 @@ shared/notifications/ the notification daemon's UI — see
                          spring, two latches, bump on arrival and wind-up
                          on exit — see `notes/panels.md` for why it is not
                          DismissSlide.qml
-  DismissSlide.qml       the exit gesture a toast and a control-centre row
-                         leave by: wind-up, then slide off the right edge
   MprisNowPlayingWidget.qml the control centre's now-playing widget: paging,
                          the slide/pop gestures and the pager dots;
                          MprisNowPlayingContent.qml is one page of it
-shared/ModuleGroupRow.qml the strip of module groups against one screen
-                      edge: a Row of ModuleGroups laid out from the edge
-                      inward, overlapping by a cap radius; used twice from
-                      Bar.qml with edge: Qt.LeftEdge/Qt.RightEdge
-shared/ModuleGroup.qml one pill-shaped module group in that strip: rounded
-                      on the center-facing end, square on the other (flush
-                      against the screen, or tucked under the previous
-                      group's cap); takes one layout entry (`spec`) and is
-                      the only reader of its shape; hidden when empty
-shared/ModuleRow.qml  a RowLayout of ModuleLoaders for a list of module
-                      names, with `hasContent` (any module showing) and the
-                      `keepShown`/`textColor` pass-through; ModuleGroup's
-                      content, and the bar's floating center on its own
-shared/ModuleLoader.qml Repeater delegate for one named module: resolves a
-                      module name to a Component, applies the
-                      `contentVisible` Loader-visibility workaround, and
-                      hands the group's `textColor` to a module declaring it
+shared/bar/           the bar's layout machinery, used only by Bar.qml
+                      (BarModule stays at the root: every module uses it)
+  ModuleGroupRow.qml     the strip of module groups against one screen
+                         edge: a Row of ModuleGroups laid out from the edge
+                         inward, overlapping by a cap radius; used twice
+                         from Bar.qml with edge: Qt.LeftEdge/Qt.RightEdge
+  ModuleGroup.qml        one pill-shaped module group in that strip:
+                         rounded on the center-facing end, square on the
+                         other (flush against the screen, or tucked under
+                         the previous group's cap); takes one layout entry
+                         (`spec`) and is the only reader of its shape;
+                         hidden when empty
+  ModuleRow.qml          a RowLayout of ModuleLoaders for a list of module
+                         names, with `hasContent` (any module showing) and
+                         the `keepShown`/`textColor` pass-through;
+                         ModuleGroup's content, and the bar's floating
+                         center on its own
+  ModuleLoader.qml       Repeater delegate for one named module: resolves
+                         a module name to a Component, applies the
+                         `contentVisible` Loader-visibility workaround, and
+                         hands the group's `textColor` to a module
+                         declaring it
 shared/WeatherIcons.js glyph/description lookup table for weather codes
 shared/animations/FrameSpring.qml   FrameAnimation-driven spring (real
                       per-frame timing, not Behavior/SpringAnimation's
