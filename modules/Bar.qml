@@ -38,9 +38,10 @@ PanelWindow {
     // Exactly one tiled window here. A tab group counts once, by its first
     // member: inactive tabs aren't `hidden`. A window whose state isn't fetched
     // yet isn't counted: a floating dialog would otherwise bring the bar back
-    // until shell.qml's refresh lands.
+    // until shell.qml's refresh lands. The workspace check is Workspaces.qml's
+    // guard: a moved window can linger in its old workspace's list.
     function singleTiledOn(ws) {
-        return ws !== null && ws.toplevels.values.filter(t => barWindow.countsAsTile(t.lastIpcObject)).length === 1;
+        return ws !== null && ws.toplevels.values.filter(t => t.workspace === ws && barWindow.countsAsTile(t.lastIpcObject)).length === 1;
     }
     function countsAsTile(ipc) {
         return ipc.floating === false && !ipc.hidden && (!ipc.grouped?.length || ipc.grouped[0] === ipc.address);

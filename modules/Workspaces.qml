@@ -76,7 +76,8 @@ Rectangle {
                 // Not lastIpcObject.windows — a snapshot that goes stale. The
                 // workspace check: Quickshell's refreshToplevels() adds a moved
                 // window to its new workspace's list without taking it off the
-                // old one's (only movewindowv2 does), e.g. a pinned window.
+                // old one's (only movewindowv2 does), so a refresh landing
+                // before a move's event leaves the window in both lists.
                 readonly property int windows: wsDelegate.modelData.toplevels ? wsDelegate.modelData.toplevels.values.filter(t => t.workspace === wsDelegate.modelData).length : 0
                 // modelData.active is true once per monitor, so qualify it.
                 readonly property bool activeOnThisScreen: wsDelegate.modelData.active && wsDelegate.modelData.monitor !== null && wsDelegate.modelData.monitor.name === root.screenName

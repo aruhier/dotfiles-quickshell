@@ -31,6 +31,7 @@ and say *why* (see `notes/conventions.md`).
 | `notes/conventions.md` | Comment style, `BarModule`/`StyledText`/`Icon`, `pragma ComponentBehavior: Bound`, `scripts/lint.sh`, ideas considered and rejected |
 | `notes/style.md` | Visual rules beyond Theme.qml: bar geometry, group/pill construction, spacing, easing on width changes |
 | `notes/qml-gotchas.md` | QML and Quickshell traps already hit here — binding cascades, Loader visibility, anchoring re-fire |
+| `notes/quickshell-quirks.md` | Upstream Quickshell bugs and the local workaround for each, to remove when fixed; walk it on every Quickshell upgrade |
 | `notes/limitations.md` | Per-module known limitations, and which are deliberate |
 
 ## Read when touching a subject
