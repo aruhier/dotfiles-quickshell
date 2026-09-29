@@ -2,16 +2,10 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Effects
 
-// The drop shadow every placed plate carries — a toast, a control-centre
-// card, the control centre itself — so they all cast the same one. A shadow
-// is elevation, not material: the OSD pill shares the toasts' glass and
-// deliberately casts none (notes/osd.md). `source` is the plate and nothing
-// else: the effect renders its source
-// into a texture, and text inside one resamples at fractional scale
-// (notes/text.md). Nor is the source excluded from ordinary painting: a
-// translucent plate left visible is drawn twice and its alphas compound
-// (notes/notifications.md), so a plate over the desktop is hidden and the
-// effect is the one thing that paints it.
+// The one drop shadow every placed plate casts (the OSD pill casts none,
+// notes/osd.md). `source` is a bare plate, never text: it is rendered into a
+// texture, which blurs text at fractional scale (notes/text.md). A plate over
+// the desktop is hidden, so only the effect paints it (notes/notifications.md).
 MultiEffect {
     required source
     anchors.fill: source

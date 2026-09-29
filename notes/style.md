@@ -99,7 +99,8 @@
   covers every output, hence a per-scale helper). `Screens.scaleFor()` reads
   the real scale from Hyprland: `ShellScreen.devicePixelRatio` is the integer
   `wl_output` scale, 2 on a 1.25 output, and Qt exposes the fractional one
-  nowhere. This is polish for borders only — it is not what fixes text.
+  nowhere: none of `ShellScreen`'s fields yield 1.25 (its two pixel
+  densities are Qt's DPI figures, with a ratio of 1.167). This is polish for borders only — it is not what fixes text.
   `scaleFor()` is compositor-specific, but adds no portability debt:
   `shared/Screens.qml` was already the Hyprland seam (`focused()` reads
   `Hyprland.focusedMonitor`, and the import is file-scope), so a port to Niri

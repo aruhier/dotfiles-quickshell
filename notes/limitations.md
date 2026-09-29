@@ -26,6 +26,11 @@
   delays fresh data by up to ~45s (15s timeout, then the 30s retry); a
   link that returns while a request is in flight clears the backoff, so
   that request's failure retries after 30s rather than a long backoff.
+  The 15s timeout is `requestTimeout` aborting the request: QML's
+  `XMLHttpRequest` has no `timeout` (undefined on Qt 6.11), and a socket
+  stalled by a suspend or a captive portal never reached DONE, leaving
+  `loading` true for the life of the process — refresh() returned early
+  forever and the popup's spinner never stopped.
   Location comes from `QS_WEATHER_LAT`/`QS_WEATHER_LON` when both parse as
   numbers (the footer then reads "Current location", there being no name),
   else from ip-api over plain http. It is looked up again, and the forecast

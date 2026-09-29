@@ -6,8 +6,9 @@ import qs.shared.popup
 import qs.themes
 
 // Battery indicator: capacity plus a level icon, a bolt while charging, a
-// plug while held on the adapter. Goes critical at 15% (see blinkOpacity). No dedicated service — UPower is already a process-wide
-// singleton doing the polling, and everything here derives from it.
+// plug while held on the adapter. Goes critical at 15% (see blinkOpacity).
+// No dedicated service: UPower is already a process-wide singleton doing the
+// polling, and everything here derives from it.
 BarModule {
     id: root
 

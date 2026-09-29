@@ -97,13 +97,10 @@ QtObject {
         root.refresh();
     }
 
-    // The request in flight, and the timer that gives up on it. QML's
-    // XMLHttpRequest has no `timeout` (checked: undefined on Qt 6.11), and a
-    // socket stalled by a suspend or a captive portal never reaches DONE on
-    // its own — which left `loading` true for the life of the process, so
-    // refresh() returned early forever and the popup's spin never stopped.
-    // `abort()` completes the request as DONE with status 0, so it takes the
-    // ordinary error path below and the next refresh() retries.
+    // The request in flight, and the timer that gives up on it: QML's
+    // XMLHttpRequest has no `timeout`, and a stalled socket never reaches DONE
+    // (notes/limitations.md). `abort()` completes it as DONE with status 0, so
+    // it takes the ordinary error path and the next refresh() retries.
     property var xhr: null
     readonly property Timer requestTimeout: Timer {
         interval: 15000
@@ -221,13 +218,10 @@ QtObject {
     readonly property int connectivity: Networking.connectivity
     property int lastConnectivity: NetworkConnectivity.Unknown
 
-    // Suspend stops the monotonic clock nextFetch runs on, and a dropped link
-    // leaves the data errored. On any change, refetch if the data is errored
-    // or stale by the wall clock, else re-arm for the wall-clock remainder.
-    // Reads `connectivity` itself: bindings on it haven't updated yet here.
-    // A request already in flight owns the cycle, but a link coming back
-    // still clears the backoff, or its failure would wait out a long retry.
-    // Back from none, the location is due again and the fetch runs now.
+    // Suspend stops nextFetch's monotonic clock: on any change, refetch if the
+    // data is errored or stale by the wall clock, else re-arm for the rest
+    // (notes/limitations.md). Reads `connectivity` itself: bindings on it
+    // haven't updated yet here.
     onConnectivityChanged: {
         const wasOffline = root.lastConnectivity === NetworkConnectivity.None;
         root.lastConnectivity = root.connectivity;
