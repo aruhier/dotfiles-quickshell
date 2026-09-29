@@ -95,10 +95,11 @@ Our own QML traps, not upstream's, are in `notes/qml-gotchas.md`.
 
 - **A `Process` that fails to start only clears `running`**; `exited` never
   fires, so a retry hung on `onExited` never runs.
-  - Seen: 0.3.1, `process.cpp`.
-  - Workaround: `BacklightService`'s resync and `MpdService`'s idleloop
-    restart act on `running` falling. Detail: `notes/backlight.md`,
-    `notes/limitations.md`.
+  - Seen: 0.3.1, `src/io/process.cpp` (`onErrorOccurred` emits only
+    `runningChanged`; `onFinished` emits `exited`, then `runningChanged`).
+  - Workaround: `BacklightService`'s resync, `MpdService`'s idleloop restart
+    and `EdgeRelease`'s retry act on `running` falling. Detail:
+    `notes/backlight.md`, `notes/limitations.md`.
   - Fixed when: a failed start emits `exited` (or an error signal).
 
 - **No SIGTERM handling, and no QML hook tells quit from reload.**

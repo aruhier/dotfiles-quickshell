@@ -28,6 +28,7 @@ Scope {
         if (process.running || root.sentCall === root.call)
             return;
         root.sentCall = root.call;
+        root.exitCode = -1;
         process.command = ["hyprctl", "eval", root.sentCall];
         process.running = true;
     }
@@ -38,8 +39,16 @@ Scope {
             id: reply
         }
         onExited: code => {
-            if (code !== 0) {
+            root.exitCode = code;
+            if (code !== 0)
                 console.warn(`EdgeRelease: ${root.sentCall} failed: ${reply.text.trim()}`);
+        }
+        // Not onExited: a hyprctl that fails to start only clears `running`
+        // (Quickshell warns itself). `exited`, when it comes, fires first.
+        onRunningChanged: {
+            if (running)
+                return;
+            if (root.exitCode !== 0) {
                 // Once per failure run, not in a loop: a missing Lua
                 // function fails every time.
                 if (!root.retried) {
@@ -52,6 +61,8 @@ Scope {
             root.send();
         }
     }
+    // -1 until `exited` reports: a start that failed.
+    property int exitCode: -1
 
     // `sentCall` is set before the exit code is known, so a transient failure
     // (Hyprland busy, a socket timeout) would otherwise never be re-sent.

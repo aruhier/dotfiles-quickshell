@@ -62,8 +62,9 @@ QtObject {
         }
         // A read started before idleloop's last exit may predate mpd going
         // down, so only a fresh one proves mpd is up.
-        if (statusProc.idleExits === root.idleExits) {
-            root.failures = 0;
+        // Only on the first failure: past it, mpd answers but idleloop keeps
+        // dying, and restarting at once would spin.
+        if (statusProc.idleExits === root.idleExits && root.failures <= 1) {
             if (!idleProc.running) {
                 restartTimer.stop();
                 idleProc.running = true;
@@ -134,7 +135,16 @@ QtObject {
         // clears `running`. Refreshed at once, so a vanished mpd collapses
         // the module now rather than at the retry — counted as an exit
         // first, so that read is a fresh one (see applyStatus).
-        onRunningChanged: if (!running) {
+        onRunningChanged: {
+            if (running) {
+                root.idleStartedAt = Date.now();
+                return;
+            }
+            // A run that lasted was a drop, not a failing start. Cleared on
+            // exit: a start that fails never sets it.
+            if (root.idleStartedAt >= 0 && Date.now() - root.idleStartedAt >= root.healthyRun)
+                root.failures = 0;
+            root.idleStartedAt = -1;
             root.idleExits++;
             root.failures++;
             restartTimer.interval = Math.min(root.retryInterval * 2 ** (root.failures - 1), root.maxRetryInterval);
@@ -144,13 +154,15 @@ QtObject {
     }
 
     // idleloop exits when mpd isn't running or drops the connection. Retries
-    // after 5s, doubling up to 30s while mpd stays down; a status read that
-    // reaches mpd resets the backoff and restarts idleloop at once, so a drop
-    // retries quickly again.
+    // after 5s, doubling up to 30s while it keeps failing. After a run that
+    // lasted, the backoff resets and a status read that reaches mpd restarts
+    // idleloop at once, so a drop retries quickly again.
     readonly property int retryInterval: 5000
     readonly property int maxRetryInterval: 30000
+    readonly property int healthyRun: 10000
     property int failures: 0
     property int idleExits: 0
+    property real idleStartedAt: -1
 
     property Timer restartTimer: Timer {
         id: restartTimer
