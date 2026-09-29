@@ -1,6 +1,5 @@
 pragma ComponentBehavior: Bound
 import QtQuick
-import Quickshell
 import Quickshell.Services.UPower
 import qs.shared
 import qs.shared.popup
@@ -235,15 +234,9 @@ BarModule {
         hoverEnabled: true
     }
 
-    // LazyLoader, not Loader: Tooltip is a PopupWindow, not an Item — see
-    // Clock.qml's popupLoader.
-    LazyLoader {
-        active: hover.containsMouse && root.contentVisible
-
-        Tooltip {
-            anchorItem: root
-            show: hover.containsMouse && root.contentVisible
-            text: root.detailText === "" ? root.estimateText : root.estimateText + "\n\n" + root.detailText
-        }
+    TooltipLoader {
+        show: hover.containsMouse && root.contentVisible
+        anchorItem: root
+        text: root.detailText === "" ? root.estimateText : root.estimateText + "\n\n" + root.detailText
     }
 }

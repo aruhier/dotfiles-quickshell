@@ -1,6 +1,5 @@
 pragma ComponentBehavior: Bound
 import QtQuick
-import Quickshell
 import qs.services
 import qs.shared
 import qs.shared.popup
@@ -63,13 +62,9 @@ BarModule {
         hoverEnabled: true
     }
 
-    LazyLoader {
-        active: hover.containsMouse
-
-        Tooltip {
-            anchorItem: root
-            show: hover.containsMouse
-            text: NotificationService.notifications.length + " notifications"
-        }
+    TooltipLoader {
+        show: hover.containsMouse
+        anchorItem: root
+        text: NotificationService.notifications.length + " notifications"
     }
 }

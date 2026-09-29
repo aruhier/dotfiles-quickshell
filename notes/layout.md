@@ -96,6 +96,9 @@ shared/popup/         everything to do with anchored hover popups: the
                          a `showDelay` dwell (`hoverDwell`), no close grace period
                          (see its header comment for why it's not built on
                          HoverPopup.qml despite sharing AnchoredPopupWindow)
+  TooltipLoader.qml      a Tooltip built only while `show` holds (a
+                         LazyLoader: it's a window); Battery, Notifications
+                         and Tray set show/anchorItem/text and nothing else
   AnchoredPopupWindow.qml base PopupWindow type owning just the
                          anchor-below-module positioning math, shared by
                          HoverPopup.qml and Tooltip.qml
