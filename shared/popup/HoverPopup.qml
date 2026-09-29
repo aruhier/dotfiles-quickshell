@@ -26,6 +26,8 @@ AnchoredPopupWindow {
     readonly property bool hovered: anchorHovered || surface.hovered
 
     property bool _open: false
+    // What a subtype narrows its own `visible` with.
+    readonly property bool isOpen: _open
 
     // Emitted by close(); HoverPopupArea tears the popup down on it.
     signal dismissed()
@@ -67,7 +69,7 @@ AnchoredPopupWindow {
         }
     }
 
-    visible: _open
+    visible: isOpen
 
     Rectangle {
         anchors.fill: parent

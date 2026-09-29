@@ -66,7 +66,7 @@ HoverPopup {
         return layer * 1000 + Math.max(0, 999 - ipc.focusHistoryID);
     }
 
-    visible: _open && monitor !== null && shownCount > 0
+    visible: popup.isOpen && monitor !== null && shownCount > 0
 
     implicitWidth: popup.previewWidth + 2 * padding
     implicitHeight: body.implicitHeight + 2 * padding

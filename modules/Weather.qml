@@ -91,7 +91,7 @@ BarModule {
             id: popup
             anchorItem: root
 
-            visible: _open && root.hasContent
+            visible: popup.isOpen && root.hasContent
             implicitWidth: 400
             implicitHeight: body.implicitHeight + 2 * padding
 
