@@ -1,6 +1,6 @@
 # Layout
 
-## Layout
+## File tree
 
 All cross-file imports go through Quickshell's synthesised `qs` module
 (`import qs.shared`, `import qs.services`, `import qs.shared.animations`, …),
@@ -36,10 +36,10 @@ services/*.qml        pragma-Singleton types holding state + the actual
                       SubmapService, WeatherService) — one
                       watch/subscription/fetch cycle for the whole process
                       regardless of monitor count
-themes/Theme.qml      pragma-Singleton palette + metrics for the bar and
-                      the OSD's geometry — shared process-wide, not one
-                      instance per output. Source of truth for any visual
-                      value (see AGENTS.md)
+themes/Theme.qml      pragma-Singleton palette + metrics for the bar —
+                      shared process-wide, not one instance per output.
+                      The OSD's metrics are its own, in OsdWindow.qml.
+                      Source of truth for any visual value (see AGENTS.md)
 themes/NotificationTheme.qml pragma-Singleton palette/metrics for the
                       notification popups, control center and OSD colours
                       — deliberately not Theme.qml, see
@@ -59,6 +59,14 @@ shared/StyledText.qml every piece of text in the shell. Owns
                       unified (three palettes) — state it at each site
 shared/Icon.qml       StyledText sized off Theme.iconSize with a `sizeRatio`
                       per-glyph bias. Sets no anchors on purpose
+shared/PressableIcon.qml the clickable glyph inside a popup or panel:
+                      press-shrink, accent on hover, `interactive` gate
+                      (`notes/style.md`); bar modules don't use it
+shared/Screens.qml    pragma-Singleton compositor seam: `byName()`,
+                      `focused()`, `scaleFor()` (Hyprland's real fractional
+                      scale) and `snap()`/`snapTextInset()` onto the device
+                      pixel grid. A port to another compositor rewrites
+                      `focused()` and `scaleFor()`
 shared/NotchWheelArea.qml MouseArea emitting whole wheel notches
                       (`stepped(n)`), accumulating high-res/touchpad
                       deltas and ignoring horizontal scroll; Volume and
@@ -210,10 +218,10 @@ cream group, `workspaces`, `backlight`, `battery`, `volume`,
 `notifications`, `clock`; the outputs in `mainScreens` (`DP-1`, `eDP-1`)
 additionally get `tray`, `privacy`, `weather`.
 
-**Left/right group edge-spacing tuning is order-sensitive.** `leftGroup`'s
-comment about the first module's glyph bearing covering
-`moduleOuterMargin`, and `rightGroup`'s comment about needing it explicitly,
-both assume the *default* left order (`mpd` first) and right order
+**Left/right group edge-spacing tuning is order-sensitive.** The left
+`ModuleGroupRow` has no `outerMargin` because the first module's glyph
+bearing covers `Theme.moduleOuterMargin`; the right one sets it explicitly.
+Both assume the *default* left order (`mpd` first) and right order
 (`clock` last). Reordering a screen's layout so a different module lands at
 the flush screen edge may need re-tuning those margins for that edge.
 

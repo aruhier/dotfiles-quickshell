@@ -20,8 +20,7 @@ import qs.themes
 //
 // Colours are NotificationTheme's, not Theme's: this is a floating surface
 // over the desktop like a toast, and reading as one of those rather than as a
-// detached bar pill is the point. Its metrics stay in Theme.qml with the rest
-// of the shell's.
+// detached bar pill is the point. Its metrics are its own, below.
 PanelWindow {
     id: osd
 

@@ -1,6 +1,7 @@
 # QML gotchas
 
-## QML gotchas hit in this repo
+QML and Quickshell traps hit in this repo. Upstream bugs with a local
+workaround are in `notes/quickshell-quirks.md` instead.
 
 - **A binding that only *calls* `Repeater.itemAt()`, without also *reading*
   a real NOTIFY property (e.g. `Repeater.count`) in the same expression,
@@ -95,7 +96,16 @@
   arrives via its `reloaded` signal just after creation, so read it through a
   binding (an alias), not once in `Component.onCompleted`, which still sees
   the default. `NotificationService` is the one `Singleton` here for this.
+
 - **`transient` is a reserved word** in QML: `property bool transient` is a
   load error that takes the whole singleton down, and with it every file
   using it. qmllint catches it; run `scripts/lint.sh` before a reload does.
 
+- **Quickshell's Hyprland `active` ≠ the single system-wide focus.**
+  `active` is focused per monitor (true on N monitors at once); `focused` is
+  the one system-wide focused workspace. Use `modelData.focused` for the
+  single accent highlight.
+
+- **`HyprlandWorkspace` has no `windows`/`empty` property.** Count its
+  `toplevels`, filtered on `t.workspace` (see `notes/quickshell-quirks.md`),
+  not `lastIpcObject.windows`: that is a snapshot and goes stale.

@@ -736,24 +736,6 @@ than per toast.
   `Singleton` with the `PersistentProperties` as a direct child — see
   notes/qml-gotchas.md. It still resets on a restart.
 
-## Rejected
-
-- **Growing `MpdService` with mpc-shelled play/pause/art for the control
-  centre's player widget**: the wrong layer — the widget is a generic MPRIS
-  client (`MprisService`), not tied to MPD.
-- **A toast plate that keeps its right edge and opens left** (pass 1 of the
-  plate, 2026-09-14): the icon travelled the whole width in the direction of
-  the slide that brought it in, so there was no landing to see.
-- **Centring the plate vertically as well**: the text reads as sliding up
-  under a plate opening around it — two motions. Width only.
-- **Animating the list's slots open or shut** on an arrival or dismissal:
-  the rows jump, as on a dismissal; see those sections.
-- **`forceLayout()` on removal** to drop a destroyed delegate: the delegate
-  outlived even a deferred `destroy()`; liveness goes through `isLive()`.
-- **Dismissing after invoking a toast's action** (until 2026-09-28): the
-  action already closes a non-resident notification, and a resident one must
-  stay.
-
 ## Fixes from the 2026-09-28 review
 
 - **A toast's body click no longer dismisses after invoking.** Quickshell's
@@ -806,3 +788,21 @@ than per toast.
   enough to be seen; a third and a half were each better but left a flat spot;
   at 0.6 the whole hop lands inside the plate's fastest closing, and the card
   leaves with over half the shut still to do, shrinking towards its icon.
+
+## Rejected
+
+- **Growing `MpdService` with mpc-shelled play/pause/art for the control
+  centre's player widget**: the wrong layer — the widget is a generic MPRIS
+  client (`MprisService`), not tied to MPD.
+- **A toast plate that keeps its right edge and opens left** (pass 1 of the
+  plate, 2026-09-14): the icon travelled the whole width in the direction of
+  the slide that brought it in, so there was no landing to see.
+- **Centring the plate vertically as well**: the text reads as sliding up
+  under a plate opening around it — two motions. Width only.
+- **Animating the list's slots open or shut** on an arrival or dismissal:
+  the rows jump, as on a dismissal; see those sections.
+- **`forceLayout()` on removal** to drop a destroyed delegate: the delegate
+  outlived even a deferred `destroy()`; liveness goes through `isLive()`.
+- **Dismissing after invoking a toast's action** (until 2026-09-28): the
+  action already closes a non-resident notification, and a resident one must
+  stay.

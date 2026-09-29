@@ -1,10 +1,10 @@
 # Style notes
 
-## Style notes
+## Rules
 
 - **Bar has real extra height below the content, not an overlay.** The
   bottom border is genuine added height, not painted over the content — see
-  `implicitHeight: theme.barHeight + theme.barBorderHeight` in `Bar.qml`.
+  `implicitHeight: Theme.barHeight + Theme.barBorderHeight` in `Bar.qml`.
 
 - **`.modules-left`/`.modules-right` are flush half-stadium shapes**, not
   floating capsules — rounded only on the side facing center. Needs Qt
@@ -25,14 +25,6 @@
   (cream), urgent = `workspaceUrgent`, active on its monitor but not focused
   = `workspaceActiveBg`, focused = accent via the sliding `selection`. A
   populated non-focused workspace must stay teal, not default to cream.
-
-- **Quickshell's Hyprland `active` ≠ the single system-wide focus.**
-  Quickshell `active` = focused per-monitor (can be true on N monitors at
-  once); `focused` = the one true system-wide focused workspace. Use
-  `modelData.focused` for the single accent highlight.
-
-- **`HyprlandWorkspace` has no `windows`/`empty` property.** Read
-  `modelData.lastIpcObject.windows` instead.
 
 - **`.modules-center`'s pill caps are cream, fixed 15px on the container**,
   not a margin around the buttons — see `Workspaces.qml`'s `capWidth`.
@@ -86,7 +78,7 @@
   `StyledText` sets `font.variableAxes` instead, defaulting to wght 450, and
   that axis silently overrides both `font.bold` and `font.styleName` at a call
   site. Measurements and the FreeType-level alternative that was rejected:
-  the 2026-09-12 section at the end.
+  `notes/text.md`.
 
 - **A `MultiEffect` source item holds a background plate, never the content.**
   A source item is rendered into a layer texture and that texture is drawn
@@ -98,7 +90,7 @@
   control center had it wrong: it fed `source: panel` with the whole panel,
   which is what made it read blurry on the 1.25 output. Both now layer an
   empty `Rectangle` and keep the content as a sibling drawn after the effect.
-  Measurements: the 2026-09-12 section at the end.
+  Measurements: `notes/text.md`.
 
 - **Offsets that place a bordered surface go through `Screens.snap()`.** A 1px
   border off the device pixel grid draws as two half-lit columns instead of
@@ -123,7 +115,7 @@
   on the desktop rendering unhinted. `PreferFullHinting` is measurably crisper
   and was tried on the live bar for exactly that reason; it mangles Inter at
   12px and was reverted the same day. Both measurements and the artifact list
-  are in the 2026-09-12 section at the end. Any `FontMetrics` measuring the
+  are in `notes/text.md`. Any `FontMetrics` measuring the
   same face needs the same preference, or its advances don't match what gets
   drawn (`Workspaces.qml`).
 
@@ -139,12 +131,13 @@
   6px padding and 4px margin on each side — easy to model only the padding
   half. This only shows up on the two modules flush against the true screen
   edge (`Mpd` left, `Clock` right) — elsewhere `RowLayout` spacing hides it.
-  Fixed via `theme.moduleOuterMargin` (4px), added only where a flush
-  module actually needs it (`rightGroup` in `Bar.qml`; not `leftGroup`,
-  since Mpd's own icon glyph bearing already covers it — adding it there
-  would overshoot). **Lesson:** a spacing rule can have multiple additive
-  parts; modeling only one can still look right almost everywhere by luck,
-  and only fail at edge modules with no neighbor to hide behind.
+  Fixed via `Theme.moduleOuterMargin` (4px), added only where a flush
+  module actually needs it (the right `ModuleGroupRow`'s `outerMargin` in
+  `Bar.qml`; not the left one's, since Mpd's own icon glyph bearing already
+  covers it — adding it there would overshoot). **Lesson:** a spacing rule
+  can have multiple additive parts; modeling only one can still look right
+  almost everywhere by luck, and only fail at edge modules with no neighbor
+  to hide behind.
 
 - **A hover popup that should stay open when the cursor moves onto it
   needs a grace-period timer**, not a plain `anchorHover || popupHover` OR —

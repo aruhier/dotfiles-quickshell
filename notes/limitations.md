@@ -1,7 +1,5 @@
 # Known limitations
 
-## Known limitations
-
 - **`Privacy.qml`** shows mic, screen-share and camera icons, a thin view
   over `PrivacyService` — see `notes/privacy.md` for its known limits.
 - **`Mpd.qml`** shells out to `mpc` (`mpc idleloop player` for events, `mpc
@@ -37,8 +35,8 @@
   cycle. A network change NM never reports as None (e.g. a VPN hop) doesn't
   trigger it. Stale data is deliberately not dimmed. Units are fixed metric
   (°C, km/h).
-- **`Clock.qml`'s calendar starts on the locale's first day of the week**,
-  and the quickshell process may not get the session's `LC_TIME`: here it ran
+- **`Clock.qml`'s calendar is pinned to start on Monday**, because the
+  quickshell process may not get the session's `LC_TIME`: here it ran
   with only `LANG=en_US.UTF-8` while the terminal had `LC_TIME=en_GB.UTF-8`,
   so the grid started on Sunday. `firstDayOfWeek` at the top of the file
   pins it, to `Qt.Monday`; `Qt.locale().firstDayOfWeek` there would follow

@@ -98,12 +98,12 @@ a green run — which meant a genuine missing property anywhere would have been
 downgraded to chatter, *and* left 28 lines of noise on every run, so clean and
 broken looked identical. Instead every category stays fatal and `scripts/lint.sh`
 carries an explicit list of individual known-unfixable findings, each with its
-reason (`--all` prints them). 25 are suppressed today: 22 are gaps in
+reason (`--all` prints them; the run prints the count). Most are gaps in
 Quickshell's own qmltypes — `PanelWindowInterface` is literally
 `isCreatable: false` in `quickshell-window.qmltypes`, and `Margins`, `Edges`,
 `PopupAnchor`, `PopupAdjustment`, `QProcess::ExitStatus` and the
-`NotificationAction` list type aren't exported — and 3 are deliberate
-duck-typing (`Loader.item` in ModuleLoader, twice, `Repeater.itemAt()` in
+`NotificationAction` list type aren't exported — and the rest are deliberate
+duck-typing (`Loader.item` in ModuleLoader, `Repeater.itemAt()` in
 NotificationPopupWindow), where the type-safe alternative would mean forcing
 every placeable module onto one base class that Workspaces shouldn't be on.
 
@@ -121,7 +121,7 @@ a regression — it explodes `Bar.qml`'s deliberate one-line
 object literals. Everything else in the tree already matches `qmlformat`
 output, so if it ever gains a way to leave those alone, revisit.
 
-### Considered and not done
+## Rejected
 
 - **Dropping `MpdService` for `Quickshell.Services.Mpris`** (one fewer
   permanent `mpc idleloop` subprocess, ~109 lines). Left alone at the user's
