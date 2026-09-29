@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell.Wayland
 import Quickshell.Hyprland
+import qs.services
 import qs.shared
 import qs.shared.popup
 import qs.themes
@@ -23,8 +24,8 @@ HoverPopup {
     // so re-fetch on creation — which is the open, via LazyLoader. Monitors
     // too: their scale, position and transform only refresh on a few events.
     Component.onCompleted: {
-        Hyprland.refreshToplevels();
-        Hyprland.refreshMonitors();
+        HyprlandRefreshService.toplevels();
+        HyprlandRefreshService.monitors();
     }
 
     readonly property HyprlandMonitor monitor: workspace.monitor

@@ -31,12 +31,14 @@ there resizes once, after the delay.
 What gets counted (`floating`, `hidden`, `grouped`) is only in
 `lastIpcObject`, which no event updates. So `shell.qml` refreshes toplevels
 on `openwindow`, `closewindow`, `changefloatingmode` and the three group
-events. The refresh is debounced by 50ms because Quickshell *drops* a
-refresh asked for while one is in flight: two windows opening together could
-leave the second one never fetched. A refresh that lands mid-flight can
-still be lost; the next such event catches it up. A window not fetched yet
-is *not* counted: counting it as tiled would bring the bar back for a second
-whenever a floating dialog opens. The cost is ~50ms before a second tiled
+events, through `HyprlandRefreshService` like every other refresh. Quickshell
+*drops* a refresh asked for while one of the same kind is in flight, and
+nothing reports when one lands, so the service coalesces asks over 50ms and
+sends each refresh a second time 150ms later. Before it, the workspace
+preview's refresh on open could swallow the one for a window opening at the
+same moment, leaving that window uncounted until the next window event. A
+window not fetched yet is *not* counted: counting it as tiled would bring the
+bar back for a second whenever a floating dialog opens. The cost is ~50ms before a second tiled
 window shows the bar.
 
 Output beats workspace because the user asked for the output call to hide
@@ -69,7 +71,7 @@ directly; opening a scratchpad changes nothing, as the user wants.
 One Quickshell quirk does matter: it applies every `workspacev2` to the
 *focused* monitor. Moving a workspace to another output makes Hyprland switch
 the old output to a new workspace, and that switch gets credited to the wrong
-monitor. `shell.qml` calls `Hyprland.refreshMonitors()` on `moveworkspacev2`
+monitor. `shell.qml` refreshes monitors on `moveworkspacev2`
 (Hyprland sends both `moveworkspace` and `moveworkspacev2` per move; one
 refresh is enough).
 

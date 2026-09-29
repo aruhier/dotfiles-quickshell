@@ -30,7 +30,8 @@ modules/*.qml         one file per bar module — thin views, no owned
 services/*.qml        pragma-Singleton types holding state + the actual
                       subprocess/network I/O, or a Pipewire tracker, for
                       anything system-wide (AudioService, BacklightService,
-                      BarVisibilityService, LockKeysService, MpdService, MprisService,
+                      BarVisibilityService, HyprlandRefreshService,
+                      LockKeysService, MpdService, MprisService,
                       NotificationService, OsdService, PrivacyService,
                       SubmapService, WeatherService) — one
                       watch/subscription/fetch cycle for the whole process

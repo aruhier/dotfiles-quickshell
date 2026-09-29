@@ -97,21 +97,14 @@ ShellRoot {
         function onRawEvent(event: HyprlandEvent): void {
             // v1 and v2 both fire per move; one refresh is enough.
             if (event.name === "moveworkspacev2")
-                Hyprland.refreshMonitors();
+                HyprlandRefreshService.monitors();
             else if (root.toplevelEvents.includes(event.name))
-                toplevelRefresh.restart();
+                HyprlandRefreshService.toplevels();
         }
     }
     // What the bar's auto-hide counts (floating, hidden, grouped) is only in
-    // lastIpcObject, which no event updates. Debounced: Quickshell drops a
-    // refresh asked for while one is in flight, which could miss the second
-    // of two windows opening together.
+    // lastIpcObject, which no event updates.
     readonly property var toplevelEvents: ["openwindow", "closewindow", "changefloatingmode", "togglegroup", "moveintogroup", "moveoutofgroup"]
-    Timer {
-        id: toplevelRefresh
-        interval: 50
-        onTriggered: Hyprland.refreshToplevels()
-    }
 
     // All IPC: see Ipc.qml.
     Ipc {
