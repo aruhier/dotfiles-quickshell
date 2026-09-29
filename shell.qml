@@ -69,7 +69,7 @@ ShellRoot {
     readonly property var barHideOn: ({
         "*": [1, 10]
     })
-    readonly property int barHideDelay: 1000
+    readonly property int barHideDelay: 600
 
     // "ACTIVE" is the focused output.
     function barOn(monitorName) {
