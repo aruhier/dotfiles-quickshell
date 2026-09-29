@@ -92,8 +92,8 @@ BarModule {
             anchorItem: root
 
             visible: popup.isOpen && root.hasContent
-            implicitWidth: 400
-            implicitHeight: body.implicitHeight + 2 * padding
+            wantedWidth: 400
+            wantedHeight: body.implicitHeight + 2 * padding
 
             ColumnLayout {
                 id: body

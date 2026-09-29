@@ -48,8 +48,6 @@ AnchoredPopupWindow {
         }
     }
 
-    // Math.ceil, not round/floor: a PopupWindow's surface is integer-pixel,
-    // and rounding label metrics down clips a sub-pixel sliver off the border.
-    implicitWidth: Math.ceil(Math.min(label.implicitWidth, maxWidth) + 2 * padding)
-    implicitHeight: Math.ceil(label.implicitHeight + 2 * padding)
+    wantedWidth: Math.min(label.implicitWidth, maxWidth) + 2 * padding
+    wantedHeight: label.implicitHeight + 2 * padding
 }

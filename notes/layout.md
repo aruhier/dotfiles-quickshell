@@ -65,8 +65,8 @@ shared/PressableIcon.qml the clickable glyph inside a popup or panel:
 shared/Screens.qml    pragma-Singleton compositor seam, stateless and with
                       no I/O, so shared/ rather than services/: `byName()`,
                       `focused()`, `scaleFor()` (Hyprland's real fractional
-                      scale) and `snap()`/`snapTextInset()` onto the device
-                      pixel grid. A port to another compositor rewrites
+                      scale) and `snap()`/`snapTextInset()`/`snapSurface()` onto
+                      the device pixel grid. A port to another compositor rewrites
                       `focused()` and `scaleFor()`
 shared/NotchWheelArea.qml MouseArea emitting whole wheel notches
                       (`stepped(n)`), accumulating high-res/touchpad
@@ -99,9 +99,11 @@ shared/popup/         everything to do with anchored hover popups: the
   TooltipLoader.qml      a Tooltip built only while `show` holds (a
                          LazyLoader: it's a window); Battery, Notifications
                          and Tray set show/anchorItem/text and nothing else
-  AnchoredPopupWindow.qml base PopupWindow type owning just the
-                         anchor-below-module positioning math, shared by
-                         HoverPopup.qml and Tooltip.qml
+  AnchoredPopupWindow.qml base PopupWindow type owning the
+                         anchor-below-module positioning math and the
+                         device-grid surface size (`wantedWidth`/
+                         `wantedHeight`), shared by HoverPopup.qml and
+                         Tooltip.qml
   HoverPopupArea.qml     hover MouseArea that opens a LazyLoader-backed
                          HoverPopup after a `showDelay` dwell (`hoverDwell`);
                          shared by Clock.qml/Weather.qml/Workspaces.qml.

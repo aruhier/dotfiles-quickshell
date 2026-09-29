@@ -68,8 +68,8 @@ HoverPopup {
 
     visible: popup.isOpen && monitor !== null && shownCount > 0
 
-    implicitWidth: popup.previewWidth + 2 * padding
-    implicitHeight: body.implicitHeight + 2 * padding
+    wantedWidth: popup.previewWidth + 2 * padding
+    wantedHeight: body.implicitHeight + 2 * padding
 
     ColumnLayout {
         id: body

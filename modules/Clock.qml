@@ -123,8 +123,8 @@ BarModule {
             readonly property var cells: calendarCells()
             readonly property var headers: dayHeaders()
 
-            implicitWidth: body.implicitWidth + 2 * padding
-            implicitHeight: body.implicitHeight + 2 * padding
+            wantedWidth: body.implicitWidth + 2 * padding
+            wantedHeight: body.implicitHeight + 2 * padding
 
             ColumnLayout {
                 id: body

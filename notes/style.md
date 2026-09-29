@@ -109,6 +109,17 @@
   not know — no throw — so `scaleFor()` gives 1, `snap()` becomes the identity
   on whole numbers, and the layout is exactly what this repo shipped before.
 
+- **A surface's own size goes through `Screens.snapSurface()`.** Snapping
+  offsets inside a surface can't help when the surface itself is a fractional
+  number of device px: the weather popup was 378 logical px tall, 472.5 device
+  px at 1.25, so the compositor resampled its buffer and the bottom border
+  came out as a faint quarter-lit row (2026-09-29). Bar popups and tooltips
+  set `wantedWidth`/`wantedHeight`; `AnchoredPopupWindow` rounds the surface
+  up, and `HoverPopup` keeps its content at the wanted size, so the slack is
+  bottom/right padding rather than a stretched layout. Rounding down instead
+  clips the border. The scale comes off the anchor's bar window
+  (`notes/quickshell-quirks.md`).
+
 - **`StyledText` asks for `Font.PreferVerticalHinting`; don't "upgrade" it to
   full.** Qt Quick's native text path loads glyphs *unhinted* unless an item
   states a preference — fontconfig's system-wide `hintslight` reaches waybar
@@ -176,3 +187,11 @@
 - Hovering a workspace pill shows a live preview of that workspace
   (`shared/popup/WorkspacePreviewPopup.qml`); clicking closes it.
 
+## Rejected
+
+- **Snapping the popup frame down inside its surface** (2026-09-29), first
+  try at the weather popup's thin bottom border: size the frame `Rectangle`
+  to the device pixel below the surface edge. It put the top and left borders
+  on the grid, but the bottom stayed faint: the surface itself was 472.5
+  device px, and a resampled buffer has no whole last row to snap to. The
+  surface size has to be on the grid, hence `snapSurface()`.

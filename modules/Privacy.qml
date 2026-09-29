@@ -91,8 +91,8 @@ Item {
             anchorItem: root
 
             visible: popup.isOpen && root.contentVisible
-            implicitWidth: 260
-            implicitHeight: body.implicitHeight + 2 * padding
+            wantedWidth: 260
+            wantedHeight: body.implicitHeight + 2 * padding
 
             ColumnLayout {
                 id: body

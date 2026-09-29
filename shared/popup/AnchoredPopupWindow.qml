@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
+import qs.shared
 
 // Base type for a PopupWindow anchored below a bar module: horizontally
 // centered on it, 4px gap, sliding to stay on-screen. Shared by HoverPopup and
@@ -10,8 +11,24 @@ PopupWindow {
 
     required property Item anchorItem
 
+    // Set by a subtype instead of implicitWidth/implicitHeight. The surface
+    // rounds it up onto the device pixel grid, so it may end up a few px
+    // larger (Screens.snapSurface()).
+    property real wantedWidth: 0
+    property real wantedHeight: 0
+
+    // Untyped: the cast to QsWindow would read null for an anchor inside a
+    // PopupWindow, which isn't one.
+    readonly property var _barWindow: popup.anchorItem.QsWindow.window
+    // The bar's, not our own `screen`, which isn't the output the popup is
+    // on (notes/quickshell-quirks.md).
+    readonly property ShellScreen _barScreen: popup._barWindow?.screen ?? null
+
+    implicitWidth: Screens.snapSurface(popup.wantedWidth, popup._barScreen)
+    implicitHeight: Screens.snapSurface(popup.wantedHeight, popup._barScreen)
+
     anchor {
-        window: popup.anchorItem.QsWindow.window
+        window: popup._barWindow
         adjustment: PopupAdjustment.Slide
         // No Left/Right edge on purpose: Quickshell then centers on the anchor
         // rect and recomputes on every reposition, including ones caused by the

@@ -91,6 +91,14 @@ Our own QML traps, not upstream's, are in `notes/qml-gotchas.md`.
   - Fixed when: the default driver runs at the output's rate without the
     pragma, measured as in `notes/method.md`.
 
+- **A `PopupWindow`'s `screen` isn't the output it's shown on.** A popup
+  anchored to the bar on DP-1 read HDMI-A-1, so a scale looked up through it
+  was 1.
+  - Seen: 0.3.1, logged live from the weather popup (2026-09-29).
+  - Workaround: `AnchoredPopupWindow` reads `_barScreen` off the anchor's
+    window. Detail: `notes/style.md` (`snapSurface()`).
+  - Fixed when: a popup's `screen` matches its anchor window's.
+
 ## Process and lifecycle
 
 - **A `Process` that fails to start only clears `running`**; `exited` never

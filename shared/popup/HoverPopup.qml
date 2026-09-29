@@ -7,7 +7,7 @@ import qs.themes
 // grace timer and PopupCoordinator registration on top of
 // AnchoredPopupWindow's anchor math. A module supplies content as default
 // children, its HoverPopupArea sets `anchorHovered`, and it sets its own
-// implicitWidth/implicitHeight. Tooltip.qml is the other kind — declarative
+// wantedWidth/wantedHeight. Tooltip.qml is the other kind — declarative
 // `show`, no grace period — and shares only AnchoredPopupWindow.
 AnchoredPopupWindow {
     id: popup
@@ -86,10 +86,14 @@ AnchoredPopupWindow {
             id: surface
         }
 
+        // The wanted size, not the surface's: the device-grid slack becomes
+        // bottom/right padding instead of stretching the layout inside.
         Item {
             id: contentItem
-            anchors.fill: parent
-            anchors.margins: popup.padding
+            x: popup.padding
+            y: popup.padding
+            width: popup.wantedWidth - 2 * popup.padding
+            height: popup.wantedHeight - 2 * popup.padding
         }
     }
 }

@@ -43,6 +43,21 @@ QtObject {
         return Math.round(length * scale) / scale;
     }
 
+    // Rounds a surface's size up to whole logical px that are also whole
+    // device px (a multiple of 4 at 1.25): the compositor otherwise resamples
+    // the buffer, and the edge row lands on a partial pixel. The search covers
+    // every scale Hyprland suggests; past it, plain ceil.
+    function snapSurface(length, screen) {
+        const scale = scaleFor(screen);
+        // Float noise must not cost a whole pixel (378.0000001 -> 379).
+        const base = Math.ceil(length - 1e-6);
+        for (let size = base; size < base + 16; size++) {
+            if (onGrid(size, scale))
+                return size;
+        }
+        return base;
+    }
+
     // Adjusts an inset so text it places lands on a whole *logical* pixel,
     // which snap() doesn't give. Solved for the landing, since that depends on
     // where the container already is. `edge` is where the inset starts, in
@@ -53,10 +68,16 @@ QtObject {
         const nearest = Math.round(edge + inset);
         for (let offset = 0; offset <= 2; offset++) {
             for (const landing of [nearest + offset, nearest - offset]) {
-                if (Math.abs(landing * scale - Math.round(landing * scale)) < 1e-3)
+                if (onGrid(landing, scale))
                     return landing - edge;
             }
         }
         return nearest - edge;
+    }
+
+    // Whether a logical length is a whole number of device px. Tolerant, as
+    // Hyprland's scale is a float (4/3 isn't exact).
+    function onGrid(length, scale) {
+        return Math.abs(length * scale - Math.round(length * scale)) < 1e-3;
     }
 }
