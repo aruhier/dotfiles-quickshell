@@ -9,6 +9,8 @@
 #
 # Quiet on success. Unfixable findings are suppressed individually with a
 # reason (see SUPPRESSED), never by category, so anything new still fails.
+# Two repo rules qmllint can't see are checked too: no bare `Text {}` (use
+# StyledText) and no hex colour outside themes/ (see RULES).
 #
 # Usage: scripts/lint.sh [--all] [files...]
 #          --all    also list the suppressed findings, with reasons
@@ -56,12 +58,18 @@ else
     mapfile -t files < <(find "$repo" -name '*.qml' -not -path '*/.git/*' | sort)
 fi
 
-report="$("$qmllint" --json - -I "$shim" -I /usr/lib64/qt6/qml "${files[@]}" 2>/dev/null || true)"
+# stderr is kept, not dropped: a qmllint that crashes or can't read its
+# config would otherwise look like a clean run.
+report="$("$qmllint" --json - -I "$shim" -I /usr/lib64/qt6/qml "${files[@]}" 2>"$shim/stderr" || true)"
+if [ -s "$shim/stderr" ]; then
+    echo "lint: qmllint wrote to stderr:" >&2
+    cat "$shim/stderr" >&2
+fi
 
 # The report goes through the environment: stdin already carries this filter's
 # own source, via the heredoc.
-REPO="$repo" SHOW_ALL="$show_all" REPORT="$report" python3 - <<'FILTER'
-import json, os, sys
+REPO="$repo" SHOW_ALL="$show_all" REPORT="$report" python3 - "${files[@]}" <<'FILTER'
+import json, os, re, sys
 
 repo = os.environ["REPO"].rstrip("/") + "/"
 show_all = os.environ["SHOW_ALL"] == "1"
@@ -125,6 +133,29 @@ def suppression_for(path, warning):
     return None
 
 
+# Repo rules, checked line by line on the source: (regex, message, path
+# suffixes exempt). Comments are skipped.
+RULES = [
+    (re.compile(r"(?<![\w.])Text\s*\{"),
+     "bare Text {} — use StyledText, which owns the render type and font",
+     ("shared/StyledText.qml",)),
+    (re.compile(r'"#[0-9A-Fa-f]{3,8}"'),
+     "hex colour outside themes/ — bind a Theme/NotificationTheme colour",
+     ("themes/Theme.qml", "themes/NotificationTheme.qml",
+      # The temperature ramp: one reader, so it stays there (AGENTS.md).
+      "modules/Weather.qml")),
+]
+
+rule_findings = []
+for path in sys.argv[1:]:
+    name = path[len(repo):] if path.startswith(repo) else path
+    with open(path) as f:
+        for n, line in enumerate(f, 1):
+            code = line.split("//", 1)[0]
+            for pattern, message, exempt in RULES:
+                if not name.endswith(exempt) and pattern.search(code):
+                    rule_findings.append("%s:%d: %s [repo-rule]" % (name, n, message))
+
 try:
     report = json.loads(os.environ["REPORT"])
 except json.JSONDecodeError:
@@ -149,6 +180,7 @@ if show_all:
         print("        reason: %s" % reason)
     print()
 
+actionable += rule_findings
 for line in actionable:
     print(line)
 

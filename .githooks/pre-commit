@@ -5,5 +5,12 @@
 #
 # (Not enabled automatically — a repo shouldn't reconfigure your git for you.)
 # Skip a single commit with `git commit --no-verify`.
+#
+# Lints what is staged, not the working tree: a partial `git add` would
+# otherwise pass on unstaged fixes or fail on unstaged breakage. The index is
+# exported to a scratch copy, so the working tree is never touched.
 set -euo pipefail
-exec "$(git rev-parse --show-toplevel)/scripts/lint.sh"
+staged="$(mktemp -d)"
+trap 'rm -rf "$staged"' EXIT
+git checkout-index --all --prefix="$staged/"
+"$staged/scripts/lint.sh"

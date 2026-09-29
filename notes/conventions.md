@@ -111,8 +111,16 @@ Verified it still bites: injecting an unqualified `modelData` into a Weather
 delegate and a typo'd `Theme.groupTxt` into Volume made it report exactly those
 two and exit 1.
 
-`.githooks/pre-commit` runs it. **Not** enabled automatically — turn it on with
-`git config core.hooksPath .githooks`.
+It also checks two repo rules qmllint can't see, on the source line by line
+(comments skipped): no bare `Text {}` (use `StyledText`), and no hex colour
+outside `themes/`, Weather's temperature ramp excepted (one reader, so it stays
+per AGENTS.md). And it passes qmllint's stderr through instead of dropping it,
+so a crashed qmllint can't pass for a clean run.
+
+`.githooks/pre-commit` runs it on what is staged, not the working tree: it
+exports the index to a scratch copy (`git checkout-index`) and lints that, so a
+partial `git add` is judged as committed. **Not** enabled automatically — turn
+it on with `git config core.hooksPath .githooks`.
 
 **No formatter is wired up, deliberately.** DMS uses `qmlfmt` (not packaged
 here); Qt's own `qmlformat` disagrees with this repo's style badly enough to be
