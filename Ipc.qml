@@ -28,7 +28,8 @@ Scope {
         if (perWorkspace && !ws)
             return ipc.barIpcError(`no workspace on ${output}`);
 
-        const value = BarVisibilityService.apply(bar, perWorkspace, action);
+        const current = perWorkspace ? bar.hiddenForWorkspace : bar.shouldHide;
+        const value = BarVisibilityService.apply(output, perWorkspace ? ws.name : "", action, current);
         if (value === undefined)
             return ipc.barIpcError(`unknown action "${action}" — hide, unhide, toggle or auto`);
 

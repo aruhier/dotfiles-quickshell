@@ -13,17 +13,23 @@ QtObject {
     property var outputOverrides: ({})
     property var workspaceOverrides: ({})
 
-    // Applies `action` (hide | unhide | toggle | auto) to `bar`'s output, or
-    // to its current workspace when `perWorkspace`. Returns the override now
-    // set — true, false, or null for auto — or undefined for an unknown
-    // action, changing nothing.
-    function apply(bar, perWorkspace, action) {
-        const key = perWorkspace ? bar.workspace.name : bar.modelData.name;
+    // Every applied override, for `output`'s bar to act on now. A signal, not
+    // a watch on the maps: a repeated `hide` changes no value but must still
+    // end a timed peek.
+    signal overrideApplied(string output, bool forcedHidden)
+
+    // Applies `action` (hide | unhide | toggle | auto) to `output`, or to the
+    // workspace `workspaceName` when it isn't "". `current` is what that level
+    // shows now, which only `toggle` reads. Returns the override now set —
+    // true, false, or null for auto — or undefined for an unknown action,
+    // which changes and emits nothing.
+    function apply(output, workspaceName, action, current) {
+        const perWorkspace = workspaceName !== "";
+        const key = perWorkspace ? workspaceName : output;
         const overrides = Object.assign({}, perWorkspace ? root.workspaceOverrides : root.outputOverrides);
         // Toggle leaves auto by forcing the opposite of what this level shows
         // now, and any toggle while forced goes back to auto — even when auto
         // shows the same thing, so the press changes nothing visible.
-        const current = perWorkspace ? bar.hiddenForWorkspace : bar.shouldHide;
         let value;
         switch (action) {
         case "hide":
@@ -50,12 +56,7 @@ QtObject {
             root.workspaceOverrides = overrides;
         else
             root.outputOverrides = overrides;
-        // Asked for, so now: no hide delay.
-        bar.skipDelay();
-        // Asking for hidden means now, not when a timed peek runs out. Only
-        // an ask: `auto` or a masked `unhide` ending hidden leaves it be.
-        if (value === true)
-            bar.endTimedPeek();
+        root.overrideApplied(output, value === true);
         return value;
     }
 }

@@ -85,6 +85,20 @@ PanelWindow {
         hideDelayTimer.stop();
         barWindow.hiddenAfterDelay = barWindow.shouldHide;
     }
+    Connections {
+        target: BarVisibilityService
+        function onOverrideApplied(output: string, forcedHidden: bool): void {
+            if (output !== barWindow.modelData.name)
+                return;
+            // Asked for, so now: no hide delay.
+            barWindow.skipDelay();
+            // Asking for hidden means now, not when a timed peek runs out.
+            // Only an ask: `auto` or a masked `unhide` ending hidden leaves
+            // it be.
+            if (forcedHidden)
+                barWindow.endTimedPeek();
+        }
+    }
     Timer {
         id: hideDelayTimer
         interval: barWindow.hideDelay

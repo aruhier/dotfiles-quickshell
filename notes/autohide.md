@@ -123,9 +123,11 @@ Three modes: shown (reserves space), hidden, peek (overlay, reserves nothing).
   not seen; restarting Firefox cleared it, cause unknown. Handling that would
   mean reading `lastIpcObject`, which no event refreshes for a client-only
   change.
-- **IPC calls skip the delay** (`skipDelay()`). The `visibility*` calls
-  also flash the OSD's `message` kind with the new state, on the target
-  output.
+- **IPC calls skip the delay** (`skipDelay()`). The service doesn't call
+  into the bar: `apply()` takes plain values from `Ipc.qml` and emits
+  `overrideApplied`, which the bar of that output acts on. The `visibility*`
+  calls also flash the OSD's `message` kind with the new state, on the
+  target output.
 - **Peek** is the same slide without reserving space. Trigger is a 1px input
   strip (`mask`) at y=0: 250ms rest, restarted when the cursor runs
   more than 40px along the edge (outputs sit side by side, so the top edge is
