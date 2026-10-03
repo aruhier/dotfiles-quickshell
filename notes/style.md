@@ -104,9 +104,9 @@
   `scaleFor()` is compositor-specific, but adds no portability debt:
   `shared/Screens.qml` was already the Hyprland seam (`focused()` reads
   `Hyprland.focusedMonitor`, and the import is file-scope), so a port to Niri
-  rewrites two functions in one file instead of one. Verified to degrade
-  rather than break: `Hyprland.monitorFor()` returns null for a screen it does
-  not know — no throw — so `scaleFor()` gives 1, `snap()` becomes the identity
+  rewrites three functions in one file instead of one (`monitorFor()`, which
+  the Bar also uses for its workspace). Verified to degrade rather than break:
+  `Screens.monitorFor()` returns null for a screen Hyprland doesn't list, so `scaleFor()` gives 1, `snap()` becomes the identity
   on whole numbers, and the layout is exactly what this repo shipped before.
 
 - **A surface's own size goes through `Screens.snapSurface()`.** Snapping

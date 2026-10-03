@@ -82,6 +82,19 @@ Our own QML traps, not upstream's, are in `notes/qml-gotchas.md`.
     screen missing from `Quickshell.screens` on `screensChanged`.
   - Fixed when: a stored `ShellScreen` reads null after its output goes.
 
+- **`Hyprland.monitorFor()` is a one-shot lookup.** A binding on it doesn't
+  re-run when `Hyprland.monitors` changes. When an output drops out and comes
+  back, the binding is left holding the deleted monitor or null, and stays
+  there. The DP-2 bar's `workspace` stayed null, so auto-hide never matched
+  there again until a reload.
+  - Seen: 0.3.1, after DP-2 flapped (`qs log`: `Got removal for monitor
+    "DP-2" which was not previously tracked`), 2026-10-03.
+  - Workaround: `Screens.monitorFor()` finds the monitor by name in
+    `Hyprland.monitors.values`, which notifies; `Bar.qml` and `scaleFor()`
+    use it.
+  - Fixed when: a binding on `Hyprland.monitorFor()` follows an output
+    being removed and added back.
+
 - **Layer-shell windows never get their real `QScreen`**, so Qt's animation
   driver reads the wrong vsync interval and drops every GUI-thread animation
   to about 60Hz.

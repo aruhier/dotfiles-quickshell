@@ -23,6 +23,16 @@ QtObject {
         return monitor ? byName(monitor.name) : null;
     }
 
+    // Hyprland's monitor for `screen`, looked up in `Hyprland.monitors` so a
+    // binding re-runs when the list changes. `Hyprland.monitorFor()` is a
+    // one-shot call: after an output drops out and returns, a binding on it
+    // keeps a deleted monitor or null (notes/quickshell-quirks.md).
+    function monitorFor(screen) {
+        if (!screen)
+            return null;
+        return Hyprland.monitors.values.find(m => m.name === screen.name) ?? null;
+    }
+
     // The real fractional scale, asked of Hyprland: `devicePixelRatio` is the
     // integer `wl_output` one (2 on a 1.25 output) and Qt exposes the
     // fractional one nowhere (notes/style.md). 1 when unknown, which only
@@ -30,7 +40,7 @@ QtObject {
     function scaleFor(screen) {
         if (!screen)
             return 1;
-        const monitor = Hyprland.monitorFor(screen);
+        const monitor = monitorFor(screen);
         return monitor && monitor.scale > 0 ? monitor.scale : 1;
     }
 

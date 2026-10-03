@@ -206,7 +206,7 @@ whole. It cannot use `ShellScreen.devicePixelRatio`: that is the integer
 `wl_output` scale Hyprland advertises for legacy clients — **2** on this 1.25
 output — while the surface is rendered through `wp_fractional_scale_v1` at
 1.25. Qt exposes the fractional value to QML nowhere, so `Screens.scaleFor()`
-takes it from `Hyprland.monitorFor(screen).scale`. A rounder constant was tried
+takes it from `Screens.monitorFor(screen).scale`. A rounder constant was tried
 first and rejected: the multiple that stays on the grid is the denominator of
 the scale (4 at 1.25, 3 at 1.333, 5 at 1.6), so no single constant covers the
 outputs a config might meet.

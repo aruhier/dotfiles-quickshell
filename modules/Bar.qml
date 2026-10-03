@@ -29,7 +29,7 @@ PanelWindow {
 
     // Opening a special workspace leaves this alone: Hyprland reports those
     // separately, and Quickshell doesn't fold them in.
-    readonly property HyprlandWorkspace workspace: Hyprland.monitorFor(barWindow.modelData)?.activeWorkspace ?? null
+    readonly property HyprlandWorkspace workspace: Screens.monitorFor(barWindow.modelData)?.activeWorkspace ?? null
 
     // A number is a workspace id, a string a name.
     function matchesWorkspace(entries, ws) {
