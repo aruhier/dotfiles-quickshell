@@ -808,3 +808,10 @@ than per toast.
 - **Dismissing after invoking a toast's action** (until 2026-09-28): the
   action already closes a non-resident notification, and a resident one must
   stay.
+- **Centring the MPRIS transport row on the card another way** than its
+  `Layout.rightMargin` of art + gap (2026-10-04): a `transform: Translate`
+  is flagged by `scripts/lint.sh` as positioning a layout-managed item; a
+  plain `Item` root with anchors only moves the art's geometry into a
+  hand-written `implicitHeight`; a full-width row under the art makes the
+  card taller. The margin caps spare width: below about the row's width +
+  188px the content overflows right and the clip cuts the last buttons.

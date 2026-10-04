@@ -65,6 +65,9 @@ RowLayout {
         RowLayout {
             spacing: 12
             Layout.alignment: Qt.AlignHCenter
+            // Centred on the card, not this column: reserving the art and its
+            // gap on the right moves the centre left by half of that.
+            Layout.rightMargin: root.imageSize + root.spacing
 
             PressableIcon {
                 text: "󰒝"
