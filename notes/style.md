@@ -162,8 +162,8 @@
   the popup is a separate surface a few px away, so a plain OR closes it
   before the cursor arrives. `HoverPopup.qml` derives one `hovered` bool from
   the module's `anchorHovered` (written by `HoverPopupArea`) and its own
-  surface `HoverHandler`, and a ~200ms `Timer` closes it only if `hovered`
-  is still false when it fires. Both halves are `HoverHandler`s, not
+  surface `HoverHandler`, and a ~200ms `Timer` folds it away only if
+  `hovered` is still false when it fires (`notes/popups.md`). Both halves are `HoverHandler`s, not
   `hoverEnabled` MouseAreas: Qt keeps delivering hover to an accepting
   item's *ancestors* but stops at items *behind* it, so a hover MouseArea
   laid behind the content lost its hover — and closed the popup — the moment

@@ -40,6 +40,7 @@ and say *why* (see `notes/conventions.md`).
 |---|---|
 | `notes/rendering.md` | Animation and refresh rate: the 60Hz cap and its two real fixes, `FrameSpring`, idle-CPU cost of running animations, Vulkan RHI |
 | `notes/text.md` | Font weight via Inter's `wght` axis, hinting, blur caused by rendering into a layer |
+| `notes/popups.md` | Hover popups' unfold/fold: springs, first-frame hold, slack, Hyprland's popup fade |
 | `notes/panels.md` | Control center: per-screen placement, slide animation, visibility races, click-triggered popups |
 | `notes/notifications.md` | Native notification daemon replacing swaync, and its IPC |
 | `notes/osd.md` | Native OSD replacing swayosd, incl. lock-key reads and contrast over bright windows |

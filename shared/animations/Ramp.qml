@@ -17,4 +17,12 @@ QtObject {
         const span = to - from;
         return span === 0 ? (v >= to ? 1 : 0) : clamp01((v - from) / span);
     }
+
+    // Content opacity over a plate's 0..1 opening: in over its second half,
+    // so nothing draws through widths or heights it has no room in. The OSD
+    // pill and the hover popups share it; a toast reveals later (0.72), see
+    // NotificationCard.qml.
+    function reveal(opened) {
+        return ramp(opened, 0.45, 0.80);
+    }
 }

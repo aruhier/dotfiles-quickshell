@@ -89,9 +89,11 @@ shared/popup/         everything to do with anchored hover popups: the
                       popups stay inline in their module (Clock's
                       calendar, Weather's forecast): they read the
                       module's own state
-  HoverPopup.qml         base type for a hover-triggered popup (grace-period
-                         close, PopupCoordinator registration) — Clock's
-                         calendar and Weather's forecast are built on this
+  HoverPopup.qml         base type for a hover-triggered popup: unfolds out
+                         of the bar and folds back (`notes/popups.md`),
+                         grace-period close, PopupCoordinator registration —
+                         Clock's calendar, Weather's forecast, Privacy's app
+                         list and the workspace preview are built on this
   Tooltip.qml            reusable hover tooltip; declarative `show` gated by
                          a `showDelay` dwell (`hoverDwell`), no close grace period
                          (see its header comment for why it's not built on
@@ -102,11 +104,12 @@ shared/popup/         everything to do with anchored hover popups: the
   AnchoredPopupWindow.qml base PopupWindow type owning the
                          anchor-below-module positioning math and the
                          device-grid surface size (`wantedWidth`/
-                         `wantedHeight`), shared by HoverPopup.qml and
-                         Tooltip.qml
+                         `wantedHeight`, plus `slackHeight` below it for a
+                         plate to overshoot into), shared by HoverPopup.qml
+                         and Tooltip.qml
   HoverPopupArea.qml     hover MouseArea that opens a LazyLoader-backed
                          HoverPopup after a `showDelay` dwell (`hoverDwell`);
-                         shared by Clock.qml/Weather.qml/Workspaces.qml.
+                         shared by Clock, Weather, Privacy and Workspaces.
                          `popupEnabled: false` skips the open entirely;
                          `cancel()` drops a pending/open popup on a click
   WorkspacePreviewPopup.qml HoverPopup showing a live scaled-down mock-up
@@ -182,7 +185,8 @@ shared/animations/PressSpring.qml   the press-scale bump on clickable icons
 shared/animations/SpringGroup.qml   one shared clock for coupled springs
 shared/animations/Ramp.qml          pragma-Singleton `ramp()`/`clamp01()`: the
                       0..1 stage every staged animation reads (OSD pill,
-                      toast plate)
+                      toast plate, hover popups); `reveal()`, the content
+                      fade the OSD pill and the hover popups share
 ```
 
 ## Per-screen module layout

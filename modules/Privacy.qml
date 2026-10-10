@@ -90,7 +90,7 @@ Item {
             id: popup
             anchorItem: root
 
-            visible: popup.isOpen && root.contentVisible
+            visible: popup.isShown && root.contentVisible
             wantedWidth: 260
             wantedHeight: body.implicitHeight + 2 * padding
 

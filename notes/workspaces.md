@@ -56,8 +56,9 @@ Quickshell 0.3.1:
   `live`, and with no `captureSource`: setting a source makes
   `ScreencopyView::createContext()` capture one frame even when not live.
 - **Empty workspaces get no popup at all** (`HoverPopupArea.popupEnabled`),
-  so hovering one builds nothing. Teardown is keyed on `HoverPopup.close()`
-  (its `dismissed` signal), not on `visible` going false — see Rejected.
+  so hovering one builds nothing. Teardown is keyed on `HoverPopup`'s
+  `dismissed` signal (after the fold, or on `close()`), not on `visible`
+  going false — see Rejected.
 - **A click on a pill calls `HoverPopupArea.cancel()`** before activating
   the workspace, which closes via `HoverPopup.close()`. `close()` now also
   deactivates itself with `PopupCoordinator`: it's followed by LazyLoader

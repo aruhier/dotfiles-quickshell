@@ -312,7 +312,7 @@ PanelWindow {
             anchors.verticalCenter: parent.verticalCenter
             height: parent.height
 
-            opacity: Ramp.ramp(osd.opened, 0.45, 0.80)
+            opacity: Ramp.reveal(osd.opened)
             visible: opacity > 0
 
             // Level layout: track, then percentage.

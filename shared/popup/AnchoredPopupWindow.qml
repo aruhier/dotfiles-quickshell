@@ -16,6 +16,9 @@ PopupWindow {
     // larger (Screens.snapSurface()).
     property real wantedWidth: 0
     property real wantedHeight: 0
+    // Transparent room below the wanted height, for a subtype that animates
+    // its plate past its resting size: a window clips its contents.
+    property real slackHeight: 0
 
     // Untyped: the cast to QsWindow would read null for an anchor inside a
     // PopupWindow, which isn't one.
@@ -25,7 +28,10 @@ PopupWindow {
     readonly property ShellScreen _barScreen: popup._barWindow?.screen ?? null
 
     implicitWidth: Screens.snapSurface(popup.wantedWidth, popup._barScreen)
-    implicitHeight: Screens.snapSurface(popup.wantedHeight, popup._barScreen)
+    // The wanted height on the device grid: where a plate filling it rests.
+    readonly property real restHeight: Screens.snapSurface(popup.wantedHeight, popup._barScreen)
+    // Two on-grid lengths, so their sum is too.
+    implicitHeight: popup.restHeight + Screens.snapSurface(popup.slackHeight, popup._barScreen)
 
     anchor {
         window: popup._barWindow

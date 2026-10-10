@@ -130,7 +130,8 @@ Four things the stages imply:
 
 Everything past the glyph — the track and the percentage, or the lock word —
 lives in one `detail` item whose opacity ramps over the second half of the
-expansion (`opened` 0.45 → 0.80) and which is `visible: opacity > 0`, so the
+expansion (`opened` 0.45 → 0.80, `Ramp.reveal()`, which the hover popups
+share) and which is `visible: opacity > 0`, so the
 level layout never renders through the widths where its track has no room.
 This is a plain opacity on unlayered text, not the layer/MultiEffect that
 `notes/text.md` rules out.
