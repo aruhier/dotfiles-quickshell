@@ -13,6 +13,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 import qs
 import qs.modules
 import qs.services
@@ -26,15 +27,22 @@ import qs.themes
 ShellRoot {
     id: root
 
+    readonly property string hostname: Quickshell.env("HOSTNAME") || hostnameFile.text().trim()
+
     // Which modules appear where, per output. Screens in `mainScreens` (names
-    // from `hyprctl monitors -j`) get `mainLayout`, the rest `defaultLayout`.
+    // from `hyprctl monitors -j`, per hostname, "*" for any other host) get
+    // `mainLayout`, the rest `defaultLayout`.
     // `left` and `right` are lists of module groups, ordered from the screen
     // edge inward; adjacent groups are drawn attached, as one pill, and a
     // group with nothing to show is left out. A group is
     // `{modules, color?, textColor?}`; both colours default to the shared
     // group palette. `center` is a plain module list. Module names must match
     // a key in Bar.qml's `moduleComponents`.
-    readonly property var mainScreens: ["DP-1", "eDP-1"]
+    readonly property var mainScreensByHost: ({
+        "tour-anthony": ["DP-1"],
+        "laptop-anthony": ["eDP-1", "DP-1", "DP-2", "DP-3", "DP-4"]
+    })
+    readonly property var mainScreens: root.mainScreensByHost[root.hostname] ?? root.mainScreensByHost["*"]
 
     readonly property var mainLayout: ({
         left: [
@@ -80,6 +88,12 @@ ShellRoot {
                 return bars[i];
         }
         return null;
+    }
+
+    FileView {
+        id: hostnameFile
+        path: Quickshell.env("HOSTNAME") ? "" : "/proc/sys/kernel/hostname"
+        blockLoading: true
     }
 
     // Fallback for the shared windows below, before they have a real output;

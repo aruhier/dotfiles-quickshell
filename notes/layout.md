@@ -189,7 +189,12 @@ shared/animations/Ramp.qml          pragma-Singleton `ramp()`/`clamp01()`: the
 
 Which modules appear where is configured in `shell.qml`, not hardcoded in
 `Bar.qml`: `mainScreens` lists monitor names (check with `hyprctl monitors
--j`) that get `mainLayout`; every other screen gets `defaultLayout`. Each
+-j`) that get `mainLayout`; every other screen gets `defaultLayout`.
+`mainScreens` is picked from `mainScreensByHost` by hostname, `"*"` for a
+host not listed. The hostname is `$HOSTNAME` if exported, else
+`/proc/sys/kernel/hostname`: shells set `HOSTNAME` without exporting it, so
+it's usually missing from a Hyprland-started Quickshell (Quickshell 0.3.1
+has no hostname API of its own). Each
 layout is a plain `{left, center, right}` object: `left` and `right` are
 lists of module groups, `{modules: [names], color?, textColor?}`, ordered
 from the screen edge inward, both colours defaulting to the shared group
