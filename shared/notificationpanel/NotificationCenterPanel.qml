@@ -226,14 +226,17 @@ PanelWindow {
             readonly property real closedRightMargin: -panel.width - 2
 
             // The panel's inner inset, and where the list's left edge sits in
-            // the window once the panel is at rest. The card inset is solved
-            // against this rather than snapped on its own: what a text subtree
-            // needs is a whole logical landing place, and where that is
-            // depends on where the panel has landed on this output. Off the
-            // *resting* geometry and never the live x — re-solving it
-            // mid-slide would walk the list sideways inside the panel.
-            readonly property real contentInset: Screens.snap(NotificationTheme.panelPadding, panelWindow.screen)
+            // the window once the panel is at rest. Both insets are solved
+            // rather than snapped on their own: what a text subtree needs is
+            // a whole logical landing place, and where that is depends on
+            // where the panel has landed on this output. Off the *resting*
+            // geometry and never the live x — re-solving it mid-slide would
+            // walk the content sideways inside the panel.
+            readonly property real contentInset: Screens.snapTextInset(NotificationTheme.panelPadding, panelWindow.width - panel.visibleWidth, panelWindow.screen)
             readonly property real listEdge: panelWindow.width - panel.visibleWidth + panel.contentInset
+            // The right inset is solved too, so the content's width is whole
+            // and what it centres or right-aligns lands whole as well.
+            readonly property real contentRightInset: panelWindow.width - Screens.textLanding(panelWindow.width - NotificationTheme.panelPadding, panelWindow.screen)
 
             // Driven imperatively from the Connections handler above; the
             // staging, the latches and the tuning live in the gesture.
@@ -276,6 +279,7 @@ PanelWindow {
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: panel.contentInset
+                anchors.rightMargin: panel.contentRightInset
                 spacing: NotificationTheme.panelSpacing
 
                 // ---- header ----

@@ -329,6 +329,78 @@ take that hop together, which reads as the panel arriving rather than as the
 text sliding inside it.
 
 
+### The toast stack had the same gap, from its right anchor (2026-10-12)
+
+Reported with a screenshot of a toast on DP-1 whose body read "3 other fi les":
+the `l` drawn as two half-grey columns. The stack was right-anchored at
+`edgeGap` (10.4 at 1.25) with a width snapped to a multiple of 0.8, inside a
+surface whose width is a multiple of 4 — so its left edge, and every glyph 90px
+in from it, landed on a whole logical px only when the width happened to fit
+(1 width in 5). Every snap in the chain was right for device pixels and the
+sum was wrong for logical ones, as above.
+
+Two changes in `NotificationPopupWindow.qml`:
+
+- `stackX` places the column's left edge with `snapTextInset`, and the gap to
+  the screen edge takes the difference.
+- `stackWidth` goes through `snapSurface` rather than `snap`, so the width is
+  whole in both spaces too. That fixes what is placed off the right edge (the
+  close button), and makes the gap constant per scale instead of jumping by
+  up to 2.5px as the width changes. It rounds up, so a measured naturalWidth
+  never wraps for a fraction of a pixel.
+
+Resulting gap, over every width in range: 10px at 1, 1.2, 1.5, 1.6, 1.8 and 2;
+9 at 1.333; 8 at 1.25 and 1.75. The opening needs under 1px of it net, ~3.5px
+when a wider toast makes the resting cards re-open. `travel` reads `stackX`
+instead of assuming `edgeGap`. Only the resting position is solved: the
+slide's `Translate` is fractional in flight and parks at exactly 0.
+
+Still fractional: action buttons, whose slots split the width `n` ways.
+
+### Checking it at runtime, and the control centre at any scale (2026-10-12)
+
+The toast bug was every snap in a chain being right and the sum wrong, and
+nothing short of measuring the real tree catches the next one. `TextGrid`
+(shared/) tracks every StyledText; `qs ipc call debug textGrid` reports each
+visible one whose glyphs start off a whole logical px — the item's window x,
+plus the free space for a centred or right-aligned single line — with its
+screen and owning file. Outputs at scale 1 are skipped: Qt rounds the origin
+there (measured above), so a fractional x costs nothing. Run it at rest, with
+the surfaces to check open, on every scale to support — how, without breaking
+the desktop: `notes/method.md`, "Testing another scale".
+
+Off by default, by request: registration and the IPC target exist only when
+the shell starts with `QS_DEBUG_TEXTGRID` set. A restart, not a reload — the
+variable is the process's, and text built before tracking began is never
+seen:
+
+```
+systemctl --user set-environment QS_DEBUG_TEXTGRID=1
+systemctl --user restart quickshell
+# ... qs ipc call debug textGrid ...
+systemctl --user unset-environment QS_DEBUG_TEXTGRID
+systemctl --user restart quickshell
+```
+
+Not commented out instead: that is two edits to keep in step (StyledText and
+Ipc.qml), lint never sees it, and half-enabled it reports "0 of 0" as if all
+were well. A restart drops the notification history, which lives in the
+process.
+
+The control centre now solves both content insets from the panel's resting
+edges (`contentInset` via `snapTextInset`, `contentRightInset` via
+`Screens.textLanding`), so the header, the now-playing widget and the list all
+start and end on whole px; the cards follow. Measured on DP-2 at 1.333, 1.6
+and 1.667 (toast and panel each): nothing off the grid. The old panel at
+1.333 had 16 texts off it — header at 1435.50, card text, time, action labels,
+close buttons, the whole now-playing widget. At 1 and 1.25 nothing moved.
+The checker caught the original toast bug too, restored on DP-1: title and
+body at 115.60, close button at 502.60.
+
+**Still off the grid: the bar's workspace labels**, centred in their pills
+(`Workspaces.qml`), at every fractional scale tried — "Fractional item
+positions — not a factor" above holds at scale 1 only. Not fixed yet.
+
 ## Text is plain, never `AutoText` (2026-09-28)
 
 `StyledText` sets `textFormat: Text.PlainText`. Qt's default, `AutoText`,

@@ -68,6 +68,30 @@ false positives pixel-by-pixel.
 - A popup screenshot taken right as the hover lands catches Hyprland's popup
   fade-in and looks see-through; wait a beat.
 
+## Testing another scale (2026-10-12)
+
+Kanshi owns the outputs here: it disables any output its profile doesn't name
+(a headless one included) and sets DP-1's 1.25, which the Lua config doesn't.
+What worked:
+
+1. `systemctl --user stop kanshi.service`.
+2. One `hyprctl eval` setting the test output's scale *and* re-stating the
+   others with kanshi's values plus the Lua config's own fields. Any
+   `hl.monitor` re-applies every rule: with only the test output named, DP-1
+   fell to scale 1 and the screens shifted; a rule without `bitdepth = 10`
+   dropped DP-2 to 8-bit.
+3. Focus the test output (`hl.dsp.focus({ monitor = "DP-2" })`): toasts and
+   the panel open on the focused one. A toast doesn't show while the panel is
+   open, so test them separately.
+4. `qs ipc call debug textGrid`, plus a `grim -o` to see it landed there.
+5. Restore the test output's rule in full, start kanshi, check `currentFormat`
+   and `refreshRate` against the start.
+
+Hyprland only takes scales giving a whole logical size: on 2560x1440 that is
+1, 1.25, 1.333, 1.6, 1.667, 2 — 1.2 silently became 1.25. A headless output
+(`hyprctl output create headless`) was tried first and dropped: kanshi
+disabled it, and two came up overlapping at the same x once rules re-applied.
+
 ## Probing Quickshell state without disturbing the running bar
 
 `qs -p <dir>` on a throwaway `shell.qml` reads live service state without

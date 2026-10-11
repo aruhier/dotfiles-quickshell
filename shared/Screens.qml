@@ -71,18 +71,24 @@ QtObject {
     // Adjusts an inset so text it places lands on a whole *logical* pixel,
     // which snap() doesn't give. Solved for the landing, since that depends on
     // where the container already is. `edge` is where the inset starts, in
-    // window coordinates, rightwards. A landing within 2px that is also a
-    // whole device pixel wins. See notes/text.md.
+    // window coordinates, rightwards. See notes/text.md.
     function snapTextInset(inset, edge, screen) {
+        return textLanding(edge + inset, screen) - edge;
+    }
+
+    // The whole logical x nearest `x` for text to start or end on. One within
+    // 2px that is also a whole device pixel wins, so an outline placed with
+    // it stays crisp too.
+    function textLanding(x, screen) {
         const scale = scaleFor(screen);
-        const nearest = Math.round(edge + inset);
+        const nearest = Math.round(x);
         for (let offset = 0; offset <= 2; offset++) {
             for (const landing of [nearest + offset, nearest - offset]) {
                 if (onGrid(landing, scale))
-                    return landing - edge;
+                    return landing;
             }
         }
-        return nearest - edge;
+        return nearest;
     }
 
     // Whether a logical length is a whole number of device px. Tolerant, as

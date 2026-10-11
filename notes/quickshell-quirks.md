@@ -49,6 +49,12 @@ Our own QML traps, not upstream's, are in `notes/qml-gotchas.md`.
   - Workaround: `shell.qml` refreshes toplevels on the window events in
     `toplevelEvents`; `WorkspacePreviewPopup.qml` refreshes both on open.
     Detail: `notes/autohide.md`, `notes/workspaces.md`.
+  - The scale case bites every snap: a scale change on a connected output
+    (kanshi setting it after the hotplug, a monitor rule) fires none of the
+    three, so `Screens.scaleFor()` kept the old one. Seen 2026-10-12: DP-1
+    back at 1.25 read 1 until something refreshed. Workaround: `shell.qml`
+    refreshes monitors on any screen's `geometryChanged`, which a scale
+    change does fire (the logical size changes).
   - Fixed when: `lastIpcObject` follows the matching events.
 
 - **`workspacev2` is applied to the *focused* monitor.** Moving a workspace

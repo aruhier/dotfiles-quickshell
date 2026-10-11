@@ -205,7 +205,7 @@ two sides are not symmetric:
 | side | room | what needs it |
 |---|---|---|
 | left | `NotificationPopupWindow.qml`'s `overshoot`, 24px | the slide's ~11px bump *plus* the opening's ~8px, together; the shadow |
-| right | the 10px edge gap, now inside the surface | the opening's ~8px, less whatever the slide is still leaning left |
+| right | the edge gap, inside the surface: 10px, 8-9 on some scales | the opening's ~8px, less whatever the slide is still leaning left |
 
 **The two overshoots land on top of each other, and only on the left.** The
 opening now starts while the slide is still settling (below), so the slide's
@@ -216,16 +216,18 @@ one side and cancel on the other. It reads as the whole card lunging left and
 settling, which is the gesture anyway, and it is why the left needs ~17px of
 the 24 while the right sits inside its 10px gap with room to spare.
 
-So `margins.right` is **0** and the resting gap is `anchors.rightMargin` on the
-column instead — the same move `OsdWindow.qml` makes with `margins.bottom`.
+So `margins.right` is **0** and the resting gap is room inside the surface,
+right of the column — the same move `OsdWindow.qml` makes with
+`margins.bottom`. Since 2026-10-12 the column is placed by `stackX` rather than
+a right anchor, which trims that gap to 8px at 1.25 (`notes/text.md`).
 That widens the surface past the stack on both sides, and a toast is
 clickable, so the window needs `mask: Region { item: column }` or the slack
 would swallow clicks meant for whatever is under it, the screen's own right
 edge included. The OSD needs no such mask because nothing on it is clickable.
 
 **`travel` is measured from the collapsed plate's own left edge**, not from
-the card's: `width + edgeGap - card.plateX`. The pill rests centred, so half the
-stack is already past the surface's right edge before it moves, and parking it
+the card's: the surface's width less `stackX` and `card.plateX`. The pill
+rests centred, so half the stack is already past the surface's right edge before it moves, and parking it
 a whole stack-width away would spend most of the slide off screen — the visible
 part fell from ~356ms to ~230 when this was still the card's full width.
 

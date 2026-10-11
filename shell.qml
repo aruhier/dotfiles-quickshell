@@ -121,6 +121,22 @@ ShellRoot {
     // lastIpcObject, which no event updates.
     readonly property var toplevelEvents: ["openwindow", "closewindow", "changefloatingmode", "togglegroup", "moveintogroup", "moveoutofgroup"]
 
+    // A scale change on a connected output (kanshi applying its profile after
+    // a hotplug, a monitor rule) sends no event Quickshell refreshes monitors
+    // on, so every snap kept the old scale. It does resize the screen.
+    Variants {
+        model: Quickshell.screens
+
+        Connections {
+            required property ShellScreen modelData
+            target: modelData
+
+            function onGeometryChanged(): void {
+                HyprlandRefreshService.monitors();
+            }
+        }
+    }
+
     // All IPC: see Ipc.qml.
     Ipc {
         id: ipc

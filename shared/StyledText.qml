@@ -1,5 +1,6 @@
 pragma ComponentBehavior: Bound
 import QtQuick
+import qs.shared
 import qs.themes
 
 // Every piece of text in this shell. A bare `Text {}` is a bug: the four
@@ -36,4 +37,9 @@ Text {
     // Nothing in the shell uses markup; a site that ever needs it opts in.
     textFormat: Text.PlainText
     color: Theme.text
+
+    Component.onCompleted: if (TextGrid.enabled)
+        TextGrid.track(this)
+    Component.onDestruction: if (TextGrid.enabled)
+        TextGrid.untrack(this)
 }

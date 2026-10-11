@@ -31,6 +31,7 @@ PanelWindow {
     // layer-shell margin: the plate springs past its full width as it opens,
     // and a window clips its contents.
     margins.right: 0
+    // Nominal: `stackX` trims it to 8 or 9px at 1.25, 1.333 and 1.75.
     readonly property real edgeGap: Screens.snap(10, popupWindow.screen)
     // Slack left of the stack for the slide to bump into on the way in and to
     // wind up into on the way out, plus room for the cards' shadows: a window
@@ -85,11 +86,14 @@ PanelWindow {
         return w;
     }
 
-    // The cards' own width. Snapped for the same reason as the margins: the
-    // stack is right-anchored, so this is what decides where its left edge —
-    // and with it every card's text — lands on the device pixel grid.
-    // maxNaturalWidth is a measured implicitWidth, so it is rarely integral.
-    readonly property real stackWidth: Screens.snap(Math.min(Math.max(maxNaturalWidth, NotificationTheme.popupMinWidth), NotificationTheme.popupMaxWidth), popupWindow.screen)
+    // The cards' own width, whole in logical and device px, so what is placed
+    // off its right edge (the close button) lands whole too. Rounds up, so
+    // text measured at naturalWidth never wraps for a fraction of a pixel.
+    readonly property real stackWidth: Screens.snapSurface(Math.min(Math.max(maxNaturalWidth, NotificationTheme.popupMinWidth), NotificationTheme.popupMaxWidth), popupWindow.screen)
+
+    // The stack's left edge, on a whole logical px so its text renders crisp;
+    // `edgeGap` takes the difference. See notes/text.md.
+    readonly property real stackX: Screens.snapTextInset(popupWindow.implicitWidth - edgeGap - stackWidth, 0, popupWindow.screen)
 
     // The stack, the gap it keeps from the screen edge — which is also what the
     // opening plate springs past its full width into — and slack on the far
@@ -208,8 +212,7 @@ PanelWindow {
 
     Column {
         id: column
-        anchors.right: parent.right
-        anchors.rightMargin: popupWindow.edgeGap
+        x: popupWindow.stackX
         width: popupWindow.stackWidth
         spacing: 8
 
@@ -244,7 +247,7 @@ PanelWindow {
                 // the stack in on the way in — where counting the whole width
                 // would spend most of the slide off screen — and pinned to
                 // wherever the exit caught it on the way out.
-                readonly property real travel: width + popupWindow.edgeGap - card.plateX
+                readonly property real travel: popupWindow.implicitWidth - popupWindow.stackX - card.plateX
 
                 // Where the plate shrinks onto while leaving: wherever it was
                 // when the exit began. See NotificationCard.qml's `pinnedX`.

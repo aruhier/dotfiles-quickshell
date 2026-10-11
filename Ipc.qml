@@ -168,6 +168,17 @@ Scope {
         }
     }
 
+    // Development checks against the live shell, only with QS_DEBUG_TEXTGRID
+    // set; see notes/text.md.
+    IpcHandler {
+        target: "debug"
+        enabled: TextGrid.enabled
+
+        function textGrid(): string {
+            return TextGrid.report();
+        }
+    }
+
     Connections {
         target: LockKeysService
         function onRefreshed(key: string): void {

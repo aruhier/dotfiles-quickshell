@@ -65,9 +65,13 @@ shared/PressableIcon.qml the clickable glyph inside a popup or panel:
 shared/Screens.qml    pragma-Singleton compositor seam, stateless and with
                       no I/O, so shared/ rather than services/: `byName()`,
                       `focused()`, `scaleFor()` (Hyprland's real fractional
-                      scale) and `snap()`/`snapTextInset()`/`snapSurface()` onto
-                      the device pixel grid. A port to another compositor rewrites
-                      `focused()` and `scaleFor()`
+                      scale) and `snap()`/`snapTextInset()`/`textLanding()`/
+                      `snapSurface()` onto the pixel grid. A port to another
+                      compositor rewrites `focused()` and `scaleFor()`
+shared/TextGrid.qml   pragma-Singleton every StyledText registers with when
+                      the shell starts with QS_DEBUG_TEXTGRID set;
+                      `qs ipc call debug textGrid` then lists visible text
+                      starting off a whole logical px (`notes/text.md`)
 shared/NotchWheelArea.qml MouseArea emitting whole wheel notches
                       (`stepped(n)`), accumulating high-res/touchpad
                       deltas and ignoring horizontal scroll; Volume and
