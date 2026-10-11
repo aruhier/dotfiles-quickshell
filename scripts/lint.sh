@@ -17,7 +17,9 @@
 #        (default: every .qml file in the repo)
 set -euo pipefail
 
-repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Physical path: run through ~/.config/quickshell, a symlink to this repo,
+# plain pwd keeps the link, and find doesn't descend a symlinked start point.
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 qmllint="$(command -v qmllint || echo /usr/lib64/qt6/bin/qmllint)"
 [ -x "$qmllint" ] || { echo "lint: qmllint not found" >&2; exit 127; }
 
@@ -57,6 +59,9 @@ if [ "$#" -gt 0 ]; then
 else
     mapfile -t files < <(find "$repo" -name '*.qml' -not -path '*/.git/*' | sort)
 fi
+# With no files qmllint prints its usage, which would only surface later as
+# "no parseable output".
+[ "${#files[@]}" -gt 0 ] || { echo "lint: no .qml files found under $repo" >&2; exit 2; }
 
 # stderr is kept, not dropped: a qmllint that crashes or can't read its
 # config would otherwise look like a clean run.
