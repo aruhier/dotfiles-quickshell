@@ -24,8 +24,8 @@ number of windows. It counts windows, all of them, not only those on screen,
 so each scrolling-layout column normally counts as one. Two windows stacked
 in one column count as two, because Quickshell can't see columns. A tab
 group counts once, by its first member (`grouped[0]`). Inactive tabs are
-not `hidden` in 0.56; that flag is only set for swallowed windows and a few
-X11 cases. An empty workspace shows the bar, so the first window opened
+not `hidden` in 0.56 or 0.57.0; that flag is only set for swallowed
+windows and a few X11 cases. An empty workspace shows the bar, so the first window opened
 there resizes once, after the delay.
 
 What gets counted (`floating`, `hidden`, `grouped`) is only in
@@ -61,10 +61,12 @@ override; accepted.
 
 ## Special workspaces need no handling
 
-Checked in Hyprland 0.56.2 and Quickshell 59e9c47: `focusedmon` reports the
-monitor's regular workspace (`FocusState.cpp`), `changeWorkspace()` routes a
-special one to `setSpecialWorkspace()` and returns before `workspacev2`
-(`Monitor.cpp`), and Quickshell ignores `activespecial`. So
+Checked in Hyprland 0.56.2 and Quickshell 59e9c47, and again in Hyprland
+0.57.0 source: `focusedmon` reports the monitor's regular workspace
+(`FocusState.cpp`; by id since 0.57, see `notes/quickshell-quirks.md`),
+`changeWorkspace()` routes a special one to `setSpecialWorkspace()` and
+returns before `workspacev2` (`Monitor.cpp`), and Quickshell ignores
+`activespecial`. So
 `HyprlandMonitor.activeWorkspace` is never special and the bar binds to it
 directly; opening a scratchpad changes nothing, as the user wants.
 
@@ -238,7 +240,11 @@ unless another output's bar still holds it (a moved workspace).
   (`LuaWorkspaceRule.cpp`), so the handles don't avoid it. Still so on
   upstream `main` at `4bb6844b` (2026-09-27): the fallback to the focused
   monitor is in `state/workspace/PlacementController.cpp`, for workspaces
-  that already exist too.
+  that already exist too. Still so in v0.57.0, tested live (2026-10-28):
+  `d` moved to HDMI-A-1 with its rule on DP-2 went back to DP-2 on a new
+  unrelated rule, and again on a `set_enabled()`; a persistent `12` with no
+  monitor, moved to HDMI-A-1, went to the focused DP-1. With the
+  `set_edges` pin loop run first, `d` stayed put.
 - **Reverts usually land off screen**: they come from a hidden workspace
   gaining a window, an override, or a move to another output. Harmless:
   every workspace of the output is re-laid out on each change anyway.

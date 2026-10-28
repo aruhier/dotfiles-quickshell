@@ -63,8 +63,8 @@ Measured on DP-1 (weather popup, 380px plate, 4.1ms frames from a
 
 ## Hyprland
 
-Hyprland 0.56.2 (read in its source) never fades a *layer's* popups in: the
-renderer draws them with the layer's alpha, not the popup's
+Hyprland 0.56.2 and 0.57.0 (read in their source) never fade a *layer's*
+popups in: the renderer draws them with the layer's alpha, not the popup's
 `fadePopupsIn` value, which only window popups use. On unmap it does fade a
 snapshot out with `fadePopupsOut` (inherited from `fadeOut` here), and that
 path ignores the layer's `no_anim`, so a `no_anim` layer rule on
