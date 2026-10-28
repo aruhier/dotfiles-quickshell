@@ -106,13 +106,18 @@ ShellRoot {
 
     // Moving a workspace to another output makes Hyprland switch the old
     // output to a new one, but Quickshell credits that switch to the focused
-    // output, leaving a bar on a workspace it no longer shows.
+    // output, leaving a bar on a workspace it no longer shows. And since
+    // Hyprland 0.57, `focusedmon` carries the workspace id where Quickshell
+    // looks up a name, so a focus moving to another output leaves it on no
+    // workspace, or on one whose name is that id.
     Connections {
         target: Hyprland
         function onRawEvent(event: HyprlandEvent): void {
             // v1 and v2 both fire per move; one refresh is enough.
             if (event.name === "moveworkspacev2")
                 HyprlandRefreshService.monitors();
+            else if (event.name === "focusedmonv2")
+                HyprlandRefreshService.monitorsNow();
             else if (root.toplevelEvents.includes(event.name))
                 HyprlandRefreshService.toplevels();
         }

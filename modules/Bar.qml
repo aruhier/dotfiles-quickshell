@@ -28,8 +28,14 @@ PanelWindow {
     required property int hideDelay
 
     // Opening a special workspace leaves this alone: Hyprland reports those
-    // separately, and Quickshell doesn't fold them in.
-    readonly property HyprlandWorkspace workspace: Screens.monitorFor(barWindow.modelData)?.activeWorkspace ?? null
+    // separately, and Quickshell doesn't fold them in. Held across a null:
+    // every focus move here clears it until shell.qml's refresh lands (see
+    // notes/quickshell-quirks.md), and that gap showed a hide-listed bar for
+    // a whole hideDelay. A destroyed workspace still reads null.
+    readonly property HyprlandWorkspace liveWorkspace: Screens.monitorFor(barWindow.modelData)?.activeWorkspace ?? null
+    property HyprlandWorkspace workspace: barWindow.liveWorkspace
+    onLiveWorkspaceChanged: if (barWindow.liveWorkspace !== null)
+        barWindow.workspace = barWindow.liveWorkspace
 
     // A number is a workspace id, a string a name.
     function matchesWorkspace(entries, ws) {

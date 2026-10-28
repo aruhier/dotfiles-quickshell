@@ -66,6 +66,28 @@ Our own QML traps, not upstream's, are in `notes/qml-gotchas.md`.
   - Fixed when: a workspace moved off a bar's output leaves that bar on the
     output's real workspace with the refresh removed.
 
+- **`focusedmon` is read as `MONNAME,WORKSPACENAME`, but Hyprland 0.57
+  sends the workspace id there** (same as `focusedmonv2`). Focusing another
+  output sends only `focusedmon`, no `workspacev2`. So Quickshell's
+  `findWorkspaceByName(id)` leaves that monitor with no active workspace (no
+  focused pill anywhere), or with a workspace whose name happens to be that
+  id (id 8 → the one named "8", id 10).
+  - Seen: Quickshell 0.3.2, Hyprland 0.57.0; captured on socket2
+    (`focusedmon>>DP-1,4` with workspace 4 named "f"), and read in
+    `connection.cpp` (`focusedmon` handler), 2026-10-28.
+  - Workaround: `shell.qml` refreshes monitors on `focusedmonv2`, through
+    `HyprlandRefreshService.monitorsNow()` (no 50ms lead: the wrong state
+    is visible). The refresh resets each monitor's active workspace. It
+    can't beat the null, which reaches QML first (measured: set, then
+    restored 0ms later, or 50ms through the lead), so `Bar.qml` holds the
+    last non-null `workspace`; without that, focusing a hide-listed output
+    showed its bar for one `hideDelay`. A
+    workspace credited by a name/id clash keeps its wrong `monitor` until a
+    workspace refresh, which nothing here sends.
+  - Fixed when: Quickshell reads `focusedmonv2`'s id, or Hyprland sends the
+    name in `focusedmon` again. Check: with the refresh removed, focusing a
+    workspace on another output by keybind moves the accent pill.
+
 - **Submaps exist only as `submap>>` events**, with no current-state
   property, so a shell built mid-submap sees none until the next change.
   - Workaround: `services/SubmapService.qml` seeds from `hyprctl -j submap`.

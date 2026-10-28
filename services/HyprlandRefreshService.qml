@@ -21,6 +21,14 @@ QtObject {
         lead.start();
     }
 
+    // For a wrong state already on screen: skips the lead's batching. The
+    // trail still re-sends, in case this one was dropped mid-flight.
+    function monitorsNow() {
+        Hyprland.refreshMonitors();
+        root.trailMonitors = true;
+        trail.restart();
+    }
+
     property bool pendingToplevels: false
     property bool pendingMonitors: false
     property bool trailToplevels: false
