@@ -245,6 +245,24 @@ unless another output's bar still holds it (a moved workspace).
   unrelated rule, and again on a `set_enabled()`; a persistent `12` with no
   monitor, moved to HDMI-A-1, went to the focused DP-1. With the
   `set_edges` pin loop run first, `d` stayed put.
+- **The pins are refreshed on every workspace move too**
+  (`workspace.move_to_monitor`, emitted after the move), not only in
+  `set_edges` (2026-10-31). Pinned only there, a workspace moved since the
+  last bar change kept its old pin. Fullscreen on scrolling `a` then ran the
+  refresh and pulled `f` off HDMI-A-1, which fell back to its default `d`.
+  Re-pinning from inside Hyprland's own placement loop is safe: the pins
+  merge in place into the existing rules 1-8 (`replaceOrAdd`), so the rule
+  vector it iterates doesn't grow. The cost: an output that is unplugged
+  pins its workspaces to wherever they were moved, so they don't go back when
+  it returns.
+- **Special workspaces have `id = nil` in `hl.get_workspaces()`**, so the pin
+  loop checks `ws.id` first. Without that check it threw at the first
+  special workspace: the workspaces listed after it were never pinned (that's
+  how `f` and `u` went stale), and `set_edges` aborted before toggling the
+  edge rule. After a reload with a scratchpad open, no edge rule was left.
+- **Saving any file of the Hyprland config reloads it** (autoreload is on).
+  To try a handler without that, register a copy with `hyprctl eval`. The
+  next reload drops it.
 - **Reverts usually land off screen**: they come from a hidden workspace
   gaining a window, an override, or a move to another output. Harmless:
   every workspace of the output is re-laid out on each change anyway.
