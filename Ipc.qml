@@ -166,6 +166,13 @@ Scope {
             }
             LockKeysService.refresh(key);
         }
+
+        // For scripts, e.g. `qs ipc call osd message $'\U000f02cb' "SDAC"`;
+        // empty text shows the glyph alone. Whitespace is flattened: a newline
+        // would wrap, a blank string would draw an empty plate.
+        function message(icon: string, text: string): void {
+            OsdService.showMessage(icon.trim(), text.replace(/\s+/g, " ").trim(), true);
+        }
     }
 
     // Development checks against the live shell, only with QS_DEBUG_TEXTGRID

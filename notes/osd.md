@@ -136,11 +136,12 @@ level layout never renders through the widths where its track has no room.
 This is a plain opacity on unlayered text, not the layer/MultiEffect that
 `notes/text.md` rules out.
 
-**A lock-key pill hugs its word** rather than sitting centred in a 420px
-plate: `openWidth` is `3 * pillPadding + glyph.width + lockLabel.implicitWidth`
-for those kinds. A fixed-width plate would have to grow to a width the content
-does not fill, and the glyph has to start at `pillPadding` from the left edge
-for the collapsed shape to centre it.
+**A word pill (lock key or message) hugs its word** rather than sitting
+centred in a 420px plate: `openWidth` is `labelInset + lockLabel.width`, the
+label capped at `maxLabelWidth` (see Script messages below for the cap). A
+fixed-width plate would have to grow to a width the content does not fill,
+and the glyph has to start at `pillPadding` from the left edge for the
+collapsed shape to centre it.
 
 **Timings were tuned in three passes, all by request**: both springs slowed
 10% on the first cut, then the slide alone another 10%, then the bumps added.
@@ -164,17 +165,18 @@ moved in, so the keys behave as they did). `OsdService` holds what is showing
 (`kind`), where (`screen`), and a message's payload.
 
 **Who calls it.** Every trigger goes through `Ipc.qml`: the `osd` target's
-`volume`/`mute`/`brightness`/`lock` handlers, which the keybinds call, and the
-`bar` target, which shows a message after an auto-hide override. `show(kind,
-screen?)` lands on `Screens.focused()` when no screen is given — a keybind has
-no widget to report one — and keeps the last screen otherwise, so a hide
-animation finishes where it started.
+`volume`/`mute`/`brightness`/`lock` handlers, which the keybinds call, its
+`message` handler, which scripts call, and the `bar` target, which shows a
+message after an auto-hide override. `show(kind, screen?)` lands on
+`Screens.focused()` when no screen is given — a keybind has no widget to
+report one — and keeps the last screen otherwise, so a hide animation
+finishes where it started.
 
 **Messages.** `showMessage(glyph, text, on, screen?)` shows the `"message"`
 kind: styled like a lock key, `on` lighting the glyph, the text in place of
-the lock word. Its one user is the bar's visibility OSD (`Ipc.qml`'s
+the lock word. Callers are the bar's visibility OSD (`Ipc.qml`'s
 `applyBarOverride`: "Bar hidden · this workspace · override", on the bar's own
-output).
+output) and scripts, below.
 
 **Everything is keybind-driven, deliberately.** The alternative is a daemon
 holding evdev open, which is what both prior arts do: swayosd runs a
@@ -183,6 +185,75 @@ user in the `input` group (`dms setup` runs `usermod -a -G input`; it prints
 "Caps Lock OSD will be unavailable" when that fails, and it only covers Caps
 Lock, not Num/Scroll). This machine's user *is* in `input`, so an `evtest`
 reader was possible — see Rejected. A keybind costs nothing until pressed.
+
+### Script messages over IPC (2026-11-15)
+
+`qs ipc call osd message <glyph> <text>`, for scripts that want feedback on
+something they just did (`~/.local/bin/switch-audio`,
+`~/.config/hypr/scripts/wofi-audio`). It is for transient feedback only:
+anything that should be kept or read later is a notification. Both scripts
+fall back to `notify-send` when `qs` exits non-zero, i.e. no shell is
+answering — `qs` exits 0 for a call the running shell has no handler for,
+so that case shows nothing.
+
+Two strings and nothing else, always lit (see Rejected). The glyph is a
+literal Nerd Font character (bash: `$'\U000f02cb'`). Whitespace is
+flattened in the handler: a real newline wraps even in a PlainText label,
+giving two lines in a one-line pill, and blank text or glyph would draw an
+empty plate. An empty glyph falls back to `󰋽` in `OsdWindow`'s glyph switch,
+beside every other kind's glyph.
+
+**Empty text is an icon-only pill** (`iconOnly`): `openWidth` is
+`collapsedWidth`, so the glyph rises, holds and drops without the plate ever
+widening. Left to the general formula it would open to `3 * pillPadding +
+glyph`, a padding of empty plate right of the glyph. The exit needs a special
+case: `Ramp.ramp` over an empty span is 1 whenever the width is at its
+target, so `opened` never falls to the `narrowed` threshold and the pill
+would never drop. `narrowed` is therefore true outright for an icon-only
+pill. Measured with a `grim` burst: risen with its bump by ~250ms, wind-up at
+~2.64s, off the edge by ~2.88s, the same exit as a word pill. Idle cost
+returns to baseline (~11 wakeups/s) after it.
+
+**A word pill grows to a quarter of the output's logical width**
+(`maxWidthFraction`, never under `pillWidth`), then elides; level pills keep
+the fixed 420px (see Rejected). The logical pixel is already about one
+physical size on every output here (from EDID: DP-1, 4K at 1.25 and 70cm
+wide, is ~111 logical px per inch; the 1440 panels, 60cm wide, ~108), so
+what a larger screen has is width, and a share of width is what follows it:
+640px on 2560-wide outputs, 768 on DP-1.
+
+The surface is sized to that cap plus `overshoot`, because a window clips its
+contents: without it the bar's longest message ("… · forced, output override
+wins", ~400px of text) opens wider than the surface and loses its plate's
+ends. The wider surface takes no input (`mask` is empty) and gets blur only
+under the plate (Hyprland masks blur by alpha), but it is not free while
+animating: Hyprland redraws and blurs the whole surface each frame, ~800px
+wide on DP-1 and 672 on the 1440 panels against 452 at a level pill's width, so 1.5–1.8x the
+area while the OSD is up. Idle cost is unchanged — the surface unmaps.
+
+**Moving to a narrower output mid-show.** The cap follows the output, so the
+surface shrinks at once while the plate is still at the old screen's width
+(mid-show, or closing mid-exit). `onMaxPillWidthChanged` cuts `expand` to the
+new cap and retargets it, the sideways twin of `onTravelChanged`'s re-park;
+the retarget is needed because `snapTo` also overwrites the spring's target,
+and if `to` then never changes the plate would stay at the cut width. The
+pill is centred off `osd.implicitWidth`, not `parent.width`, for the same
+move: Hyprland places the surface by the requested size at once, while
+`parent.width` follows a configure later. Measured on a DP-1 → DP-2 move
+mid-show, centring off `parent.width` put the pill (800 − 672) / 2 = 64px
+right of centre for the first three or four frames, then it jumped. `y` was
+already off `implicitHeight`.
+
+Accepted as is (2026-11-15): the reverse move, to a *wider* output, cuts up
+to 48px off the plate's right end for ~2 frames, on long messages only. The
+old, narrower buffer is still on screen while Hyprland already places the
+surface by the new size; centring off `parent.width` instead trades that for
+the pill sitting 64px off centre. The clean fix is one surface width for
+every output (the widest cap of any connected one), which also retires
+`onMaxPillWidthChanged`, at the cost of a wider blur box on the smaller
+panels. And the cut zeroes the closing plate's velocity, but that is never
+seen here: every output pair that differs in width also differs in height,
+so `onTravelChanged` has already parked the pill under the edge.
 
 ### Three Quickshell behaviours this ran into, all measured
 
@@ -304,6 +375,14 @@ before priming lands still takes its first read as final.
 
 ## Rejected
 
+- **Icon names in the message IPC** instead of literal glyphs: there is no
+  name→glyph table in this repo to look one up in, and a script can spell
+  any glyph as `$'\U000fXXXX'`.
+- **An `on` argument on the message IPC**: `qs ipc` has no optional
+  arguments, and a script reporting something it just did wants the lit
+  glyph.
+- **A wider level pill on large outputs**: its track would only get longer;
+  the extra room is for words.
 - **An evdev reader** (`evtest`, as swayosd's root libinput backend and DMS's
   Go helper do): one long-lived subprocess per keyboard plus hotplug handling,
   waking on every event, against the "no owned subprocesses" rule and the

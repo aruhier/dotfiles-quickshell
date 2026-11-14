@@ -13,10 +13,11 @@ import qs.themes
 // module-anchored machinery in ../popup/.
 //
 // Only the bottom edge is anchored: layer-shell centres a surface on the axis
-// it isn't anchored to, so nothing here has to know the output's width. The
-// surface sits flush with that edge and is taller than the pill, because the
-// pill rises out of the edge on show and drops back under it on hide; the
-// resting gap is room inside the surface rather than a layer-shell margin.
+// it isn't anchored to, so placing it never needs the output's width (only the
+// word pill's cap, `maxPillWidth`, reads it). The surface sits flush with that
+// edge and is taller than the pill, because the pill rises out of the edge on
+// show and drops back under it on hide; the resting gap is room inside the
+// surface rather than a layer-shell margin.
 //
 // Colours are NotificationTheme's, not Theme's: this is a floating surface
 // over the desktop like a toast, and reading as one of those rather than as a
@@ -63,8 +64,10 @@ PanelWindow {
             return "󰘲";
         case "numlock":
             return "󰎠";
+        // The collapsed pill is nothing but the glyph, so a message always
+        // has one.
         case "message":
-            return OsdService.messageGlyph;
+            return OsdService.messageGlyph || "󰋽";
         default:
             return "󰌌";
         }
@@ -113,6 +116,10 @@ PanelWindow {
     // A share of the output's height, not a fixed margin, so it lands in the
     // same place on a 1440 and a 2160 panel. See notes/osd.md.
     readonly property real bottomEdgeFraction: 0.07
+    // How wide a word pill may grow, as a share of the output's logical width
+    // and never under a level's plate: a 4K panel has the room for a long
+    // message that a 1440 one would elide. See notes/osd.md.
+    readonly property real maxWidthFraction: 0.25
 
     // Both the height of the surface and the distance the pill covers: its own
     // height, plus the gap it rests above the bottom of the output. That gap is
@@ -121,12 +128,22 @@ PanelWindow {
     // notes/text.md.
     readonly property real travel: Screens.snap((osd.targetScreen ? osd.targetScreen.height : 1080) * osd.bottomEdgeFraction, osd.targetScreen) + osd.snappedPillHeight
 
+    // The word pill's cap on this output; `maxWidthFraction` says why.
+    readonly property real maxPillWidth: Math.max(osd.pillWidth, Screens.snap((osd.targetScreen ? osd.targetScreen.width : 1920) * osd.maxWidthFraction, osd.targetScreen))
+
     // The two widths the pill springs between. Collapsed is the glyph and its
     // padding and nothing else, so the glyph sits dead centre of it whatever
     // the icon's advance is; open is the full plate — fixed for a level, and
-    // hugging the word for a lock key, which has no track to fill.
+    // hugging the word for a lock key, which has no track to fill. A message
+    // with no text never opens: the glyph alone rises, holds and drops.
+    readonly property bool iconOnly: !osd.level && osd.label === ""
     readonly property real collapsedWidth: Screens.snap(2 * osd.pillPadding + glyph.width, osd.targetScreen)
-    readonly property real openWidth: Screens.snap(osd.level ? osd.pillWidth : 3 * osd.pillPadding + glyph.width + lockLabel.implicitWidth, osd.targetScreen)
+    // Everything in a word pill but the word: the glyph and the padding on
+    // either side of both.
+    readonly property real labelInset: 3 * osd.pillPadding + glyph.width
+    readonly property real openWidth: osd.iconOnly ? osd.collapsedWidth : Screens.snap(osd.level ? osd.pillWidth : osd.labelInset + lockLabel.width, osd.targetScreen)
+    // Past this the word elides: the surface is only `maxPillWidth` wide.
+    readonly property real maxLabelWidth: osd.maxPillWidth - osd.labelInset
 
     // How far along the expansion the pill is, 0..1. Drives the reveal of
     // everything past the glyph.
@@ -153,7 +170,7 @@ PanelWindow {
     // the left edge — and with it every glyph — lands on the device pixel grid.
     // Wider than the widest pill by `overshoot`, which is the room the
     // expansion spring needs to overshoot into: a window clips its contents.
-    implicitWidth: Screens.snapSurface(osd.pillWidth + osd.overshoot, osd.targetScreen)
+    implicitWidth: Screens.snapSurface(osd.maxPillWidth + osd.overshoot, osd.targetScreen)
     // Same slack again above the pill's resting place, for the rise to bump
     // into. `travel` stays the distance the pill covers, not the surface's
     // height, so nothing else here has to know about the extra room.
@@ -189,8 +206,10 @@ PanelWindow {
     // entry reads as one. The entry overlaps because the widening starts into
     // the rise's bump and runs through the whole of its settling; this is the
     // mirror of that, and at a fifth of the way open the width is still moving
-    // ~7px a frame.
-    readonly property bool narrowed: osd.opened <= 0.2
+    // ~7px a frame. An icon-only pill has nothing to close, and its `opened`
+    // sits at 1 (Ramp.ramp over an empty span), so it counts as narrowed
+    // outright.
+    readonly property bool narrowed: osd.iconOnly || osd.opened <= 0.2
 
     // The offset of the pill below its resting place, in pixels: `travel` is
     // off-screen, 0 is up. A pixel spring, so Theme.springEpsilon (pixel-scale)
@@ -247,6 +266,13 @@ PanelWindow {
     // the wrong place, and on a taller screen that place is already on-screen.
     onTravelChanged: if (!osd.showing)
         slide.snapTo(osd.travel)
+    // Same move, sideways: a narrower screen shrinks the surface at once, and
+    // a plate still wider than it would have its ends clipped while it springs
+    // down. Cut it to fit, then aim it where it was going.
+    onMaxPillWidthChanged: if (expand.value > osd.maxPillWidth) {
+        expand.snapTo(osd.maxPillWidth);
+        expand.retarget(expand.to);
+    }
 
     // The pill itself: `osd.pillHeight` of the surface, sliding through the
     // rest of it. Moved by `x`/`y`/`width` and nothing else — never `layer`
@@ -257,9 +283,11 @@ PanelWindow {
 
         // Centred in the surface, so the pill grows out of its own middle. The
         // snap keeps both edges of the 1px border on the device pixel grid at
-        // rest, whatever width the kind settled on.
+        // rest, whatever width the kind settled on. Off `implicitWidth`, like
+        // `y`: Hyprland places the surface by the requested size at once,
+        // while `parent.width` lags a configure behind.
         width: expand.value
-        x: Screens.snap((parent.width - width) / 2, osd.targetScreen)
+        x: Screens.snap((osd.implicitWidth - width) / 2, osd.targetScreen)
         height: osd.snappedPillHeight
         // `slide` is the offset below the resting place, which is `travel` up
         // from the bottom: the surface rounding then adds to the bump's slack
@@ -369,14 +397,17 @@ PanelWindow {
                 }
             }
 
-            // Lock-key layout: the state as a word, which `openWidth` sizes
-            // the open pill to. An invisible Text still reports its
-            // implicitWidth, so that width is known before the pill opens.
+            // Word layout, for a lock key or a message: the text, which
+            // `openWidth` sizes the open pill to, elided past `maxLabelWidth`.
+            // An invisible Text still reports its implicitWidth, so that width
+            // is known before the pill opens.
             StyledText {
                 id: lockLabel
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 visible: !osd.level
+                width: Math.min(implicitWidth, osd.maxLabelWidth)
+                elide: Text.ElideRight
                 color: osd.lockOn ? NotificationTheme.text : NotificationTheme.textDisabled
                 font.pixelSize: NotificationTheme.fontSize
                 text: osd.label
