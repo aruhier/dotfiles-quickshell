@@ -128,6 +128,18 @@ Four things the stages imply:
   Symmetric damping undershot the collapsed width by 11px on the way out,
   which narrows the plate past the glyph it is meant to be a plate for.
 
+**Every show re-arms `slide`** (`onShowingChanged`, 2026-11-15). A show
+landing while the plate is still closing, *and* moving to an output with
+another `travel` (height or scale), was lost: no layer, then a ghost when the
+hide timer fired. `OsdService.show` sets the screen before the kind, so
+`onTravelChanged` parks the pill while `showing` is still false, and `snapTo`
+drops the spring's target; in that stage `slide.to` was already 0, so
+`onToChanged` never fired. Retargeting in `onTravelChanged` instead is wrong:
+`travel` also changes with no show (an output unplugged mid-exit), and with
+`to` at 0 the pill would rise for nothing. The sideways twin of the same
+`snapTo` trap is under "Moving to a narrower output mid-show". Verified on
+DP-1 → DP-2 at every exit stage, DP-2 → HDMI-A-1 and DP-2 → DP-1.
+
 Everything past the glyph — the track and the percentage, or the lock word —
 lives in one `detail` item whose opacity ramps over the second half of the
 expansion (`opened` 0.45 → 0.80, `Ramp.reveal()`, which the hover popups

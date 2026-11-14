@@ -198,8 +198,13 @@ PanelWindow {
     property bool wound: true
     onShowingChanged: {
         risen = osd.showing && slide.value <= 0;
-        if (osd.showing)
-            wound = false;
+        if (!osd.showing)
+            return;
+        wound = false;
+        // Every show re-arms the slide: onTravelChanged may have re-parked it,
+        // and `snapTo` drops the target; if `to` doesn't change (shown while
+        // the plate is still closing), nothing else sets it going.
+        slide.retarget(0);
     }
     // Deliberately far from 0: the hop has to start while the plate is still
     // visibly closing, or the exit reads as three separate beats where the
@@ -261,9 +266,10 @@ PanelWindow {
     }
 
     // OsdService picks the output before it sets the kind, so an OSD moving to
-    // a screen of a different height changes `travel` while the pill is still
-    // parked. Re-park it: left at the old offset it would start its rise from
-    // the wrong place, and on a taller screen that place is already on-screen.
+    // a screen of a different height or scale changes `travel` while `showing`
+    // is still false, parked or mid-exit. Re-park it (onShowingChanged re-arms
+    // it): left at the old offset it would start its rise from the wrong
+    // place, and on a taller screen that place is already on-screen.
     onTravelChanged: if (!osd.showing)
         slide.snapTo(osd.travel)
     // Same move, sideways: a narrower screen shrinks the surface at once, and
