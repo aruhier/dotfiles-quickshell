@@ -2,6 +2,7 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
+import qs.services
 import qs.shared
 
 // What the on-screen display is showing, and on which output. One shared
@@ -44,6 +45,16 @@ QtObject {
         function onScreensChanged(): void {
             if (root.screen && Quickshell.screens.indexOf(root.screen) === -1)
                 root.screen = null;
+        }
+    }
+
+    // The one trigger with no keybind or IPC call behind it: Quickshell sees
+    // the Pipewire change itself. Also what builds AudioService at start-up,
+    // so its baseline exists before the first change.
+    property Connections audioDevices: Connections {
+        target: AudioService
+        function onDefaultChanged(glyph: string, text: string): void {
+            root.showMessage(glyph, text, true);
         }
     }
 

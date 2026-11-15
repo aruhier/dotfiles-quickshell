@@ -2,6 +2,14 @@
 
 - **`Privacy.qml`** shows mic, screen-share and camera icons, a thin view
   over `PrivacyService` — see `notes/privacy.md` for its known limits.
+- **`AudioService.qml`**'s default-device OSD (notes/osd.md) watches nodes
+  only. An ALSA route switch on one node — headphones into a jack on the same
+  card — isn't seen: Quickshell 0.3.2 exposes no `PwDevice`/`Route`
+  (`pactl subscribe` would be the way, at the cost of an owned subprocess).
+  Nor is a change behind a virtual sink (EasyEffects, a filter chain) that
+  stays the default. Both deliberate. Two nodes sharing a nickname (the
+  onboard card's stereo and surround profiles, two identical DACs) switch
+  silently: a new name under the same label is taken for a recreated node.
 - **`Mpd.qml`** shells out to `mpc` (`mpc idleloop player` for events, `mpc
   status`/`current` on each) since Quickshell has no built-in mpd client; the
   bar's mpd module is not MPRIS-based, unlike the control centre's widget.

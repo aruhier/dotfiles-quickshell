@@ -176,10 +176,12 @@ bar module read the same `pct`/`muted`/`icon`. `BacklightService` gained
 moved in, so the keys behave as they did). `OsdService` holds what is showing
 (`kind`), where (`screen`), and a message's payload.
 
-**Who calls it.** Every trigger goes through `Ipc.qml`: the `osd` target's
-`volume`/`mute`/`brightness`/`lock` handlers, which the keybinds call, its
-`message` handler, which scripts call, and the `bar` target, which shows a
-message after an auto-hide override. `show(kind, screen?)` lands on
+**Who calls it.** Every trigger but one goes through `Ipc.qml`: the `osd`
+target's `volume`/`mute`/`brightness`/`lock` handlers, which the keybinds call,
+its `message` handler, which scripts call, and the `bar` target, which shows a
+message after an auto-hide override. The exception is a default audio device
+change, which Quickshell sees in Pipewire itself, so `OsdService` connects to
+`AudioService.defaultChanged` directly (below). `show(kind, screen?)` lands on
 `Screens.focused()` when no screen is given — a keybind has no widget to
 report one — and keeps the last screen otherwise, so a hide animation
 finishes where it started.
@@ -201,12 +203,17 @@ reader was possible — see Rejected. A keybind costs nothing until pressed.
 ### Script messages over IPC (2026-11-15)
 
 `qs ipc call osd message <glyph> <text>`, for scripts that want feedback on
-something they just did (`~/.local/bin/switch-audio`,
-`~/.config/hypr/scripts/wofi-audio`). It is for transient feedback only:
-anything that should be kept or read later is a notification. Both scripts
-fall back to `notify-send` when `qs` exits non-zero, i.e. no shell is
-answering — `qs` exits 0 for a call the running shell has no handler for,
-so that case shows nothing.
+something they just did. It is for transient feedback only: anything that
+should be kept or read later is a notification. A caller wanting a fallback
+can test `qs`'s exit status: non-zero means no shell is answering — `qs`
+exits 0 for a call the running shell has no handler for, so that case shows
+nothing.
+
+The audio switchers (`~/.local/bin/switch-audio`,
+`~/.config/hypr/scripts/wofi-audio`) called it until 2026-11-16, when the OSD
+started announcing default device changes itself (below). They give no
+success feedback now, so picking the device that is already the default, or
+`switch-audio sdac` capping the volume to 60%, shows nothing — by request.
 
 Two strings and nothing else, always lit (see Rejected). The glyph is a
 literal Nerd Font character (bash: `$'\U000f02cb'`). Whitespace is
@@ -266,6 +273,73 @@ every output (the widest cap of any connected one), which also retires
 panels. And the cut zeroes the closing plate's velocity, but that is never
 seen here: every output pair that differs in width also differs in height,
 so `onTravelChanged` has already parked the pill under the edge.
+
+### Default audio device changes (2026-11-16)
+
+When Pipewire's default sink or source moves to another device — `wpctl
+set-default`, pavucontrol, a script, or WirePlumber falling back after an
+unplug — `AudioService` emits `defaultChanged(glyph, text)` and `OsdService`
+shows it as a lit message. One glyph per direction, `󰓃` sink and `󰍬` source,
+and the node's `nickname` (`SDAC`, `EDIFIER S3000 Pro`, `27GL850`), falling back
+to `description` then `name`. Both moving gives both glyphs, and
+`"EDIFIER S3000 Pro — RODE Podcaster v2"` — an em dash between em spaces
+(U+2003), because `·` already means "a detail follows" in this pill — or the
+name once when they share it, as one headset's sink and source do
+(`Avantree DG60P`).
+
+**Compared by `node.name`, not the object**: a PipeWire or WirePlumber restart
+recreates the nodes under the same names, and the default metadata itself
+names nodes by `node.name`. A null default is skipped — it is the gap between
+an unplug ("Default sink destroyed", then WirePlumber's pick) or a restart.
+
+**What stays silent:**
+
+| case | why |
+|---|---|
+| shell start, `qs` reload | first sighting per direction is a baseline; `Component.onCompleted` takes it on reload, where `Pipewire.ready` is already true and nothing changes |
+| first 2s after Pipewire (re)connects | `grace`: WirePlumber can publish the default late, or pick a fallback before a USB DAC enumerates — either would otherwise announce at login |
+| changes while `Pipewire.ready` is false | same reason |
+| a transient fallback after a null default | `settle` waits 1s after a gap, below |
+| new name, same label | the same device recreated |
+| last device removed, default null | nothing to name |
+
+**One pill per plug event**: the sink and the source of one card move a few ms
+apart, and `settle` (100ms) gathers them. Enough for one USB card, where ACP
+creates both nodes together.
+
+**After a null default it waits 1s instead** (`sawGap`). A WirePlumber-only
+restart (`systemctl --user restart wireplumber`) leaves Quickshell's
+connection up, so `Pipewire.ready` never drops and `grace` never starts — yet
+every ALSA node is WirePlumber's and is destroyed, and while it re-enumerates
+six cards it may publish a fallback (SDAC) before the configured EDIFIER
+exists. At 100ms that is two pills, SDAC then EDIFIER; at 1s the fallback is
+usually superseded and the final pick equals the old name, so nothing shows.
+Inferred from the review (2026-11-16), not exercised. The cost is an unplug's
+fallback pill arriving a second late; a deliberate switch never passes
+through null, so it stays at 100ms. This also covers a Bluetooth profile
+switch, should a `bluez_` node ever appear.
+
+`settle` reads `Pipewire.ready` and `grace` when it fires, not when armed:
+otherwise a change pending across a disconnect was announced inside `grace`
+after a sub-100ms reconnect.
+
+**No tracking needed for any of it**: `name`, `nickname` and `description` are
+constant properties, filled from the registry global before a node is bound
+(checked in the qmltypes and `pw-cli ls Node`). Only `properties` needs a
+binding, and nothing here reads it — so there is no waiting for the new
+default to be `ready` either.
+
+`OsdService` holds the connection rather than `Ipc.qml`, because no IPC call
+is behind it: a lock key is seen by Hyprland and passed in over IPC, this is
+seen by Quickshell. `OsdService` is built at start-up (shell.qml reads
+`OsdService.screen`), which in turn builds `AudioService` then, not on first
+use — otherwise the baseline would be taken by whatever first touched it.
+
+Verified on DP-1: SDAC ↔ EDIFIER each show one pill; sink and source to the
+Avantree together show both glyphs and the name once; back to EDIFIER/RODE
+shows `EDIFIER S3000 Pro — RODE Podcaster v2`; a `qs` reload shows nothing.
+Not exercised: the restart and login paths through `grace` and the 1s
+`settle`.
 
 ### Three Quickshell behaviours this ran into, all measured
 
@@ -387,6 +461,19 @@ before priming lands still takes its first read as final.
 
 ## Rejected
 
+- **Glyphs by device** (headphones for a `headset` form factor, a TV for
+  `hdmi`, Bluetooth for `bluez_`, or a per-device table): `device.icon-name`
+  is `audio-card-analog` on every node and only one sets a form factor, so it
+  would be guesswork or a table to maintain. One glyph per direction, by request.
+- **A separate `AudioDeviceService`**: it would duplicate the default-sink
+  binding `AudioService` already owns.
+- **Keeping the audio scripts' `osd message` calls** next to the watch: the
+  OSD would show twice, the script's text replacing the watch's a frame later.
+- **Script messages only when the watch can't see it** (the device already
+  default, the SDAC volume cap): not wanted.
+- **Starting `grace` when both defaults go null together**, for the
+  WirePlumber restart: the 1s `settle` after any gap covers it and an unplug
+  of one direction too.
 - **Icon names in the message IPC** instead of literal glyphs: there is no
   name→glyph table in this repo to look one up in, and a script can spell
   any glyph as `$'\U000fXXXX'`.

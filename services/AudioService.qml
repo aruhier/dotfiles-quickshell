@@ -4,12 +4,14 @@ import QtQuick
 import Quickshell.Services.Pipewire
 
 // Default-sink volume and mute, shared by the bar module, the OSD and the
-// `osd` IPC handler. A singleton so the PwObjectTracker keeping the sink's
-// audio properties live exists once, not once per output.
+// `osd` IPC handler, and the default sink/source changes the OSD announces.
+// A singleton so the PwObjectTracker keeping the sink's audio properties live
+// exists once, not once per output.
 QtObject {
     id: root
 
     readonly property var sink: Pipewire.defaultAudioSink
+    readonly property var source: Pipewire.defaultAudioSource
     // `ready` is only the core sync: a sink nothing tracked before has no
     // channel volumes until the tracker binds it, and reads as 0% meanwhile.
     readonly property bool ready: !!sink && sink.ready && !!sink.audio && sink.audio.volumes.length > 0
@@ -40,5 +42,102 @@ QtObject {
     // an object's properties while something tracks it.
     property PwObjectTracker tracker: PwObjectTracker {
         objects: root.sink ? [root.sink] : []
+    }
+
+    // The default sink and/or source moved to another device: the glyphs of
+    // what moved, and its name(s). OsdService shows it. See notes/osd.md,
+    // "Default audio device changes".
+    signal defaultChanged(string glyph, string text)
+
+    readonly property string sinkGlyph: "󰓃"
+    readonly property string sourceGlyph: "󰍬"
+
+    // Last default per direction, by node name: a PipeWire restart recreates
+    // the objects under the same names. "" until one is first seen.
+    property string lastSinkName: ""
+    property string lastSinkLabel: ""
+    property string lastSourceName: ""
+    property string lastSourceLabel: ""
+
+    // A default went null since the last adopt(): an unplug or a WirePlumber
+    // restart, whose fallback may be a transient pick.
+    property bool sawGap: false
+
+    onSinkChanged: {
+        if (!sink)
+            sawGap = true;
+        settle.restart();
+    }
+    onSourceChanged: {
+        if (!source)
+            sawGap = true;
+        settle.restart();
+    }
+    // Catches a reload, where Pipewire is already up and nothing changes.
+    Component.onCompleted: adopt(true)
+
+    // nickname is the short name ("SDAC"), set from the registry before the
+    // node is bound, so no tracking is needed for it.
+    function label(node) {
+        return node.nickname || node.description || node.name;
+    }
+
+    // Records the current defaults, and unless `quiet`, announces those whose
+    // device changed. A null default is skipped: it is the gap between an
+    // unplug and WirePlumber's fallback, or a restart.
+    function adopt(quiet) {
+        const glyphs = [];
+        const labels = [];
+        if (sink && sink.name !== lastSinkName) {
+            const text = label(sink);
+            // A first sighting is a baseline; a new name under the same label
+            // is the same device recreated.
+            if (!quiet && lastSinkName !== "" && text !== lastSinkLabel) {
+                glyphs.push(sinkGlyph);
+                labels.push(text);
+            }
+            lastSinkName = sink.name;
+            lastSinkLabel = text;
+        }
+        if (source && source.name !== lastSourceName) {
+            const text = label(source);
+            if (!quiet && lastSourceName !== "" && text !== lastSourceLabel) {
+                glyphs.push(sourceGlyph);
+                labels.push(text);
+            }
+            lastSourceName = source.name;
+            lastSourceLabel = text;
+        }
+        // One headset's sink and source share a nickname; name it once.
+        if (labels.length === 2 && labels[0] === labels[1])
+            labels.pop();
+        if (glyphs.length > 0)
+            defaultChanged(glyphs.join(" "), labels.join("\u2003—\u2003"));
+    }
+
+    // One plug event moves the sink and the source a few ms apart; this makes
+    // them one pill. After a gap it waits out WirePlumber's re-enumeration,
+    // which can pick a fallback before the configured device exists. The
+    // guards are read when it fires, not when it was armed.
+    property Timer settle: Timer {
+        interval: root.sawGap ? 1000 : 100
+        onTriggered: {
+            root.adopt(!Pipewire.ready || root.grace.running);
+            root.sawGap = false;
+        }
+    }
+
+    // Silent for a while after Pipewire (re)connects: WirePlumber can publish
+    // the default late, or pick a fallback before a USB DAC enumerates.
+    property Timer grace: Timer {
+        interval: 2000
+    }
+
+    property Connections pipewire: Connections {
+        target: Pipewire
+        function onReadyChanged(): void {
+            if (Pipewire.ready)
+                root.grace.restart();
+        }
     }
 }
