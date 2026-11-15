@@ -45,7 +45,13 @@ PopupWindow {
 
         // pos is the anchor module's bottom-center point, plus the gap.
         onAnchoring: {
-            const pos = popup.anchorItem.QsWindow.contentItem.mapFromItem(popup.anchorItem, popup.anchorItem.width / 2, popup.anchorItem.height + 4);
+            // Null with the anchor item in no window, seen mid-reload with
+            // the cause unknown; Quickshell's own updateAnchor() skips
+            // the mapping then too. See notes/quickshell-quirks.md.
+            const content = popup.anchorItem.QsWindow.contentItem;
+            if (!content)
+                return;
+            const pos = content.mapFromItem(popup.anchorItem, popup.anchorItem.width / 2, popup.anchorItem.height + 4);
             anchor.rect.x = pos.x;
             anchor.rect.y = pos.y;
         }

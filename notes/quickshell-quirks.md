@@ -151,6 +151,38 @@ Our own QML traps, not upstream's, are in `notes/qml-gotchas.md`.
     `notes/backlight.md`, `notes/limitations.md`.
   - Fixed when: a failed start emits `exited` (or an error signal).
 
+- **`onAnchoring` can run with the anchor item in no window.** Seen as
+  `TypeError: Cannot read property 'mapFromItem' of null` from
+  `AnchoredPopupWindow.qml`, logged between "Reloading configuration..."
+  and "Configuration Loaded" with a hover popup open. The cause is not
+  known; what is established:
+  - Seen: 0.3.2, 2026-11-16, three reloads in a row, then never again in
+    ~10 live reloads under the same conditions or 92 reloads of a minimal
+    `qs -p` test (an always-open popup, and one in a `LazyLoader` like ours),
+    which logged every `onAnchoring`: none saw a null.
+  - From the source: `QsWindow.contentItem` is null only when the item is in
+    no Quickshell window (`ProxyWindowAttached::contentItem`). On reload the
+    new bar takes the old bar's window (`retrieveWindow` → `disownWindow`),
+    which leaves the old bar's items in none. But that also nulls the old
+    popup's `anchor.window`, which hides it synchronously (`bTargetVisible`),
+    and the test confirmed no `onAnchoring` follows. What calls it in the
+    real shell is unexplained.
+  - Mitigation, not a verified fix: `onAnchoring` returns early on a null
+    `contentItem`, as Quickshell's own `PopupAnchor::updateAnchor()` skips
+    its mapping without a window. With no window there is nothing to
+    position against; the next anchoring once it has one recomputes.
+  - Fixed when: unknown, since it can't be reproduced on demand. If it is
+    seen again, log the popup's state and a stack trace in `onAnchoring`.
+
+- **The config watcher can lose a file replaced by `sed -i`** (a new inode):
+  later edits to it, in place or not, stopped reloading the shell, and once
+  a lazily loaded file (`AnchoredPopupWindow.qml`) reloaded nothing after a
+  reload either. `systemctl --user restart quickshell` resets it.
+  - Seen: 0.3.2, 2026-11-16, while chasing the entry above; not narrowed
+    down.
+  - Workaround: edit in place, and restart when a reload doesn't come.
+  - Fixed when: an inode-replacing edit still reloads.
+
 - **No SIGTERM handling, and no QML hook tells quit from reload.**
   `Component.onDestruction` fires on reload too, after the new bars exist.
   - Workaround: the Hyprland Lua side reverts EdgeRelease on `layer.closed`.
