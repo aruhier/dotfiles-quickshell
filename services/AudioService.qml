@@ -12,9 +12,7 @@ QtObject {
 
     readonly property var sink: Pipewire.defaultAudioSink
     readonly property var source: Pipewire.defaultAudioSource
-    // `ready` is only the core sync: a sink nothing tracked before has no
-    // channel volumes until the tracker binds it, and reads as 0% meanwhile.
-    readonly property bool ready: !!sink && sink.ready && !!sink.audio && sink.audio.volumes.length > 0
+    readonly property bool ready: nodeReady(sink)
     readonly property bool muted: ready && sink.audio.muted
     readonly property real volume: ready ? sink.audio.volume : 0
     readonly property int pct: Math.round(volume * 100)
@@ -75,6 +73,12 @@ QtObject {
     }
     // Catches a reload, where Pipewire is already up and nothing changes.
     Component.onCompleted: adopt(true)
+
+    // A node's `ready` is only the core sync: one nothing tracked before has
+    // no channel volumes until a tracker binds it, and reads as 0% meanwhile.
+    function nodeReady(node) {
+        return !!node && node.ready && !!node.audio && node.audio.volumes.length > 0;
+    }
 
     // nickname is the short name ("SDAC"), set from the registry before the
     // node is bound, so no tracking is needed for it.

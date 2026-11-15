@@ -1,8 +1,9 @@
 # Hover popups: unfold and fold (2026-10-10)
 
 The hover popups (Clock's calendar, Weather's forecast, Privacy's app list,
-the workspace preview) used to appear and vanish outright. They now unfold
-out of the bar and fold back into it, in `shared/popup/HoverPopup.qml`. The
+the workspace preview, and since 2026-11-16 Volume's default devices) used to
+appear and vanish outright. They now unfold out of the bar and fold back
+into it, in `shared/popup/HoverPopup.qml`. The
 gesture is the OSD pill's rise turned upside down (`notes/osd.md`), cut down
 to one stage, because these are bar surfaces (the `Theme` palette), not
 floating ones, and the bar keeps a still look (`notes/style.md`).

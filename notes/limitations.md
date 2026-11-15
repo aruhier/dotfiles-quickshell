@@ -10,6 +10,14 @@
   stays the default. Both deliberate. Two nodes sharing a nickname (the
   onboard card's stereo and surround profiles, two identical DACs) switch
   silently: a new name under the same label is taken for a recreated node.
+- **`Volume.qml`**'s hover popup shows the default sink and source, each
+  with a level track. It opens only while a sink is ready: with a source
+  and no sink the module itself is hidden, so there is nothing to hover.
+  The source's value can be blank for a frame on open, until the popup's
+  own `PwObjectTracker` binds it (without a Privacy module nothing else
+  tracks the source). The popup re-anchors on the module's width changes —
+  the one popup whose module resizes under it (wheel, mute) — since
+  `AnchoredPopupWindow` repositions only on its own resize or move.
 - **`Mpd.qml`** shells out to `mpc` (`mpc idleloop player` for events, `mpc
   status`/`current` on each) since Quickshell has no built-in mpd client; the
   bar's mpd module is not MPRIS-based, unlike the control centre's widget.

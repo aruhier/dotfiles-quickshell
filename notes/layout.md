@@ -97,7 +97,8 @@ shared/popup/         everything to do with anchored hover popups: the
                          of the bar and folds back (`notes/popups.md`),
                          grace-period close, PopupCoordinator registration —
                          Clock's calendar, Weather's forecast, Privacy's app
-                         list and the workspace preview are built on this
+                         list, Volume's default devices and the workspace
+                         preview are built on this
   Tooltip.qml            reusable hover tooltip; declarative `show` gated by
                          a `showDelay` dwell (`hoverDwell`), no close grace period
                          (see its header comment for why it's not built on
@@ -113,7 +114,8 @@ shared/popup/         everything to do with anchored hover popups: the
                          and Tooltip.qml
   HoverPopupArea.qml     hover MouseArea that opens a LazyLoader-backed
                          HoverPopup after a `showDelay` dwell (`hoverDwell`);
-                         shared by Clock, Weather, Privacy and Workspaces.
+                         shared by Clock, Weather, Privacy, Volume and
+                         Workspaces.
                          `popupEnabled: false` skips the open entirely;
                          `cancel()` drops a pending/open popup on a click
   WorkspacePreviewPopup.qml HoverPopup showing a live scaled-down mock-up
