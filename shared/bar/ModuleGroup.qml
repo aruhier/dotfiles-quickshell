@@ -16,7 +16,8 @@ import qs.themes
 Rectangle {
     id: group
 
-    // One entry of shell.qml's layout: {modules: [names], color?, textColor?}.
+    // One entry of shell.qml's layout:
+    // {modules: [names], color?, textColor?, roundedSidePadding?}.
     // The only place that reads that shape.
     required property var spec
     required property var resolveComponent
@@ -38,8 +39,11 @@ Rectangle {
     // A tucked group pads past the cap it sits under, then the usual inner
     // padding, so its text is as far from the cap as the previous group's.
     readonly property real edgePadding: atEdge ? outerMargin : capRadius + Theme.groupEdgePadding
-    readonly property real leftPadding: flushLeft ? edgePadding : Theme.groupEdgePadding
-    readonly property real rightPadding: flushLeft ? Theme.groupEdgePadding : edgePadding
+    // spec.roundedSidePadding: px on top of the usual pad, rounded side only,
+    // for a group whose ink by the cap sits tighter than on another screen.
+    readonly property real roundedSidePaddingTotal: Theme.groupEdgePadding + (spec.roundedSidePadding ?? 0)
+    readonly property real leftPadding: flushLeft ? edgePadding : roundedSidePaddingTotal
+    readonly property real rightPadding: flushLeft ? roundedSidePaddingTotal : edgePadding
 
     readonly property bool hasContent: row.hasContent
     readonly property real naturalWidth: leftPadding + row.implicitWidth + rightPadding

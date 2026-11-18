@@ -33,7 +33,7 @@ services/*.qml        pragma-Singleton types holding state + the actual
                       BarVisibilityService, HyprlandRefreshService,
                       LockKeysService, MpdService, MprisService,
                       NotificationService, OsdService, PrivacyService,
-                      SubmapService, WeatherService) — one
+                      SubmapService, SunsetrService, WeatherService) — one
                       watch/subscription/fetch cycle for the whole process
                       regardless of monitor count
 themes/Theme.qml      pragma-Singleton palette + metrics for the bar —
@@ -59,6 +59,9 @@ shared/StyledText.qml every piece of text in the shell. Owns
                       unified (three palettes) — state it at each site
 shared/Icon.qml       StyledText sized off Theme.iconSize with a `sizeRatio`
                       per-glyph bias. Sets no anchors on purpose
+shared/InkIcon.qml    an Icon sized to its ink, ink flush left, for a bar
+                      glyph whose cell margin would show (`notes/style.md`);
+                      Volume and Sunsetr
 shared/PressableIcon.qml the clickable glyph inside a popup or panel:
                       press-shrink, accent on hover, `interactive` gate
                       (`notes/style.md`); bar modules don't use it
@@ -98,7 +101,9 @@ shared/popup/         everything to do with anchored hover popups: the
                          grace-period close, PopupCoordinator registration —
                          Clock's calendar, Weather's forecast, Privacy's app
                          list, Volume's default devices and the workspace
-                         preview are built on this
+                         preview are built on this. Sunsetr's right-click
+                         menu is one too, its `anchorHovered` gated on a
+                         click-set flag as well as the module's hover
   Tooltip.qml            reusable hover tooltip; declarative `show` gated by
                          a `showDelay` dwell (`hoverDwell`), no close grace period
                          (see its header comment for why it's not built on
@@ -118,6 +123,9 @@ shared/popup/         everything to do with anchored hover popups: the
                          Workspaces.
                          `popupEnabled: false` skips the open entirely;
                          `cancel()` drops a pending/open popup on a click
+  MenuRow.qml            one choice in a popup menu: full-width hover fill,
+                         optional trailing value (`notes/style.md`); the
+                         Sunsetr right-click menu
   WorkspacePreviewPopup.qml HoverPopup showing a live scaled-down mock-up
                          of one Hyprland workspace, one ScreencopyView per
                          window at its real position — see
@@ -206,9 +214,11 @@ host not listed. The hostname is `$HOSTNAME` if exported, else
 it's usually missing from a Hyprland-started Quickshell (Quickshell 0.3.1
 has no hostname API of its own). Each
 layout is a plain `{left, center, right}` object: `left` and `right` are
-lists of module groups, `{modules: [names], color?, textColor?}`, ordered
-from the screen edge inward, both colours defaulting to the shared group
-palette; `center` is a plain list of module names. `shell.qml`
+lists of module groups, `{modules: [names], color?, textColor?,
+roundedSidePadding?}`, ordered from the screen edge inward, both colours
+defaulting to the shared group palette; `roundedSidePadding` adds px on the
+rounded, centre-facing side only (`notes/style.md`); `center` is a plain
+list of module names. `shell.qml`
 calls `layoutFor(modelData.name)` per screen and passes the result into
 `Bar { layout: ... }`.
 
@@ -256,7 +266,7 @@ is in flight wins over its answer.
 Current layout: every output gets `mpd`, then `submap` in its own
 cream group, `workspaces`, `backlight`, `battery`, `volume`,
 `notifications`, `clock`; the outputs in `mainScreens` (`DP-1`, `eDP-1`)
-additionally get `tray`, `privacy`, `weather`.
+additionally get `tray`, `sunsetr`, `privacy`, `weather`.
 
 **Left/right group edge-spacing tuning is order-sensitive.** The left
 `ModuleGroupRow` has no `outerMargin` because the first module's glyph

@@ -40,12 +40,12 @@
 
 - **Inside a popup or panel, anything clickable that's a glyph or a text
   label is a `shared/PressableIcon.qml`, never a `StyledText` + `MouseArea`
-  pair.** Not on the bar itself: a bar module (Volume, Weather, the bell, a
-  tray icon, a workspace pill) is clicked as a whole, through a module-wide
-  `MouseArea` (or `HoverPopupArea`, a `MouseArea`) with a
-  pointer cursor and no press or hover feedback — the bar keeps a still,
-  flat look (decided 2026-09-28). It
-  owns the shared feel: press-shrink (`PressSpring`), `Theme.accent` on
+  pair** (a menu row is the exception, below). Not on the bar itself: a bar
+  module (Volume, Weather, the bell, a tray icon, a workspace pill) is
+  clicked as a whole, through a module-wide `MouseArea` (or
+  `HoverPopupArea`, a `MouseArea`) with a pointer cursor and no press or
+  hover feedback — the bar keeps a still, flat look (decided 2026-09-28).
+  It owns the shared feel: press-shrink (`PressSpring`), `Theme.accent` on
   hover (blue-green, same as a notification card's close button), pointer
   cursor, and the `interactive` gate that suppresses all three. A site sets
   `text`/`color`/`font.pixelSize` as on any `StyledText` and reacts to
@@ -59,6 +59,16 @@
   follow the same rule by default: accent fill on hover, glyph goes black
   for contrast. A hand-rolled click target misses the hover colour
   silently — that's how the calendar header fell out of line.
+
+- **A row in a list of choices (a menu) is a `shared/popup/MenuRow.qml`, not
+  a `PressableIcon`**: full-width `Theme.groupBg` fill on hover, radius 6
+  (the calendar's today cell, the notification buttons), text colour
+  unchanged, no press-shrink, no animation. Its popup takes `padding: 4` and
+  `spacing: 0` so the rows meet; the label's 10px inset keeps the text on
+  the usual 14px line. Accent text isn't the hover here: teal means "on" in
+  this bar, a hovered row mustn't look like a state, and `accent` on
+  `groupBg` is only ~3.4:1 at 12px. A shrinking 172px row reads as the menu
+  jumping, and a pick closes it at once anyway (UX review, 2026-11-18).
 
 - **`font.family` can't take a CSS-style comma fallback string.** QML only
   accepts one family; Qt fuzzy-resolves a joined string down to just the
@@ -156,6 +166,32 @@
   can have multiple additive parts; modeling only one can still look right
   almost everywhere by luck, and only fail at edge modules with no neighbor
   to hide behind.
+
+- **A bar glyph whose cell margin shows goes through `shared/InkIcon`**:
+  it sizes the icon to its ink (`TextMetrics.tightBoundingRect`) and puts the
+  ink flush left. Nerd Font glyphs sit at varying offsets in their cells, and
+  a cell-sized icon carries that as invisible padding. Measured 2026-11-18 on
+  DP-1, gaps between neighbouring icons' ink in the right group, normally
+  22-26px: the sunsetr bulb (70% of its cell) had 26.4px to the tray and
+  30.4px to volume; ink-sized, 24.8 / 28.0. The rest was the volume speaker:
+  its level glyphs centre their ink, so it sat 21% of a cell right at low
+  volume, 7% at medium, with as much dead space before its label. Ink-sized,
+  24.0 / 24.8 around the bulb, and 5.6px speaker to label against 7.2px for
+  Weather and Clock, whose glyphs keep a small bearing. `tightBoundingRect`
+  matched the rendered ink to the pixel (the Text box logged against a
+  `grim` scan). Volume now changes width at its 33/66% glyph changes and on
+  mute, an accepted trade-off. Battery measures its rotated glyph's ink the
+  same way, but only for the rotated height.
+
+- **A group's `roundedSidePadding` evens out the gap to its cap across
+  screens**, when the first module differs. On 2026-11-18 the right group's
+  first ink sat 21.6px from the cap tip on DP-1 (the Bluetooth tray icon,
+  whose image carries a margin) against 19.0px on DP-2/HDMI-A-1 (volume,
+  ink-sized). 3 on `defaultLayout`'s right group gave 22.0, but DP-1 also
+  measured 20.8 later with the same icon first (one physical px at 1.25,
+  likely the group's width rounding differently), so 2, giving 21.0, sits
+  inside DP-1's range. Which tray icon comes first decides DP-1's value, so
+  this can drift with the tray.
 
 - **A hover popup that should stay open when the cursor moves onto it
   needs a grace-period timer**, not a plain `anchorHover || popupHover` OR —

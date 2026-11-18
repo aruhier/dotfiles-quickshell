@@ -140,6 +140,19 @@ Our own QML traps, not upstream's, are in `notes/qml-gotchas.md`.
     window. Detail: `notes/style.md` (`snapSurface()`).
   - Fixed when: a popup's `screen` matches its anchor window's.
 
+- **A `HyprlandFocusGrab` listing a `PopupWindow` blocks pointer input to
+  that popup.** With `windows: [popup, barWindow]` and the grab active, the
+  popup got no hover or clicks at all; `cleared` did fire on an outside
+  click.
+  - Seen: Quickshell 0.3.2, Hyprland 0.57.2, 2026-11-18, on Sunsetr's
+    right-click menu: a `HoverHandler` per row logged nothing with the grab
+    active and every row's hover with `active: false`, cursor moved the same
+    way both times. Not narrowed down to Quickshell or Hyprland; a grab on
+    a `PanelWindow` alone is untested.
+  - Workaround: no grab; the menu closes when the cursor leaves it, like the
+    hover popups. Detail: `notes/sunsetr.md`.
+  - Fixed when: a popup inside an active grab gets hover and clicks.
+
 ## Process and lifecycle
 
 - **A `Process` that fails to start only clears `running`**; `exited` never
@@ -179,9 +192,23 @@ Our own QML traps, not upstream's, are in `notes/qml-gotchas.md`.
   a lazily loaded file (`AnchoredPopupWindow.qml`) reloaded nothing after a
   reload either. `systemctl --user restart quickshell` resets it.
   - Seen: 0.3.2, 2026-11-16, while chasing the entry above; not narrowed
-    down.
-  - Workaround: edit in place, and restart when a reload doesn't come.
+    down. Again 2026-11-18, milder: after `sed -i` on `themes/Theme.qml` a
+    reload did run, without error, but the bar kept the old value until
+    `touch themes/Theme.qml shell.qml` reloaded it (twice in a row).
+  - Workaround: edit in place, and restart when a reload doesn't come;
+    measure after an edit only once a reload has run after the write.
   - Fixed when: an inode-replacing edit still reloads.
+
+- **A failed `Socket` connect raises no change on `connected`**, and logs a
+  `ServerNotFoundError` warning each time; setting `connected = true` again
+  retries. A peer close does clear it.
+  - Seen: 0.3.2, 2026-11-18: `connected` stayed false through failed
+    attempts with no `connectedChanged`, while the log gained a warning per
+    attempt.
+  - Workaround: `SunsetrService` retries on a timer, only while
+    `sunsetr.lock` exists. Detail: `notes/sunsetr.md`.
+  - Fixed when: a failed connect emits a change or an error signal QML can
+    key a retry on; the lock watch could then go.
 
 - **No SIGTERM handling, and no QML hook tells quit from reload.**
   `Component.onDestruction` fires on reload too, after the new bars exist.

@@ -46,6 +46,7 @@ and say *why* (see `notes/conventions.md`).
 | `notes/osd.md` | Native OSD replacing swayosd, incl. lock-key reads and contrast over bright windows |
 | `notes/battery.md` | UPower port from waybar, and the no-battery blink that cost 3.2% CPU |
 | `notes/backlight.md` | `BacklightService` sysfs reads and inotify |
+| `notes/sunsetr.md` | Sunsetr widget replacing gammastep-indicator: event socket, toggle, right-click menu, suspend via a systemd timer |
 | `notes/privacy.md` | Mic vs. screencast detection by PipeWire media class |
 | `notes/autohide.md` | Per-workspace bar hiding for OLED: rules, IPC overrides, delay/slide/peek, special workspaces |
 | `notes/workspaces.md` | Hover previews via per-window screencopy |

@@ -34,7 +34,8 @@ BarModule {
         anchors.centerIn: parent
         spacing: Theme.iconLabelSpacing
 
-        Icon {
+        // Ink-sized, so the speaker doesn't drift with the level glyph.
+        InkIcon {
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: root.iconVerticalOffset
             sizeRatio: root.iconSizeRatio

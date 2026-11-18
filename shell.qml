@@ -35,9 +35,10 @@ ShellRoot {
     // `left` and `right` are lists of module groups, ordered from the screen
     // edge inward; adjacent groups are drawn attached, as one pill, and a
     // group with nothing to show is left out. A group is
-    // `{modules, color?, textColor?}`; both colours default to the shared
-    // group palette. `center` is a plain module list. Module names must match
-    // a key in Bar.qml's `moduleComponents`.
+    // `{modules, color?, textColor?, roundedSidePadding?}`; both colours
+    // default to the shared group palette, and `roundedSidePadding` adds px
+    // on the rounded side only. `center` is a plain module list. Module names
+    // must match a key in Bar.qml's `moduleComponents`.
     readonly property var mainScreensByHost: ({
         "tour-anthony": ["DP-1"],
         "laptop-anthony": ["eDP-1", "DP-1", "DP-2", "DP-3", "DP-4"]
@@ -52,7 +53,7 @@ ShellRoot {
             { modules: ["submap"], color: Theme.submapBg, textColor: Theme.submapText }
         ],
         center: ["workspaces"],
-        right: [{ modules: ["tray", "backlight", "battery", "volume", "privacy", "notifications", "weather", "clock"] }]
+        right: [{ modules: ["tray", "sunsetr", "backlight", "battery", "volume", "privacy", "notifications", "weather", "clock"] }]
     })
 
     readonly property var defaultLayout: ({
@@ -61,7 +62,11 @@ ShellRoot {
             { modules: ["submap"], color: Theme.submapBg, textColor: Theme.submapText }
         ],
         center: ["workspaces"],
-        right: [{ modules: ["backlight", "battery", "volume", "notifications", "clock"] }]
+        right: [{
+            modules: ["backlight", "battery", "volume", "notifications", "clock"],
+            // Matches mainLayout, whose first tray icon carries its own margin.
+            roundedSidePadding: 2
+        }]
     })
 
     function layoutFor(screenName) {

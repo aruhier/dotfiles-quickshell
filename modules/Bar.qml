@@ -276,6 +276,7 @@ PanelWindow {
         submap: submapComponent,
         workspaces: workspacesComponent,
         backlight: backlightComponent,
+        sunsetr: sunsetrComponent,
         battery: batteryComponent,
         volume: volumeComponent,
         notifications: notificationsComponent,
@@ -298,6 +299,7 @@ PanelWindow {
     Component { id: submapComponent; Submap {} }
     Component { id: workspacesComponent; Workspaces { screenName: barWindow.modelData.name } }
     Component { id: backlightComponent; Backlight {} }
+    Component { id: sunsetrComponent; Sunsetr {} }
     Component { id: batteryComponent; Battery {} }
     Component { id: volumeComponent; Volume {} }
     Component { id: notificationsComponent; Notifications { screen: barWindow.modelData } }
