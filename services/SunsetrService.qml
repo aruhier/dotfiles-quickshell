@@ -32,6 +32,9 @@ QtObject {
     // systemd timer, so it survives a shell reload.
     property var resumeAt: null
     readonly property bool suspended: !running && resumeAt !== null
+    // Set by suspend() until its read-back lands: that read can beat the
+    // socket's close, and would otherwise take the new timer for a leftover.
+    property bool ownSuspend: false
 
     // Off the active configuration, refreshed when it changes.
     property string mode: ""
@@ -84,10 +87,6 @@ QtObject {
             + "sunsetr stop >/dev/null 2>&1; exit 0",
             "sh", at.toISOString().slice(0, 19).replace("T", " ") + " UTC", root.resumeUnit, root.serviceUnit]);
     }
-
-    // Set by suspend() until its read-back lands: that read can beat the
-    // socket's close, and would otherwise take the new timer for a leftover.
-    property bool ownSuspend: false
 
     // Never restarts a read in flight; a request during one re-runs it on
     // exit, so the last state always lands. As in MpdService.

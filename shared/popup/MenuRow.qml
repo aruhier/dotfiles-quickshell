@@ -16,7 +16,8 @@ Item {
     property color valueColor: Theme.text
     // Extra label inset, for rows grouped under a heading.
     property int indent: 0
-    property bool interactive: true
+    // Text inset from either side; a menu heading lines up on it.
+    readonly property int inset: 10
     signal activated
 
     Layout.fillWidth: true
@@ -26,13 +27,13 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: 6
-        color: hover.hovered && row.interactive ? Theme.groupBg : "transparent"
+        color: hover.hovered ? Theme.groupBg : "transparent"
     }
 
     StyledText {
         id: label
         anchors.verticalCenter: parent.verticalCenter
-        leftPadding: 10 + row.indent
+        leftPadding: row.inset + row.indent
         color: Theme.textBright
     }
 
@@ -40,13 +41,12 @@ Item {
         id: valueLabel
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        rightPadding: 10
+        rightPadding: row.inset
         color: row.valueColor
     }
 
     MouseArea {
         anchors.fill: parent
-        enabled: row.interactive
         cursorShape: Qt.PointingHandCursor
         onClicked: row.activated()
     }

@@ -14,16 +14,14 @@ import qs.themes
 BarModule {
     id: root
 
-    readonly property bool running: SunsetrService.running
-    readonly property string period: SunsetrService.period
-
     contentVisible: SunsetrService.installed
 
-    // Filled while the filter warms the screen; a faded outline while it
-    // leaves it neutral: by day, stopped, or before the first state lands (a
-    // connect by day would flash the filled bulb). Lightbulbs rather than the
-    // sun and moon the weather module already uses.
-    readonly property bool warm: root.running && root.period !== "" && root.period !== "day"
+    // Filled while the filter warms the screen; an outline while it leaves
+    // it neutral: by day, stopped, or before the first state lands (a connect
+    // by day would flash the filled bulb). Dimmed only while stopped, so a
+    // running daemon by day still reads as on. Lightbulbs rather than the sun
+    // and moon the weather module already uses.
+    readonly property bool warm: SunsetrService.running && SunsetrService.period !== "" && SunsetrService.period !== "day"
     readonly property string warmIcon: String.fromCodePoint(0xf0335)
     readonly property string neutralIcon: String.fromCodePoint(0xf0336)
 
@@ -42,11 +40,11 @@ BarModule {
     readonly property string stateText: {
         if (SunsetrService.suspended)
             return "Suspended until " + root.timeText(SunsetrService.resumeAt);
-        if (!root.running)
+        if (!SunsetrService.running)
             return "Disabled";
-        if (root.period === "")
+        if (SunsetrService.period === "")
             return "Connecting…";
-        const name = root.capitalize(root.period);
+        const name = root.capitalize(SunsetrService.period);
         if (SunsetrService.transitioning)
             return name + " " + Math.round(SunsetrService.progress * 100) + "%  ·  "
                 + SunsetrService.temperature + " K → " + SunsetrService.targetTemperature + " K"
@@ -55,7 +53,7 @@ BarModule {
     }
 
     readonly property string detailText: {
-        if (!root.running || root.period === "")
+        if (!SunsetrService.running || SunsetrService.period === "")
             return "";
         const lines = [];
         const next = SunsetrService.nextPeriod;
@@ -81,7 +79,7 @@ BarModule {
         anchors.verticalCenterOffset: root.iconVerticalOffset
         sizeRatio: root.iconSizeRatio
         // Dimmed the way do-not-disturb is.
-        color: root.warm ? root.textColor : Theme.text
+        color: SunsetrService.running ? root.textColor : Theme.text
         text: root.warm ? root.warmIcon : root.neutralIcon
     }
 
@@ -162,9 +160,10 @@ BarModule {
                 spacing: 0
 
                 MenuRow {
+                    id: enabledRow
                     text: "Enabled"
-                    value: root.running ? "On" : SunsetrService.suspended ? "Back " + root.timeText(SunsetrService.resumeAt) : "Off"
-                    valueColor: root.running ? Theme.accent : Theme.text
+                    value: SunsetrService.running ? "On" : SunsetrService.suspended ? "Back " + root.timeText(SunsetrService.resumeAt) : "Off"
+                    valueColor: SunsetrService.running ? Theme.accent : Theme.text
                     onActivated: menu.pick(() => SunsetrService.toggle())
                 }
 
@@ -176,11 +175,11 @@ BarModule {
                     color: Theme.groupBg
                 }
 
-                // A heading, so tighter than a 28px row; inset as a row's label.
+                // A heading, so tighter than a row; inset as a row's label.
                 StyledText {
                     Layout.preferredHeight: 24
                     verticalAlignment: Text.AlignVCenter
-                    leftPadding: 10
+                    leftPadding: enabledRow.inset
                     text: "Suspend for"
                     color: Theme.text
                 }
@@ -196,7 +195,7 @@ BarModule {
 
                     MenuRow {
                         required property var modelData
-                        indent: 10
+                        indent: enabledRow.inset
                         text: modelData.label
                         onActivated: menu.pick(() => SunsetrService.suspend(modelData.minutes))
                     }

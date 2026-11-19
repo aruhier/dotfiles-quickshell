@@ -94,11 +94,13 @@ cancels it as a leftover, except the one right after our own suspend
 
 ## Glyphs
 
-MDI lightbulbs: filled (0xf0335) in the group text colour whenever the
-screen is warmed (night, sunset, sunrise, static); outline (0xf0336) in
-`Theme.text`, the dimmed colour do-not-disturb uses, whenever it is neutral —
-day, stopped or still connecting, deliberately the same icon (the tooltip
-tells them apart).
+MDI lightbulbs: filled (0xf0335) whenever the screen is warmed (night,
+sunset, sunrise, static); outline (0xf0336) whenever it is neutral — day,
+stopped or still connecting, deliberately the same glyph. The colour follows
+the daemon, not the period: the group text colour while running, `Theme.text`
+(the dimmed colour do-not-disturb uses) only while stopped, so a running
+daemon by day doesn't read as off (user request, 2026-11-19). The tooltip
+tells the rest apart.
 Not the sun and moon: Weather already uses them (0xf0599/0xf0594), and the
 two would read as the same thing side by side.
 
